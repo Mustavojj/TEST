@@ -1,0 +1,367 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>Ninja TON</title>
+    
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" />
+    
+    <link rel="stylesheet" href="css/styles.css">
+    
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-auth.js"></script>
+    
+    <script src='//libtl.com/sdk.js' data-zone='10290091' data-sdk='show_10290091'></script>
+    
+    <script src="https://sad.adsgram.ai/js/sad.min.js"></script>
+    
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            window.AdBlock19344 = window.Adsgram.init({ blockId: "int-21228" });
+            window.AdBlock19345 = window.Adsgram.init({ blockId: "21227" });
+        });
+    </script>
+    
+    <style>
+        .welcome-tasks-modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.95);
+            backdrop-filter: blur(20px);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 10001;
+            padding: 20px;
+            animation: fadeIn 0.4s ease;
+            margin: 0;
+            box-sizing: border-box;
+        }
+        
+        .welcome-tasks-content {
+            background: linear-gradient(135deg, rgba(59, 130, 246, 0.12), rgba(29, 78, 216, 0.12));
+            border-radius: 24px;
+            padding: 25px 20px;
+            max-width: 360px;
+            width: 100%;
+            text-align: center;
+            box-shadow: 
+                0 15px 35px rgba(0, 0, 0, 0.5),
+                0 0 0 1px rgba(59, 130, 246, 0.3);
+            animation: modalSlideUp 0.5s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+            border: 2px solid rgba(59, 130, 246, 0.35);
+            position: relative;
+            backdrop-filter: blur(20px);
+            overflow: hidden;
+            margin: 0 auto;
+            transform: none;
+            left: 0;
+            right: 0;
+        }
+        
+        @keyframes modalSlideUp {
+            from { 
+                opacity: 0; 
+                transform: translateY(30px) scale(0.95); 
+            }
+            to { 
+                opacity: 1; 
+                transform: translateY(0) scale(1); 
+            }
+        }
+        
+        .welcome-header {
+            margin-bottom: 20px;
+            padding-bottom: 15px;
+            border-bottom: 1px solid rgba(59, 130, 246, 0.25);
+        }
+        
+        .welcome-icon {
+            width: 60px;
+            height: 60px;
+            background: linear-gradient(135deg, #3b82f6, #1d4ed8);
+            border-radius: 16px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 1.8rem;
+            margin: 0 auto 15px;
+            box-shadow: 0 6px 18px rgba(59, 130, 246, 0.3);
+        }
+        
+        .welcome-header h3 {
+            color: #3b82f6;
+            font-size: 1.3rem;
+            font-weight: 700;
+            margin-bottom: 5px;
+            letter-spacing: 0.3px;
+        }
+        
+        .welcome-tasks-list {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+        
+        .welcome-task-item {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 12px 15px;
+            background: rgba(59, 130, 246, 0.15);
+            border-radius: 16px;
+            border: 1px solid rgba(59, 130, 246, 0.3);
+            transition: transform 0.3s, background 0.3s;
+        }
+        
+        .welcome-task-item:hover {
+            transform: translateX(4px);
+            background: rgba(59, 130, 246, 0.2);
+            border-color: rgba(59, 130, 246, 0.4);
+        }
+        
+        .welcome-task-info {
+            text-align: left;
+            flex: 1;
+        }
+        
+        .welcome-task-info h4 {
+            font-size: 0.9rem;
+            font-weight: 600;
+            color: white;
+            margin-bottom: 4px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        
+        .welcome-task-btn {
+            padding: 8px 16px;
+            background: linear-gradient(135deg, #3b82f6, #1d4ed8);
+            border: none;
+            border-radius: 12px;
+            color: white;
+            font-weight: 600;
+            font-size: 0.85rem;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            transition: all 0.3s;
+            white-space: nowrap;
+            border: 1.5px solid rgba(59, 130, 246, 0.4);
+        }
+        
+        .welcome-task-btn:hover:not(:disabled) {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 15px rgba(59, 130, 246, 0.3);
+        }
+        
+        .welcome-task-btn.completed {
+            background: linear-gradient(135deg, #10b981, #059669);
+            cursor: not-allowed;
+            opacity: 0.8;
+        }
+        
+        .check-welcome-btn {
+            width: 100%;
+            padding: 14px;
+            background: linear-gradient(135deg, #4b5563, #374151);
+            border: none;
+            border-radius: 16px;
+            color: #9ca3af;
+            font-weight: 700;
+            font-size: 1rem;
+            cursor: not-allowed;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            transition: all 0.3s;
+            margin-bottom: 12px;
+            letter-spacing: 0.5px;
+            box-shadow: 0 8px 20px rgba(0, 0, 0, 0.2);
+            border: 1.5px solid rgba(255, 255, 255, 0.1);
+        }
+        
+        .check-welcome-btn:not(:disabled) {
+            background: linear-gradient(135deg, #3b82f6, #1d4ed8);
+            color: white;
+            cursor: pointer;
+            border: 1.5px solid rgba(59, 130, 246, 0.4);
+            box-shadow: 0 8px 20px rgba(59, 130, 246, 0.3);
+        }
+        
+        .check-welcome-btn:not(:disabled):hover {
+            transform: translateY(-2px);
+            box-shadow: 0 12px 25px rgba(59, 130, 246, 0.4);
+            background: linear-gradient(135deg, #2563eb, #1e40af);
+        }
+        
+        .check-welcome-btn:disabled {
+            opacity: 0.6;
+        }
+        
+        .check-welcome-btn.verifying {
+            background: linear-gradient(135deg, #f59e0b, #d97706);
+            color: white;
+        }
+    </style>
+</head>
+<body style="background: #000000;">
+    
+    <div class="app-background"></div>
+    
+    <div id="app-loader" style="background: #000000;">
+        <div class="loading-container">
+            <div class="logo-spinner"></div>
+            <p class="loading-text">Loading...</p>
+            <div class="loading-progress">
+                <div class="loading-progress-bar"></div>
+            </div>
+        </div>
+    </div>
+
+    <div id="app" style="display: none;">
+        <header class="app-header">
+            <div class="user-profile">
+                <div class="user-avatar-container">
+                    <img id="user-photo" class="user-avatar" 
+                         src="https://cdn-icons-png.flaticon.com/512/9195/9195920.png" 
+                         alt="User" 
+                         oncontextmenu="return false;" 
+                         ondragstart="return false;">
+                    <div class="user-status"></div>
+                </div>
+                <div class="user-info">
+                    <div class="user-main">
+                        <div class="user-name-container">
+                            <h2 id="user-name" class="user-name">User</h2>
+                            <div id="user-telegram-id" class="user-telegram-id">
+                                <i class="fas fa-id-card"></i>
+                                <span id="telegram-id-text">ID: 123456789</span>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="user-balance">
+                        <div class="ton-balance">
+                            <div class="balance-icon">
+                                <img src="https://cdn-icons-png.flaticon.com/512/15208/15208522.png" 
+                                     alt="TON" 
+                                     oncontextmenu="return false;" 
+                                     ondragstart="return false;"
+                                     style="width: 35px; height: 35px;">
+                            </div>
+                            <div class="balance-info">
+                                <span class="balance-label">Balance</span>
+                                <span id="header-ton-balance" class="balance-amount">0.000</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </header>
+        
+        <main id="main-content">
+            <div id="tasks-page" class="page"></div>
+            <div id="dice-page" class="page"></div>
+            <div id="quests-page" class="page"></div>
+            <div id="referrals-page" class="page"></div>
+            <div id="withdraw-page" class="page"></div>
+        </main>
+          
+        <nav class="bottom-nav">
+            <button class="nav-btn" data-page="tasks-page">
+                <i class="fas fa-coins"></i>
+                <span>Earnings</span>
+            </button>
+            <button class="nav-btn" data-page="dice-page">
+                <i class="fas fa-dice"></i>
+                <span>Dice</span>
+            </button>
+            <button class="nav-btn" data-page="quests-page">
+                <i class="fas fa-flag"></i>
+                <span>Quests</span>
+            </button>
+            <button class="nav-btn" data-page="referrals-page">
+                <i class="fas fa-users"></i>
+                <span>Referrals</span>
+            </button>
+            <button class="nav-btn" data-page="withdraw-page">
+                <i class="fas fa-wallet"></i>
+                <span>Withdraw</span>
+            </button>
+        </nav>
+    </div>
+
+    <script type="module" src="js/app.js"></script>
+    
+    <script>
+        (function() {
+            'use strict';
+            
+            function showError() {
+                document.body.innerHTML = `
+                    <div class="telegram-error">
+                        <div class="error-content">
+                            <div class="error-header">
+                                <div class="error-icon">
+                                    <i class="fab fa-telegram"></i>
+                                </div>
+                                <h2>Ninja TON</h2>
+                            </div>
+                            
+                            <div class="error-message">
+                                <div class="error-icon-wrapper">
+                                    <i class="fas fa-exclamation-triangle"></i>
+                                </div>
+                                <h3>Access Denied</h3>
+                                <p>This application works only inside Telegram.</p>
+                            </div>
+                            
+                            <a href="https://t.me/NinjaTONS_Bot" target="_blank" class="telegram-btn">
+                                <i class="fab fa-telegram"></i> Open in Telegram
+                            </a>
+                        </div>
+                    </div>
+                `;
+            }
+            
+            function verify() {
+                if (!window.Telegram || !window.Telegram.WebApp) return false;
+                
+                const tg = window.Telegram.WebApp;
+                if (!tg.initDataUnsafe || !tg.initDataUnsafe.user) return false;
+                
+                const user = tg.initDataUnsafe.user;
+                if (!user.id || typeof user.id !== 'number' || user.id <= 0) return false;
+                if (!user.first_name || user.first_name.trim().length === 0) return false;
+                if (!tg.initData || tg.initData.length < 10) return false;
+                
+                return true;
+            }
+            
+            document.addEventListener('DOMContentLoaded', function() {
+                if (!window.Telegram || !window.Telegram.WebApp) {
+                    showError();
+                    return;
+                }
+            });
+            
+        })();
+    </script>
+</body>
+</html>

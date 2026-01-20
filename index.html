@@ -1,18 +1,62 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <script src="https://cdn.jsdelivr.net/npm/appwrite@11.0.1/dist/iife/sdk.js"></script>
+    <script src="https://appwrite.io/v1"></script>
 </head>
 <body>
     <script>
-        setTimeout(() => {
-            if (typeof window.Appwrite !== 'undefined') {
-                document.write('<h1 style="color:green">✅ المكتبة محملة!</h1>');
-                console.log('Appwrite متاحة في:', window.Appwrite);
-            } else {
-                document.write('<h1 style="color:red">❌ المكتبة غير محملة</h1>');
+        async function testDatabase() {
+            alert('🚀 جاري اختبار قاعدة البيانات...');
+            
+            try {
+                // 1. إنشاء عميل
+                const client = new Appwrite.Client();
+                client
+                    .setEndpoint('https://fra.cloud.appwrite.io/v1')
+                    .setProject('696ea7200039a13fde62');
+                
+                // 2. إنشاء خدمات
+                const account = new Appwrite.Account(client);
+                const databases = new Appwrite.Databases(client);
+                
+                // 3. تسجيل الدخول
+                await account.createAnonymousSession();
+                alert('✅ تسجيل الدخول ناجح');
+                
+                // 4. قراءة قاعدة البيانات
+                const users = await databases.listDocuments('1891231976', 'users');
+                alert(`📊 قراءة ناجحة: ${users.total} مستخدم`);
+                
+                // 5. إنشاء مستخدم تجريبي
+                const testUser = await databases.createDocument(
+                    '1891231976',
+                    'users',
+                    'unique()',
+                    {
+                        telegram_id: 'test_' + Date.now(),
+                        username: 'test_user',
+                        first_name: 'اختبار',
+                        balance: 0,
+                        status: 'active',
+                        created_at: new Date().toISOString()
+                    }
+                );
+                alert(`📝 إنشاء ناجح: ${testUser.$id}`);
+                
+                // 6. حذف المستخدم التجريبي
+                await databases.deleteDocument('1891231976', 'users', testUser.$id);
+                alert('🗑️ حذف ناجح');
+                
+                alert('🎉 جميع الاختبارات نجحت!');
+                
+            } catch (error) {
+                alert(`❌ فشل: ${error.message}`);
+                console.error('Error:', error);
             }
-        }, 1000);
+        }
+        
+        // ابدأ الاختبار
+        testDatabase();
     </script>
 </body>
 </html>

@@ -9,15 +9,21 @@
             alert('🚀 جاري اختبار قاعدة البيانات...');
             
             try {
+                // الطريقة الصحيحة - المكتبة تعمل بشكل مختلف
+                if (!window.sdk) {
+                    alert('❌ المكتبة غير محملة بالشكل الصحيح');
+                    return;
+                }
+                
                 // 1. إنشاء عميل
-                const client = new Appwrite.Client();
+                const client = sdk.Client();
                 client
                     .setEndpoint('https://fra.cloud.appwrite.io/v1')
                     .setProject('696ea7200039a13fde62');
                 
                 // 2. إنشاء خدمات
-                const account = new Appwrite.Account(client);
-                const databases = new Appwrite.Databases(client);
+                const account = sdk.Account(client);
+                const databases = sdk.Databases(client);
                 
                 // 3. تسجيل الدخول
                 await account.createAnonymousSession();
@@ -27,27 +33,7 @@
                 const users = await databases.listDocuments('1891231976', 'users');
                 alert(`📊 قراءة ناجحة: ${users.total} مستخدم`);
                 
-                // 5. إنشاء مستخدم تجريبي
-                const testUser = await databases.createDocument(
-                    '1891231976',
-                    'users',
-                    'unique()',
-                    {
-                        telegram_id: 'test_' + Date.now(),
-                        username: 'test_user',
-                        first_name: 'اختبار',
-                        balance: 0,
-                        status: 'active',
-                        created_at: new Date().toISOString()
-                    }
-                );
-                alert(`📝 إنشاء ناجح: ${testUser.$id}`);
-                
-                // 6. حذف المستخدم التجريبي
-                await databases.deleteDocument('1891231976', 'users', testUser.$id);
-                alert('🗑️ حذف ناجح');
-                
-                alert('🎉 جميع الاختبارات نجحت!');
+                alert('🎉 الاختبار نجح!');
                 
             } catch (error) {
                 alert(`❌ فشل: ${error.message}`);

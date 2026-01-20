@@ -402,7 +402,7 @@ class NinjaTONApp {
             
             try {
                 const users = await this.databases.listDocuments(
-                    'ninja',
+                    '1891231976',
                     'users',
                     [`telegram_id=${telegramId}`]
                 );
@@ -497,7 +497,7 @@ class NinjaTONApp {
         
         try {
             const newUser = await this.databases.createDocument(
-                'ninja',
+                '1891231976',
                 'users',
                 'unique()',
                 userData
@@ -546,7 +546,7 @@ class NinjaTONApp {
         
         try {
             await this.databases.updateDocument(
-                'ninja',
+                '1891231976',
                 'users',
                 userData.$id,
                 updates
@@ -575,7 +575,7 @@ class NinjaTONApp {
                 try {
                     if (this.databases) {
                         await this.databases.updateDocument(
-                            'ninja',
+                            '1891231976',
                             'users',
                             `telegram_id=${tgId}`,
                             {
@@ -697,7 +697,7 @@ class NinjaTONApp {
             if (!this.databases) return;
             
             const referrers = await this.databases.listDocuments(
-                'ninja',
+                '1891231976',
                 'users',
                 [`telegram_id=${referrerId}`]
             );
@@ -718,7 +718,7 @@ class NinjaTONApp {
             const newTotalEarned = this.safeNumber(referrerData.total_earned) + referralBonus;
             
             await this.databases.updateDocument(
-                'ninja',
+                '1891231976',
                 'users',
                 referrerData.$id,
                 {
@@ -731,7 +731,7 @@ class NinjaTONApp {
             );
             
             await this.databases.createDocument(
-                'ninja',
+                '1891231976',
                 'referrals',
                 'unique()',
                 {
@@ -745,14 +745,14 @@ class NinjaTONApp {
             );
             
             const newUsers = await this.databases.listDocuments(
-                'ninja',
+                '1891231976',
                 'users',
                 [`telegram_id=${newUserId}`]
             );
             
             if (newUsers.total > 0) {
                 await this.databases.updateDocument(
-                    'ninja',
+                    '1891231976',
                     'users',
                     newUsers.documents[0].$id,
                     {
@@ -791,13 +791,13 @@ class NinjaTONApp {
     async sendReferralNotification(referrerId, newUserId, tonBonus, gamesBonus) {
         try {
             const referrers = await this.databases.listDocuments(
-                'ninja',
+                '1891231976',
                 'users',
                 [`telegram_id=${referrerId}`]
             );
             
             const newUsers = await this.databases.listDocuments(
-                'ninja',
+                '1891231976',
                 'users',
                 [`telegram_id=${newUserId}`]
             );
@@ -956,7 +956,7 @@ class NinjaTONApp {
             if (!this.databases || !this.tgUser) return null;
             
             const users = await this.databases.listDocuments(
-                'ninja',
+                '1891231976',
                 'users',
                 [`telegram_id=${this.tgUser.id}`]
             );
@@ -978,7 +978,7 @@ class NinjaTONApp {
             }
             
             const withdrawals = await this.databases.listDocuments(
-                'ninja',
+                '1891231976',
                 'withdrawals',
                 [`user_id=${this.tgUser.id}`]
             );
@@ -1003,7 +1003,7 @@ class NinjaTONApp {
                 return;
             }
             
-            const users = await this.databases.listDocuments('ninja', 'users');
+            const users = await this.databases.listDocuments('1891231976', 'users');
             const totalUsers = users.total || 0;
             
             const minOnline = Math.floor(totalUsers * 0.05);
@@ -1324,7 +1324,7 @@ class NinjaTONApp {
                 const userDoc = await this.getCurrentUserDocument();
                 if (userDoc) {
                     await this.databases.updateDocument(
-                        'ninja',
+                        '1891231976',
                         'users',
                         userDoc.$id,
                         {
@@ -1377,7 +1377,7 @@ class NinjaTONApp {
             if (!this.databases || !this.tgUser) return;
             
             const referrals = await this.databases.listDocuments(
-                'ninja',
+                '1891231976',
                 'referrals',
                 [`referrer_id=${this.tgUser.id}`, `status=pending`]
             );
@@ -1388,7 +1388,7 @@ class NinjaTONApp {
             
             for (const referral of referrals.documents) {
                 const newUsers = await this.databases.listDocuments(
-                    'ninja',
+                    '1891231976',
                     'users',
                     [`telegram_id=${referral.referred_id}`, `welcome_completed=true`]
                 );
@@ -1469,7 +1469,7 @@ class NinjaTONApp {
             const userDoc = await this.getCurrentUserDocument();
             if (userDoc) {
                 await this.databases.updateDocument(
-                    'ninja',
+                    '1891231976',
                     'users',
                     userDoc.$id,
                     {
@@ -1508,7 +1508,7 @@ class NinjaTONApp {
                 const userDoc = await this.getCurrentUserDocument();
                 if (userDoc) {
                     await this.databases.updateDocument(
-                        'ninja',
+                        '1891231976',
                         'users',
                         userDoc.$id,
                         {
@@ -1540,7 +1540,7 @@ class NinjaTONApp {
                 const userDoc = await this.getCurrentUserDocument();
                 if (userDoc) {
                     await this.databases.updateDocument(
-                        'ninja',
+                        '1891231976',
                         'users',
                         userDoc.$id,
                         {
@@ -1591,7 +1591,7 @@ class NinjaTONApp {
                 const userDoc = await this.getCurrentUserDocument();
                 if (userDoc) {
                     await this.databases.updateDocument(
-                        'ninja',
+                        '1891231976',
                         'users',
                         userDoc.$id,
                         {
@@ -1653,7 +1653,7 @@ class NinjaTONApp {
                 const userDoc = await this.getCurrentUserDocument();
                 if (userDoc) {
                     await this.databases.updateDocument(
-                        'ninja',
+                        '1891231976',
                         'users',
                         userDoc.$id,
                         {
@@ -2048,7 +2048,7 @@ class NinjaTONApp {
         try {
             let promoData = null;
             if (this.databases) {
-                const promoCodes = await this.databases.listDocuments('ninja', 'promo_codes', [`code=${code}`]);
+                const promoCodes = await this.databases.listDocuments('1891231976', 'promo_codes', [`code=${code}`]);
                 if (promoCodes.total > 0) {
                     promoData = promoCodes.documents[0];
                 }
@@ -2063,7 +2063,7 @@ class NinjaTONApp {
             
             if (this.databases) {
                 const usedPromos = await this.databases.listDocuments(
-                    'ninja',
+                    '1891231976',
                     'used_promo_codes',
                     [`user_id=${this.tgUser.id}`, `promo_id=${promoData.$id}`]
                 );
@@ -2102,7 +2102,7 @@ class NinjaTONApp {
                 const userDoc = await this.getCurrentUserDocument();
                 if (userDoc) {
                     await this.databases.updateDocument(
-                        'ninja',
+                        '1891231976',
                         'users',
                         userDoc.$id,
                         {
@@ -2112,7 +2112,7 @@ class NinjaTONApp {
                     );
                     
                     await this.databases.createDocument(
-                        'ninja',
+                        '1891231976',
                         'used_promo_codes',
                         'unique()',
                         {
@@ -2125,7 +2125,7 @@ class NinjaTONApp {
                     );
                     
                     await this.databases.updateDocument(
-                        'ninja',
+                        '1891231976',
                         'promo_codes',
                         promoData.$id,
                         {
@@ -2355,7 +2355,7 @@ class NinjaTONApp {
                     const userDoc = await this.getCurrentUserDocument();
                     if (userDoc) {
                         await this.databases.updateDocument(
-                            'ninja',
+                            '1891231976',
                             'users',
                             userDoc.$id,
                             {
@@ -2453,7 +2453,7 @@ class NinjaTONApp {
             const userDoc = await this.getCurrentUserDocument();
             if (userDoc) {
                 await this.databases.updateDocument(
-                    'ninja',
+                    '1891231976',
                     'users',
                     userDoc.$id,
                     {
@@ -2605,7 +2605,7 @@ class NinjaTONApp {
                     const userDoc = await this.getCurrentUserDocument();
                     if (userDoc) {
                         await this.databases.updateDocument(
-                            'ninja',
+                            '1891231976',
                             'users',
                             userDoc.$id,
                             {
@@ -2899,7 +2899,7 @@ class NinjaTONApp {
                     const userDoc = await this.getCurrentUserDocument();
                     if (userDoc) {
                         await this.databases.updateDocument(
-                            'ninja',
+                            '1891231976',
                             'users',
                             userDoc.$id,
                             {
@@ -2966,7 +2966,7 @@ class NinjaTONApp {
             if (!this.databases) return [];
             
             const referrals = await this.databases.listDocuments(
-                'ninja',
+                '1891231976',
                 'referrals',
                 [`referrer_id=${this.tgUser.id}`]
             );
@@ -2983,7 +2983,7 @@ class NinjaTONApp {
             if (!this.databases || !this.tgUser) return;
             
             const referrals = await this.databases.listDocuments(
-                'ninja',
+                '1891231976',
                 'referrals',
                 [`referrer_id=${this.tgUser.id}`, `status=verified`, `bonus_given=true`]
             );
@@ -3172,7 +3172,7 @@ class NinjaTONApp {
                 const userDoc = await this.getCurrentUserDocument();
                 if (userDoc) {
                     await this.databases.updateDocument(
-                        'ninja',
+                        '1891231976',
                         'users',
                         userDoc.$id,
                         {
@@ -3182,7 +3182,7 @@ class NinjaTONApp {
                     );
                     
                     await this.databases.createDocument(
-                        'ninja',
+                        '1891231976',
                         'withdrawals',
                         'unique()',
                         {

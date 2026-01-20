@@ -1,29 +1,31 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <script src="https://appwrite.io/v1"></script>
+    <script src="https://unpkg.com/appwrite@11"></script>
 </head>
 <body>
     <script>
         async function testDatabase() {
-            alert('🚀 جاري اختبار قاعدة البيانات...');
+            alert('🚀 جاري الاختبار...');
             
             try {
-                // الطريقة الصحيحة - المكتبة تعمل بشكل مختلف
-                if (!window.sdk) {
-                    alert('❌ المكتبة غير محملة بالشكل الصحيح');
+                // المكتبة محملة في window.Appwrite
+                if (!window.Appwrite) {
+                    alert('❌ المكتبة غير محملة');
                     return;
                 }
                 
+                const { Client, Account, Databases } = Appwrite;
+                
                 // 1. إنشاء عميل
-                const client = sdk.Client();
+                const client = new Client();
                 client
                     .setEndpoint('https://fra.cloud.appwrite.io/v1')
                     .setProject('696ea7200039a13fde62');
                 
                 // 2. إنشاء خدمات
-                const account = sdk.Account(client);
-                const databases = sdk.Databases(client);
+                const account = new Account(client);
+                const databases = new Databases(client);
                 
                 // 3. تسجيل الدخول
                 await account.createAnonymousSession();
@@ -31,18 +33,17 @@
                 
                 // 4. قراءة قاعدة البيانات
                 const users = await databases.listDocuments('1891231976', 'users');
-                alert(`📊 قراءة ناجحة: ${users.total} مستخدم`);
+                alert(`📊 نجاح: ${users.total} مستخدم`);
                 
-                alert('🎉 الاختبار نجح!');
+                alert('🎉 كل شيء يعمل!');
                 
             } catch (error) {
-                alert(`❌ فشل: ${error.message}`);
-                console.error('Error:', error);
+                alert(`❌ خطأ: ${error.message}`);
             }
         }
         
-        // ابدأ الاختبار
-        testDatabase();
+        // اختبر فور التحميل
+        setTimeout(testDatabase, 1000);
     </script>
 </body>
 </html>

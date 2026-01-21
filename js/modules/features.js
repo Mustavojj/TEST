@@ -1,8 +1,6 @@
 const FEATURES_CONFIG = {
     TASK_VERIFICATION_DELAY: 10,
     REFERRAL_BONUS_TON: 0.005,
-    REFERRAL_BONUS_SPINS: 1,
-    TASK_SPIN_BONUS: 1,
     REFERRALS_PER_PAGE: 10,
     PARTNER_TASK_REWARD: 0.001,
     SOCIAL_TASK_REWARD: 0.0005
@@ -360,8 +358,6 @@ class TaskManager {
             updates.totalEarned = totalEarned + taskReward;
             updates.totalTasks = totalTasks + 1;
             
-            updates.spins = (this.app.userState.spins || 0) + FEATURES_CONFIG.TASK_SPIN_BONUS;
-            
             this.app.userCompletedTasks.add(taskId);
             updates.completedTasks = [...this.app.userCompletedTasks];
             
@@ -383,7 +379,6 @@ class TaskManager {
             this.app.userState.balance = currentBalance + taskReward;
             this.app.userState.totalEarned = totalEarned + taskReward;
             this.app.userState.totalTasks = totalTasks + 1;
-            this.app.userState.spins = (this.app.userState.spins || 0) + FEATURES_CONFIG.TASK_SPIN_BONUS;
             this.app.userState.completedTasks = [...this.app.userCompletedTasks];
             
             if (button) {
@@ -401,14 +396,13 @@ class TaskManager {
             
             this.app.notificationManager.showNotification(
                 "Completed!", 
-                `You received ${taskReward.toFixed(4)} TON + ${FEATURES_CONFIG.TASK_SPIN_BONUS} SPIN!`, 
+                `You received ${taskReward.toFixed(4)} TON!`, 
                 "success"
             );
             
             await this.app.updateAppStats('totalTasks', 1);
             
             this.app.updateHeader();
-            this.app.renderSpinPage();
             
             this.app.cache.delete(`tasks_${this.app.tgUser.id}`);
             this.app.cache.delete(`user_${this.app.tgUser.id}`);
@@ -481,13 +475,323 @@ class TaskManager {
     }
 }
 
-class SpinManager {
+class QuestManager {
     constructor(app) {
         this.app = app;
+        this.friendsQuests = [
+            { target: 5, reward: 0.01, completed: false, claimed: false },
+            { target: 10, reward: 0.02, completed: false, claimed: false },
+            { target: 20, reward: 0.04, completed: false, claimed: false },
+            { target: 40, reward: 0.08, completed: false, claimed: false },
+            { target: 80, reward: 0.16, completed: false, claimed: false }
+        ];
+        
+        this.tasksQuests = [
+            { target: 50, reward: 0.03, completed: false, claimed: false },
+            { target: 100, reward: 0.05, completed: false, claimed: false },
+            { target: 200, reward: 0.10, completed: false, claimed: false },
+            { target: 500, reward: 0.15, completed: false, claimed: false },
+            { target: 1000, reward: 0.20, completed: false, claimed: false }
+        ];
     }
-    
-    async handleSpin() {
-        return this.app.playSpin();
+
+    async loadQuestsData() {
+        try {
+            if (!this.app.db) return;
+            
+            const friendsQuestsRef = await this.app.db.ref(`users/${this.app.tgUser.id}/friendsQuests`).once('value');
+            if (friendsQuestsRef.exists()) {
+                const savedFriendsQuests = friendsQuestsRef.val();
+                this.friendsQuests.forEach((quest, index) => {
+                    if (savedFriendsQuests[index]) {
+                        quest.completed = savedFriendsQuests[index].completed || false;
+                        quest.claimed = savedFriendsQuests[index].claimed || false;
+                    }
+                });
+            }
+            
+            const tasksQuestsRef = await this.app.db.ref(`users/${this.app.tgUser.id}/tasksQuests`).once('value');
+            if (tasksQuestsRef.exists()) {
+                const savedTasksQuests = tasksQuestsRef.val();
+                this.tasksQuests.forEach((quest, index) => {
+                    if (savedTasksQuests[index]) {
+                        quest.completed = savedTasksQuests[index].completed || false;
+                        quest.claimed = savedTasksQuests[index].claimed || false;
+                    }
+                });
+            }
+            
+        } catch (error) {
+            console.error('Error loading quests:', error);
+        }
+    }
+
+    async updateQuestsProgress() {
+        try {
+            const userReferrals = this.app.safeNumber(this.app.userState.referrals || 0);
+            const userTotalTasks = this.app.safeNumber(this.app.userState.totalTasks || 0);
+            
+            let friendsUpdated = false;
+            this.friendsQuests.forEach((quest, index) => {
+                if (!quest.claimed) {
+                    const newCompleted = userReferrals >= quest.target;
+                    if (quest.completed !== newCompleted) {
+                        quest.completed = newCompleted;
+                        friendsUpdated = true;
+                    }
+                }
+            });
+            
+            let tasksUpdated = false;
+            this.tasksQuests.forEach((quest, index) => {
+                if (!quest.claimed) {
+                    const newCompleted = userTotalTasks >= quest.target;
+                    if (quest.completed !== newCompleted) {
+                        quest.completed = newCompleted;
+                        tasksUpdated = true;
+                    }
+                }
+            });
+            
+            if (this.app.db) {
+                if (friendsUpdated) {
+                    await this.app.db.ref(`users/${this.app.tgUser.id}/friendsQuests`).set(this.friendsQuests);
+                }
+                
+                if (tasksUpdated) {
+                    await this.app.db.ref(`users/${this.app.tgUser.id}/tasksQuests`).set(this.tasksQuests);
+                }
+            }
+            
+            if (friendsUpdated || tasksUpdated) {
+                this.renderFriendsQuests();
+                this.renderTasksQuests();
+            }
+            
+        } catch (error) {
+            console.error('Error updating quests progress:', error);
+        }
+    }
+
+    async renderFriendsQuests() {
+        const friendsQuestsList = document.getElementById('friends-quests-list');
+        if (!friendsQuestsList) return;
+        
+        await this.loadQuestsData();
+        
+        const userReferrals = this.app.safeNumber(this.app.userState.referrals || 0);
+        
+        const questsHTML = this.friendsQuests.map((quest, index) => {
+            const progressPercent = Math.min((userReferrals / quest.target) * 100, 100);
+            
+            return `
+                <div class="quest-card ${quest.completed ? 'completed' : ''}">
+                    <div class="quest-card-header">
+                        <div class="quest-type-badge">
+                            <i class="fas fa-user-plus"></i>
+                            Friends
+                        </div>
+                        <div class="quest-status ${quest.completed ? 'ready' : 'progress'}">
+                            ${quest.completed ? (quest.claimed ? 'Claimed' : 'Ready') : 'In Progress'}
+                        </div>
+                    </div>
+                    
+                    <div class="quest-card-body">
+                        <h4 class="quest-title">Invite ${quest.target} Friends</h4>
+                        
+                        <div class="quest-progress-container">
+                            <div class="quest-progress-info">
+                                <span>${userReferrals}/${quest.target}</span>
+                                <span>${progressPercent.toFixed(0)}%</span>
+                            </div>
+                            <div class="quest-progress-bar">
+                                <div class="quest-progress-fill" style="width: ${progressPercent}%"></div>
+                            </div>
+                        </div>
+                        
+                        <div class="quest-reward-display">
+                            <div class="reward-icon">
+                                <img src="https://cdn-icons-png.flaticon.com/512/15208/15208522.png" alt="TON" class="ton-reward-icon">
+                            </div>
+                            <div class="reward-amount">
+                                <span class="reward-value">${quest.reward.toFixed(3)}</span>
+                                <span class="reward-currency">TON</span>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="quest-card-footer">
+                        <button class="quest-claim-btn ${quest.completed && !quest.claimed ? 'available' : 'disabled'}" 
+                                data-quest-type="friends"
+                                data-quest-index="${index}"
+                                ${quest.claimed || !quest.completed ? 'disabled' : ''}>
+                            ${quest.claimed ? 'CLAIMED' : (quest.completed ? 'CLAIM' : 'IN PROGRESS')}
+                        </button>
+                    </div>
+                </div>
+            `;
+        }).join('');
+        
+        friendsQuestsList.innerHTML = questsHTML;
+        
+        this.setupQuestClaimEvents();
+    }
+
+    async renderTasksQuests() {
+        const tasksQuestsList = document.getElementById('tasks-quests-list');
+        if (!tasksQuestsList) return;
+        
+        await this.loadQuestsData();
+        
+        const userTotalTasks = this.app.safeNumber(this.app.userState.totalTasks || 0);
+        
+        const questsHTML = this.tasksQuests.map((quest, index) => {
+            const progressPercent = Math.min((userTotalTasks / quest.target) * 100, 100);
+            
+            return `
+                <div class="quest-card ${quest.completed ? 'completed' : ''}">
+                    <div class="quest-card-header">
+                        <div class="quest-type-badge">
+                            <i class="fas fa-tasks"></i>
+                            Tasks
+                        </div>
+                        <div class="quest-status ${quest.completed ? 'ready' : 'progress'}">
+                            ${quest.completed ? (quest.claimed ? 'Claimed' : 'Ready') : 'In Progress'}
+                        </div>
+                    </div>
+                    
+                    <div class="quest-card-body">
+                        <h4 class="quest-title">Complete ${quest.target} Tasks</h4>
+                        
+                        <div class="quest-progress-container">
+                            <div class="quest-progress-info">
+                                <span>${userTotalTasks}/${quest.target}</span>
+                                <span>${progressPercent.toFixed(0)}%</span>
+                            </div>
+                            <div class="quest-progress-bar">
+                                <div class="quest-progress-fill" style="width: ${progressPercent}%"></div>
+                            </div>
+                        </div>
+                        
+                        <div class="quest-reward-display">
+                            <div class="reward-icon">
+                                <img src="https://cdn-icons-png.flaticon.com/512/15208/15208522.png" alt="TON" class="ton-reward-icon">
+                            </div>
+                            <div class="reward-amount">
+                                <span class="reward-value">${quest.reward.toFixed(3)}</span>
+                                <span class="reward-currency">TON</span>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="quest-card-footer">
+                        <button class="quest-claim-btn ${quest.completed && !quest.claimed ? 'available' : 'disabled'}" 
+                                data-quest-type="tasks"
+                                data-quest-index="${index}"
+                                ${quest.claimed || !quest.completed ? 'disabled' : ''}>
+                            ${quest.claimed ? 'CLAIMED' : (quest.completed ? 'CLAIM' : 'IN PROGRESS')}
+                        </button>
+                    </div>
+                </div>
+            `;
+        }).join('');
+        
+        tasksQuestsList.innerHTML = questsHTML;
+        
+        this.setupQuestClaimEvents();
+    }
+
+    setupQuestClaimEvents() {
+        const claimBtns = document.querySelectorAll('.quest-claim-btn.available:not(:disabled)');
+        claimBtns.forEach(btn => {
+            btn.addEventListener('click', async () => {
+                const questType = btn.getAttribute('data-quest-type');
+                const questIndex = parseInt(btn.getAttribute('data-quest-index'));
+                
+                await this.claimQuest(questType, questIndex, btn);
+            });
+        });
+    }
+
+    async claimQuest(questType, questIndex, button) {
+        try {
+            const quests = questType === 'friends' ? this.friendsQuests : this.tasksQuests;
+            
+            if (questIndex < 0 || questIndex >= quests.length) return false;
+            
+            const quest = quests[questIndex];
+            
+            if (!quest.completed || quest.claimed) return false;
+            
+            const originalText = button.innerHTML;
+            button.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Processing...';
+            button.disabled = true;
+            
+            let adShown = false;
+            if (window.AdBlock19344 && typeof window.AdBlock19344.show === 'function') {
+                adShown = await new Promise((resolve) => {
+                    window.AdBlock19344.show().then(() => {
+                        resolve(true);
+                    }).catch(() => {
+                        resolve(false);
+                    });
+                });
+            }
+            
+            if (!adShown) {
+                this.app.notificationManager.showNotification("Ad Required", "Please watch the ad to claim reward", "info");
+                button.innerHTML = originalText;
+                button.disabled = false;
+                return false;
+            }
+            
+            const rewardAmount = quest.reward;
+            const currentBalance = this.app.safeNumber(this.app.userState.balance);
+            const newBalance = currentBalance + rewardAmount;
+            
+            quest.claimed = true;
+            
+            if (this.app.db) {
+                await this.app.db.ref(`users/${this.app.tgUser.id}`).update({
+                    balance: newBalance,
+                    totalEarned: this.app.safeNumber(this.app.userState.totalEarned) + rewardAmount
+                });
+                
+                if (questType === 'friends') {
+                    await this.app.db.ref(`users/${this.app.tgUser.id}/friendsQuests/${questIndex}`).set(quest);
+                } else {
+                    await this.app.db.ref(`users/${this.app.tgUser.id}/tasksQuests/${questIndex}`).set(quest);
+                }
+            }
+            
+            this.app.userState.balance = newBalance;
+            this.app.userState.totalEarned = this.app.safeNumber(this.app.userState.totalEarned) + rewardAmount;
+            
+            this.app.cache.delete(`user_${this.app.tgUser.id}`);
+            
+            this.app.updateHeader();
+            
+            this.app.notificationManager.showNotification("Quest Claimed", `+${rewardAmount.toFixed(3)} TON!`, "success");
+            
+            if (questType === 'friends') {
+                this.renderFriendsQuests();
+            } else {
+                this.renderTasksQuests();
+            }
+            
+            return true;
+            
+        } catch (error) {
+            console.error('Error claiming quest:', error);
+            this.app.notificationManager.showNotification("Error", "Failed to claim quest reward", "error");
+            
+            if (button) {
+                button.innerHTML = 'CLAIM';
+                button.disabled = false;
+            }
+            
+            return false;
+        }
     }
 }
 
@@ -583,7 +887,6 @@ class ReferralManager {
         const referralLink = `https://t.me/NinjaTONS_Bot/earn?startapp=${this.app.tgUser.id}`;
         const referrals = this.app.safeNumber(this.app.userState.referrals || 0);
         const referralEarnings = this.app.safeNumber(this.app.userState.referralEarnings || 0);
-        const referralSpins = referrals * FEATURES_CONFIG.REFERRAL_BONUS_SPINS;
         
         const last10Referrals = this.recentReferrals.slice(0, 10);
         
@@ -599,7 +902,7 @@ class ReferralManager {
                     </div>
                     
                     <div class="referral-instructions">
-                        <p><i class="fas fa-info-circle"></i> <b>Earn ${FEATURES_CONFIG.REFERRAL_BONUS_TON} TON +${FEATURES_CONFIG.REFERRAL_BONUS_SPINS} SPIN Per Referral</b></p>
+                        <p><i class="fas fa-info-circle"></i> <b>Earn ${FEATURES_CONFIG.REFERRAL_BONUS_TON} TON Per Referral</b></p>
                     </div>
                     
                     <button class="share-btn" id="share-referral-btn">
@@ -625,10 +928,7 @@ class ReferralManager {
                             </div>
                             <div class="stat-info">
                                 <h4>Total Earnings</h4>
-                                <p class="stat-value">
-                                    <span>${referralEarnings.toFixed(3)} TON</span>
-                                    <span class="play-part">${referralSpins} SPIN${referralSpins !== 1 ? 'S' : ''}</span>
-                                </p>
+                                <p class="stat-value">${referralEarnings.toFixed(3)} TON</p>
                             </div>
                         </div>
                     </div>
@@ -699,4 +999,4 @@ class ReferralManager {
     }
 }
 
-export { TaskManager, SpinManager, ReferralManager };
+export { TaskManager, QuestManager, ReferralManager };

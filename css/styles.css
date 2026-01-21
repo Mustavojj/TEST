@@ -84,31 +84,29 @@ body {
     border-radius: 24px;
     border: 1px solid rgba(59, 130, 246, 0.3);
     backdrop-filter: blur(10px);
+    margin: 0 5%;
 }
 
 .logo-spinner {
     width: 80px;
     height: 80px;
     margin: 0 auto 20px;
-    background: linear-gradient(135deg, #3b82f6, #1d4ed8);
     border-radius: 20px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 2.5rem;
-    color: white;
+    object-fit: contain;
     animation: pulse 2s ease-in-out infinite;
-    box-shadow: 0 10px 30px rgba(59, 130, 246, 0.4);
+    filter: drop-shadow(0 0 15px rgba(59, 130, 246, 0.5));
+    -webkit-user-drag: none;
+    pointer-events: none;
 }
 
 @keyframes pulse {
     0%, 100% { 
         transform: scale(1); 
-        box-shadow: 0 10px 30px rgba(59, 130, 246, 0.4);
+        filter: drop-shadow(0 0 15px rgba(59, 130, 246, 0.5));
     }
     50% { 
         transform: scale(1.05); 
-        box-shadow: 0 15px 40px rgba(59, 130, 246, 0.6);
+        filter: drop-shadow(0 0 25px rgba(59, 130, 246, 0.8));
     }
 }
 
@@ -118,12 +116,6 @@ body {
     font-weight: 600;
     color: white;
     margin-bottom: 10px;
-}
-
-.loading-subtext {
-    font-size: 0.9rem;
-    color: var(--text-secondary);
-    margin-top: 10px;
 }
 
 .loading-progress {
@@ -368,6 +360,7 @@ body {
     min-height: 100vh;
     opacity: 0;
     transition: opacity 0.3s ease;
+    margin: 0 5%;
 }
 
 #app.loaded {
@@ -377,66 +370,23 @@ body {
 .app-header {
     background: linear-gradient(135deg, rgba(59, 130, 246, 0.9) 0%, rgba(29, 78, 216, 0.9) 100%);
     padding: 15px 15px 20px;
-    border-bottom-left-radius: 25px;
-    border-bottom-right-radius: 25px;
+    border-radius: 20px;
     position: relative;
     overflow: hidden;
-    margin-bottom: 15px;
+    margin: 15px 0;
     box-shadow: 0 10px 30px rgba(59, 130, 246, 0.3);
     border: 1px solid rgba(59, 130, 246, 0.2);
     backdrop-filter: blur(10px);
 }
 
-.header-top {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 15px;
-}
-
-.header-logo {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-}
-
-.logo-icon {
-    width: 36px;
-    height: 36px;
-    background: white;
-    border-radius: 10px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    color: #3b82f6;
-    font-size: 1.2rem;
-}
-
-.logo-text {
+.app-logo-header {
+    text-align: center;
     font-size: 1.3rem;
     font-weight: 800;
     color: white;
-    margin: 0;
+    margin-bottom: 15px;
     letter-spacing: 0.5px;
-}
-
-.header-stats {
-    display: flex;
-    align-items: center;
-    gap: 15px;
-}
-
-.stat-item {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    color: rgba(255, 255, 255, 0.9);
-    font-size: 0.85rem;
-    font-weight: 600;
-    background: rgba(255, 255, 255, 0.15);
-    padding: 6px 12px;
-    border-radius: 12px;
-    border: 1px solid rgba(255, 255, 255, 0.2);
+    text-shadow: 0 2px 10px rgba(0, 0, 0, 0.3);
 }
 
 .user-profile {
@@ -528,31 +478,26 @@ body {
     flex-shrink: 0;
 }
 
-.balance-card {
+.balance-card-simple {
     display: flex;
     align-items: center;
-    gap: 10px;
-    background: rgba(255, 255, 255, 0.15);
-    padding: 10px 15px;
-    border-radius: 16px;
-    border: 1px solid rgba(255, 255, 255, 0.2);
-    min-width: 140px;
+    gap: 8px;
+    background: transparent;
+    padding: 0;
+    min-width: 120px;
 }
 
-.balance-icon {
-    width: 36px;
-    height: 36px;
-    background: rgba(255, 255, 255, 0.25);
-    border-radius: 10px;
+.balance-icon-simple {
+    width: 32px;
+    height: 32px;
     display: flex;
     align-items: center;
     justify-content: center;
-    padding: 6px;
+    padding: 0;
     flex-shrink: 0;
-    border: 2px solid rgba(255, 255, 255, 0.3);
 }
 
-.balance-icon img {
+.balance-icon-simple img {
     width: 100%;
     height: 100%;
     border-radius: 50%;
@@ -562,22 +507,14 @@ body {
     -webkit-user-drag: none;
 }
 
-.balance-details {
+.balance-details-simple {
     display: flex;
     flex-direction: column;
     gap: 2px;
     flex: 1;
 }
 
-.balance-label {
-    font-size: 0.7rem;
-    color: rgba(255, 255, 255, 0.85);
-    font-weight: 600;
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
-}
-
-.balance-amount {
+.balance-amount-simple {
     font-size: 0.95rem;
     font-weight: 800;
     color: white;
@@ -586,7 +523,7 @@ body {
 }
 
 #main-content {
-    padding: 0 12px 12px;
+    padding: 0 0 12px;
     max-width: 480px;
     margin: 0 auto;
 }
@@ -795,7 +732,7 @@ body {
     padding: 16px;
     border: 1px solid rgba(59, 130, 246, 0.3);
     display: flex;
-    align-items: center;
+    align-items: flex-start;
     gap: 15px;
     transition: all 0.3s ease;
 }
@@ -808,8 +745,8 @@ body {
 }
 
 .task-avatar {
-    width: 50px;
-    height: 50px;
+    width: 60px;
+    height: 60px;
     border-radius: 12px;
     overflow: hidden;
     flex-shrink: 0;
@@ -821,9 +758,9 @@ body {
 }
 
 .task-avatar img {
-    width: 70%;
-    height: 70%;
-    object-fit: contain;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
     pointer-events: none;
     -webkit-user-drag: none;
 }
@@ -833,17 +770,24 @@ body {
     min-width: 0;
     display: flex;
     flex-direction: column;
-    gap: 6px;
+    gap: 8px;
 }
 
 .task-name {
     font-weight: 700;
     color: white;
-    font-size: 0.95rem;
+    font-size: 1rem;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
     line-height: 1.3;
+}
+
+.task-description {
+    color: var(--text-secondary);
+    font-size: 0.85rem;
+    line-height: 1.4;
+    margin: 0;
 }
 
 .task-reward {
@@ -876,6 +820,7 @@ body {
 .task-action {
     margin-left: auto;
     flex-shrink: 0;
+    align-self: center;
 }
 
 .task-btn {
@@ -1103,7 +1048,7 @@ body {
 }
 
 .reward-value {
-    font-size: 1.3rem;
+    font-size: 1rem;
     font-weight: 800;
     color: white;
     line-height: 1;
@@ -1243,7 +1188,7 @@ body {
 .ad-reward span {
     color: white;
     font-weight: 700;
-    font-size: 1rem;
+    font-size: 0.95rem;
 }
 
 .ad-btn {
@@ -1422,44 +1367,44 @@ body {
     border-bottom: 2px solid rgba(59, 130, 246, 0.3);
 }
 
-.stats-grid {
+.stats-grid-two {
     display: grid;
     grid-template-columns: 1fr 1fr;
-    gap: 15px;
+    gap: 12px;
 }
 
 .stat-card {
     background: linear-gradient(135deg, rgba(59, 130, 246, 0.2), rgba(29, 78, 216, 0.15));
     border-radius: 16px;
-    padding: 20px;
+    padding: 15px;
     border: 2px solid rgba(59, 130, 246, 0.3);
     text-align: center;
 }
 
 .stat-icon {
-    width: 40px;
-    height: 40px;
+    width: 32px;
+    height: 32px;
     background: rgba(59, 130, 246, 0.3);
-    border-radius: 10px;
+    border-radius: 8px;
     display: flex;
     align-items: center;
     justify-content: center;
     color: white;
-    font-size: 1.2rem;
-    margin: 0 auto 12px;
+    font-size: 1rem;
+    margin: 0 auto 8px;
 }
 
 .stat-info h4 {
-    font-size: 0.9rem;
+    font-size: 0.8rem;
     color: #cbd5e1;
     font-weight: 600;
-    margin-bottom: 8px;
+    margin-bottom: 6px;
     text-transform: uppercase;
     letter-spacing: 0.5px;
 }
 
 .stat-value {
-    font-size: 1.3rem;
+    font-size: 1.1rem;
     font-weight: 800;
     color: white;
     margin: 0;
@@ -1935,19 +1880,15 @@ body {
     .logo-spinner {
         width: 70px;
         height: 70px;
-        font-size: 2rem;
     }
     
     .app-header {
         padding: 12px 12px 18px;
     }
     
-    .header-top {
-        margin-bottom: 12px;
-    }
-    
-    .logo-text {
+    .app-logo-header {
         font-size: 1.2rem;
+        margin-bottom: 12px;
     }
     
     .user-avatar-container {
@@ -1955,9 +1896,8 @@ body {
         height: 56px;
     }
     
-    .balance-card {
-        min-width: 120px;
-        padding: 8px 12px;
+    .balance-card-simple {
+        min-width: 100px;
     }
     
     .ad-cards {
@@ -1970,7 +1910,7 @@ body {
         gap: 10px;
     }
     
-    .stats-grid {
+    .stats-grid-two {
         grid-template-columns: 1fr;
         gap: 12px;
     }
@@ -2013,7 +1953,6 @@ body {
     .logo-spinner {
         width: 60px;
         height: 60px;
-        font-size: 1.8rem;
     }
     
     .loading-text {
@@ -2046,12 +1985,11 @@ body {
         bottom: 6px;
     }
     
-    .balance-card {
-        min-width: 110px;
-        padding: 6px 10px;
+    .balance-card-simple {
+        min-width: 90px;
     }
     
-    .balance-amount {
+    .balance-amount-simple {
         font-size: 0.9rem;
     }
 }
@@ -2586,34 +2524,24 @@ body {
 
 .app-header {
     background: linear-gradient(135deg, rgba(59, 130, 246, 0.9) 0%, rgba(29, 78, 216, 0.9) 100%);
-    padding: 15px 15px 25px; /* زيادة padding من الأسفل */
-    border-bottom-left-radius: 25px;
-    border-bottom-right-radius: 25px;
+    padding: 15px 15px 20px;
+    border-radius: 20px;
     position: relative;
     overflow: hidden;
-    margin-bottom: 15px;
+    margin: 15px 0;
     box-shadow: 0 10px 30px rgba(59, 130, 246, 0.3);
     border: 1px solid rgba(59, 130, 246, 0.2);
     backdrop-filter: blur(10px);
-    transform: scale(1.05); /* تكبير الهيدر */
-    transform-origin: top;
-    margin-top: -10px; /* تعويض للتكبير */
-    z-index: 10;
 }
 
 .app-logo-header {
     text-align: center;
-    font-size: 1.4rem;
+    font-size: 1.3rem;
     font-weight: 800;
     color: white;
-    margin-bottom: 20px;
+    margin-bottom: 15px;
     letter-spacing: 0.5px;
     text-shadow: 0 2px 10px rgba(0, 0, 0, 0.3);
-    padding: 10px;
-    background: rgba(255, 255, 255, 0.1);
-    border-radius: 12px;
-    border: 1px solid rgba(255, 255, 255, 0.2);
-    backdrop-filter: blur(5px);
 }
 
 .user-profile {
@@ -2622,9 +2550,7 @@ body {
     align-items: center;
     gap: 15px;
     flex-wrap: wrap;
-    transform: scale(1.05); /* تكبير الملف الشخصي */
-    transform-origin: top;
-} 
+}
 
 #app-loader {
     position: fixed;
@@ -2639,26 +2565,3 @@ body {
     z-index: 9999;
     padding: 20px;
 }
-
-.logo-spinner {
-    width: 100px;
-    height: 100px;
-    margin: 0 auto 20px;
-    border-radius: 20px;
-    object-fit: contain;
-    animation: pulse 2s ease-in-out infinite;
-    filter: drop-shadow(0 0 15px rgba(59, 130, 246, 0.5));
-    -webkit-user-drag: none;
-    pointer-events: none;
-}
-
-@keyframes pulse {
-    0%, 100% { 
-        transform: scale(1); 
-        filter: drop-shadow(0 0 15px rgba(59, 130, 246, 0.5));
-    }
-    50% { 
-        transform: scale(1.05); 
-        filter: drop-shadow(0 0 25px rgba(59, 130, 246, 0.8));
-    }
-    }

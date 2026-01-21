@@ -16,7 +16,7 @@ class CacheManager {
         this.defaultTTL = CORE_CONFIG.CACHE_TTL;
     }
 
-    set(key, value, ttl = this.defaultTTL) {
+    set(key, value, ttl = this.defaultTTl) {
         try {
             const expiry = Date.now() + ttl;
             this.cache.set(key, value);

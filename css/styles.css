@@ -4255,3 +4255,461 @@ body {
     opacity: 0.6;
     cursor: not-allowed;
         }
+
+
+/* إضافة أسفل ملف styles.css الحالي */
+
+/* Spin Wheel Styles */
+.spin-container {
+    padding: 20px 15px;
+    max-width: 480px;
+    margin: 0 auto;
+}
+
+.spin-game-section {
+    background: rgba(59, 130, 246, 0.12);
+    border-radius: 24px;
+    padding: 25px 20px;
+    margin-bottom: 20px;
+    border: 2px solid rgba(59, 130, 246, 0.25);
+    backdrop-filter: blur(20px);
+    box-shadow: 0 15px 35px rgba(0, 0, 0, 0.25);
+}
+
+.wheel-container {
+    position: relative;
+    width: 280px;
+    height: 280px;
+    margin: 0 auto 30px;
+}
+
+.wheel {
+    position: relative;
+    width: 100%;
+    height: 100%;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #1e293b, #0f172a);
+    box-shadow: 
+        0 0 0 8px rgba(59, 130, 246, 0.3),
+        0 0 30px rgba(59, 130, 246, 0.4),
+        inset 0 0 20px rgba(0, 0, 0, 0.5);
+    overflow: hidden;
+}
+
+.wheel-inner {
+    width: 100%;
+    height: 100%;
+    position: relative;
+    transition: transform 10s cubic-bezier(0.2, 0.8, 0.3, 1);
+}
+
+.wheel-item {
+    position: absolute;
+    width: 50%;
+    height: 50%;
+    transform-origin: 100% 100%;
+    left: 0;
+    top: 0;
+    overflow: hidden;
+}
+
+.wheel-item:nth-child(odd) {
+    background: linear-gradient(135deg, rgba(59, 130, 246, 0.2), rgba(29, 78, 216, 0.1));
+}
+
+.wheel-item:nth-child(even) {
+    background: linear-gradient(135deg, rgba(99, 102, 241, 0.2), rgba(67, 56, 202, 0.1));
+}
+
+.wheel-item-content {
+    position: absolute;
+    left: 0;
+    top: 15px;
+    width: 100%;
+    text-align: center;
+    font-size: 0.75rem;
+    font-weight: 700;
+    color: white;
+    padding-right: 60px;
+    text-shadow: 0 2px 4px rgba(0, 0, 0, 0.5);
+    white-space: nowrap;
+}
+
+.wheel-center {
+    position: absolute;
+    width: 80px;
+    height: 80px;
+    background: linear-gradient(135deg, #3b82f6, #1d4ed8);
+    border-radius: 50%;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 2rem;
+    color: white;
+    box-shadow: 0 0 20px rgba(59, 130, 246, 0.5);
+    z-index: 10;
+    border: 4px solid rgba(255, 255, 255, 0.2);
+}
+
+.wheel-pointer {
+    position: absolute;
+    top: -15px;
+    left: 50%;
+    transform: translateX(-50%);
+    font-size: 2.5rem;
+    color: #ef4444;
+    text-shadow: 0 0 10px rgba(239, 68, 68, 0.5);
+    z-index: 20;
+    filter: drop-shadow(0 4px 6px rgba(0, 0, 0, 0.5));
+}
+
+.spin-play-btn {
+    width: 100%;
+    padding: 18px;
+    background: linear-gradient(135deg, #3b82f6, #1d4ed8);
+    border: none;
+    border-radius: 18px;
+    color: white;
+    font-weight: 800;
+    font-size: 1.1rem;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    transition: all 0.3s;
+    margin-top: 10px;
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+    border: 2px solid rgba(59, 130, 246, 0.4);
+    box-shadow: 0 10px 25px rgba(59, 130, 246, 0.3);
+}
+
+.spin-play-btn:hover:not(:disabled) {
+    transform: translateY(-3px);
+    box-shadow: 0 15px 35px rgba(59, 130, 246, 0.4);
+    background: linear-gradient(135deg, #2563eb, #1e40af);
+}
+
+.spin-play-btn:disabled {
+    background: linear-gradient(135deg, #4b5563, #374151);
+    color: #9ca3af;
+    cursor: not-allowed;
+    opacity: 0.7;
+    transform: none !important;
+    box-shadow: none !important;
+}
+
+.spin-play-btn:disabled:hover {
+    transform: none !important;
+    box-shadow: none !important;
+}
+
+.get-spins-section {
+    background: rgba(59, 130, 246, 0.08);
+    border-radius: 24px;
+    padding: 25px 20px;
+    border: 2px solid rgba(59, 130, 246, 0.15);
+    backdrop-filter: blur(20px);
+}
+
+.get-spins-section h3 {
+    color: #3b82f6;
+    font-size: 1.2rem;
+    font-weight: 700;
+    margin-bottom: 20px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.get-method-card {
+    background: linear-gradient(135deg, rgba(59, 130, 246, 0.15), rgba(29, 78, 216, 0.1));
+    border-radius: 20px;
+    padding: 20px;
+    margin-bottom: 15px;
+    border: 1px solid rgba(59, 130, 246, 0.25);
+    transition: transform 0.3s, border-color 0.3s;
+}
+
+.get-method-card:hover {
+    transform: translateY(-5px);
+    border-color: rgba(59, 130, 246, 0.4);
+}
+
+.get-method-header {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+    margin-bottom: 12px;
+}
+
+.get-method-icon {
+    width: 45px;
+    height: 45px;
+    background: linear-gradient(135deg, rgba(59, 130, 246, 0.3), rgba(29, 78, 216, 0.2));
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #3b82f6;
+    font-size: 1.2rem;
+}
+
+.get-method-title {
+    font-weight: 700;
+    color: white;
+    font-size: 1rem;
+}
+
+.get-method-description {
+    color: #cbd5e1;
+    font-size: 0.85rem;
+    line-height: 1.5;
+    margin-bottom: 15px;
+    min-height: 40px;
+}
+
+.get-method-btn {
+    width: 100%;
+    padding: 12px;
+    background: linear-gradient(135deg, #3b82f6, #1d4ed8);
+    border: none;
+    border-radius: 14px;
+    color: white;
+    font-weight: 700;
+    font-size: 0.95rem;
+    cursor: pointer;
+    transition: all 0.3s;
+    border: 1.5px solid rgba(59, 130, 246, 0.4);
+}
+
+.get-method-btn:hover:not(:disabled) {
+    background: linear-gradient(135deg, #2563eb, #1e40af);
+    transform: translateY(-2px);
+    box-shadow: 0 8px 20px rgba(59, 130, 246, 0.3);
+}
+
+.get-method-btn:disabled {
+    background: linear-gradient(135deg, #4b5563, #374151);
+    color: #9ca3af;
+    cursor: not-allowed;
+    opacity: 0.6;
+}
+
+.cooldown-timer {
+    display: inline-block;
+    background: rgba(239, 68, 68, 0.15);
+    color: #f87171;
+    padding: 4px 10px;
+    border-radius: 20px;
+    font-size: 0.8rem;
+    font-weight: 600;
+    margin-top: 8px;
+    border: 1px solid rgba(239, 68, 68, 0.3);
+}
+
+/* Spin Result Modal */
+.spin-result-modal {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.9);
+    backdrop-filter: blur(20px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 10002;
+    padding: 20px;
+    animation: fadeIn 0.4s ease;
+}
+
+.spin-result-content {
+    background: linear-gradient(135deg, rgba(59, 130, 246, 0.15), rgba(29, 78, 216, 0.1));
+    border-radius: 28px;
+    padding: 30px 25px;
+    max-width: 380px;
+    width: 100%;
+    text-align: center;
+    box-shadow: 
+        0 20px 40px rgba(0, 0, 0, 0.5),
+        0 0 0 2px rgba(59, 130, 246, 0.4);
+    animation: modalSlideUp 0.5s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+    border: 2px solid rgba(59, 130, 246, 0.35);
+    position: relative;
+    backdrop-filter: blur(30px);
+    overflow: hidden;
+}
+
+.close-modal-btn {
+    position: absolute;
+    top: 15px;
+    right: 15px;
+    width: 36px;
+    height: 36px;
+    background: rgba(0, 0, 0, 0.2);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 50%;
+    color: white;
+    font-size: 1rem;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.3s;
+    z-index: 10;
+}
+
+.close-modal-btn:hover {
+    background: rgba(239, 68, 68, 0.2);
+    border-color: rgba(239, 68, 68, 0.4);
+    transform: rotate(90deg);
+}
+
+.spin-result-header {
+    margin-bottom: 25px;
+}
+
+.spin-result-header i {
+    font-size: 3rem;
+    color: #f59e0b;
+    margin-bottom: 10px;
+    display: block;
+}
+
+.spin-result-header h3 {
+    color: white;
+    font-size: 1.5rem;
+    font-weight: 800;
+    margin: 0;
+}
+
+.spin-result-display {
+    background: rgba(0, 0, 0, 0.3);
+    border-radius: 20px;
+    padding: 25px;
+    margin-bottom: 25px;
+    border: 2px solid rgba(59, 130, 246, 0.3);
+}
+
+.spin-prize-icon {
+    font-size: 4rem;
+    color: #3b82f6;
+    margin-bottom: 15px;
+}
+
+.spin-prize-icon .fa-gem {
+    color: #f59e0b;
+}
+
+.spin-prize-icon .fa-sync-alt {
+    color: #10b981;
+}
+
+.spin-prize-icon .fa-times {
+    color: #ef4444;
+}
+
+.spin-prize-amount {
+    font-size: 2.5rem;
+    font-weight: 800;
+    color: white;
+    margin-bottom: 10px;
+    text-shadow: 0 0 20px rgba(59, 130, 246, 0.5);
+}
+
+.spin-prize-description {
+    color: #cbd5e1;
+    font-size: 1rem;
+}
+
+.spin-result-actions {
+    display: flex;
+    gap: 15px;
+}
+
+.spin-result-claim {
+    flex: 1;
+    padding: 18px;
+    background: linear-gradient(135deg, #10b981, #059669);
+    border: none;
+    border-radius: 18px;
+    color: white;
+    font-weight: 800;
+    font-size: 1.1rem;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    transition: all 0.3s;
+    border: 2px solid rgba(16, 185, 129, 0.4);
+    box-shadow: 0 10px 25px rgba(16, 185, 129, 0.3);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.spin-result-claim:hover:not(:disabled) {
+    transform: translateY(-3px);
+    box-shadow: 0 15px 35px rgba(16, 185, 129, 0.4);
+    background: linear-gradient(135deg, #059669, #047857);
+}
+
+.spin-result-claim:disabled {
+    background: linear-gradient(135deg, #4b5563, #374151);
+    color: #9ca3af;
+    cursor: not-allowed;
+    opacity: 0.7;
+    transform: none !important;
+    box-shadow: none !important;
+}
+
+/* Navigation Icons */
+.nav-btn i {
+    font-size: 1.3rem;
+    margin-bottom: 5px;
+}
+
+/* إصلاحات للأيقونات */
+.task-reward-simple .game-bonus-blue {
+    background: linear-gradient(135deg, rgba(59, 130, 246, 0.2), rgba(29, 78, 216, 0.15));
+    color: #60a5fa;
+    border: 1px solid rgba(59, 130, 246, 0.3);
+}
+
+/* Responsive Adjustments */
+@media (max-width: 480px) {
+    .wheel-container {
+        width: 240px;
+        height: 240px;
+    }
+    
+    .wheel-item-content {
+        font-size: 0.65rem;
+        padding-right: 50px;
+    }
+    
+    .wheel-center {
+        width: 60px;
+        height: 60px;
+        font-size: 1.5rem;
+    }
+    
+    .wheel-pointer {
+        font-size: 2rem;
+        top: -12px;
+    }
+    
+    .spin-prize-amount {
+        font-size: 2rem;
+    }
+    
+    .spin-prize-icon {
+        font-size: 3rem;
+    }
+    }

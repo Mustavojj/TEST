@@ -35,24 +35,41 @@
     <div class="app-background"></div>
     
     <div id="app-loader" style="background: #000000;">
-        <div class="loading-container">
-            <img src="https://i.ibb.co/GvWFRrnp/ninja.png" 
-                 alt="Ninja TON" 
-                 class="logo-spinner"
-                 oncontextmenu="return false;" 
-                 ondragstart="return false;">
-            <p class="loading-text">Loading... 0%</p>
-            <div class="loading-progress">
-                <div class="loading-progress-bar"></div>
+        <div class="loading-card">
+            <div class="loading-card-header">
+                <div class="loading-card-icon">
+                    <img src="https://i.ibb.co/GvWFRrnp/ninja.png" 
+                         alt="Ninja TON" 
+                         class="loading-card-logo"
+                         oncontextmenu="return false;" 
+                         ondragstart="return false;">
+                </div>
+                <h2 class="loading-card-title">Ninja TON</h2>
+                <p class="loading-card-subtitle">Loading your experience...</p>
+            </div>
+            <div class="loading-card-body">
+                <div class="loading-progress-container">
+                    <div class="loading-progress-bar" id="loading-progress-bar"></div>
+                </div>
+                <p class="loading-percentage" id="loading-percentage">0%</p>
+            </div>
+            <div class="loading-card-footer">
+                <div class="loading-stats">
+                    <div class="loading-stat">
+                        <i class="fas fa-bolt"></i>
+                        <span>Fast & Secure</span>
+                    </div>
+                    <div class="loading-stat">
+                        <i class="fas fa-shield-alt"></i>
+                        <span>Verified</span>
+                    </div>
+                </div>
             </div>
         </div>
     </div>
 
     <div id="app" style="display: none;">
         <header class="app-header">
-            <div class="app-logo-header">
-                NINJA TON | V2 🥷
-            </div>
             <div class="user-profile">
                 <div class="profile-left">
                     <div class="user-avatar-container">
@@ -67,22 +84,37 @@
                         <div class="user-main">
                             <h2 id="user-name" class="user-name">User</h2>
                             <div id="user-telegram-id" class="user-telegram-id">
-                                <i class="fas fa-id-card"></i>
-                                <span id="telegram-id-text">ID: 123456789</span>
+                                <div class="id-container">
+                                    <i class="fas fa-id-card"></i>
+                                    <div class="id-content">
+                                        <span class="id-label">Telegram ID</span>
+                                        <div class="id-value-container">
+                                            <span id="telegram-id-text" class="id-text"></span>
+                                        </div>
+                                    </div>
+                                </div>
                             </div>
                         </div>
                     </div>
                 </div>
                 <div class="profile-right">
-                    <div class="balance-card-simple">
-                        <div class="balance-icon-simple">
-                            <img src="https://cdn-icons-png.flaticon.com/512/15208/15208522.png" 
-                                 alt="TON" 
-                                 oncontextmenu="return false;" 
-                                 ondragstart="return false;">
+                    <div class="balance-card">
+                        <div class="balance-card-header">
+                            <div class="balance-icon">
+                                <img src="https://cdn-icons-png.flaticon.com/512/15208/15208522.png" 
+                                     alt="TON" 
+                                     oncontextmenu="return false;" 
+                                     ondragstart="return false;">
+                            </div>
+                            <div class="balance-title">
+                                <span class="balance-label">Balance</span>
+                                <button class="copy-icon-btn" id="balance-copy-btn" title="Copy Balance">
+                                    <i class="far fa-copy"></i>
+                                </button>
+                            </div>
                         </div>
-                        <div class="balance-details-simple">
-                            <div id="header-ton-balance" class="balance-amount-simple">0.00000 TON</div>
+                        <div class="balance-amount-container">
+                            <span id="header-ton-balance" class="balance-amount">0.00000 TON</span>
                         </div>
                     </div>
                 </div>
@@ -173,4 +205,4 @@
         })();
     </script>
 </body>
-                    </html>
+                                            </html>

@@ -39,8 +39,8 @@ class NinjaTONApp {
         };
         
         this.pages = [
-            { id: 'tasks-page', name: 'Earn', icon: 'fa-money-bill-wave', color: '#3b82f6' },
-            { id: 'quests-page', name: 'Quests', icon: 'fa-flag', color: '#3b82f6' },
+            { id: 'tasks-page', name: 'Earn', icon: 'fa-coins', color: '#3b82f6' },
+            { id: 'quests-page', name: 'Quests', icon: 'fa-tasks', color: '#3b82f6' },
             { id: 'referrals-page', name: 'Invite', icon: 'fa-user-plus', color: '#3b82f6' },
             { id: 'withdraw-page', name: 'Withdraw', icon: 'fa-wallet', color: '#3b82f6' }
         ];
@@ -69,7 +69,7 @@ class NinjaTONApp {
             ad2: 0
         };
         
-        this.adCooldown = 300000; // 5 دقائق
+        this.adCooldown = 300000;
         
         this.referralMonitorInterval = null;
         
@@ -677,7 +677,7 @@ class NinjaTONApp {
                     animation:fadeIn 0.6s ease-out;
                 ">
                     <div style="margin-bottom:24px;">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="75" height="75" viewBox="0 0 24 24" fill="none" stroke="#ff4d4d" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round" style="animation:pulse 1.8s infinite ease-in-out;">
+                        <svg xmlns="http://www.w3.org/2000 24" viewBox="0 0 24 24" fill="none" stroke="#ff4d4d" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round" style="animation:pulse 1.8s infinite ease-in-out;">
                             <circle cx="12" cy="12" r="10" stroke="#ff4d4d"/>
                             <line x1="15" y1="9" x2="9" y2="15" stroke="#ff4d4d"/>
                             <line x1="9" y1="9" x2="15" y2="15" stroke="#ff4d4d"/>
@@ -1518,6 +1518,7 @@ class NinjaTONApp {
         this.renderReferralsPage();
         this.renderWithdrawPage();
         this.setupNavigation();
+        this.setupEventListeners();
         
         document.body.addEventListener('copy', (e) => {
             e.preventDefault();
@@ -1582,115 +1583,168 @@ class NinjaTONApp {
         
         tasksPage.innerHTML = `
             <div id="tasks-content">
-                <div class="promo-card-section">
-                    <div class="promo-card">
-                        <div class="promo-header">
-                            <div class="promo-header-icon">
+                <div class="tasks-tabs">
+                    <button class="tab-btn active" data-tab="social-tab">
+                        <i class="fas fa-users"></i> Social
+                    </button>
+                    <button class="tab-btn" data-tab="partner-tab">
+                        <i class="fas fa-handshake"></i> Partner
+                    </button>
+                    <button class="tab-btn" data-tab="promo-tab">
+                        <i class="fas fa-gift"></i> Promo
+                    </button>
+                </div>
+                
+                <div id="social-tab" class="tasks-tab-content active"></div>
+                <div id="partner-tab" class="tasks-tab-content"></div>
+                <div id="promo-tab" class="tasks-tab-content">
+                    <div class="promo-card-tab">
+                        <div class="promo-header-tab">
+                            <div class="promo-icon-tab">
                                 <i class="fas fa-gift"></i>
                             </div>
                             <h3>Promo Codes</h3>
+                            <p>Enter promo code to get bonus TON</p>
                         </div>
-                        <div class="promo-body">
-                            <input type="text" id="promo-input" class="promo-input" 
-                                   placeholder="Enter promo code" 
-                                   maxlength="20">
-                        </div>
-                        <div class="promo-footer">
-                            <button id="promo-btn" class="promo-btn">
-                                <i class="fas fa-gift"></i> APPLY
-                            </button>
-                        </div>
+                        <input type="text" id="promo-input-tab" class="promo-input-tab" 
+                               placeholder="Enter promo code" maxlength="20">
+                        <button id="promo-btn-tab" class="promo-btn-tab">
+                            <i class="fas fa-gift"></i> APPLY PROMO CODE
+                        </button>
                     </div>
                 </div>
             </div>
         `;
         
         setTimeout(() => {
-            this.renderTasksContent();
+            this.setupTasksTabs();
+            this.renderTasksTabContent();
+            this.setupPromoCodeEvents();
         }, 100);
     }
 
-    async renderTasksContent() {
-        const tasksContent = document.getElementById('tasks-content');
-        if (!tasksContent) return;
+    setupTasksTabs() {
+        const tabButtons = document.querySelectorAll('.tasks-tabs .tab-btn');
+        const tabContents = document.querySelectorAll('.tasks-tab-content');
+        
+        tabButtons.forEach(button => {
+            button.addEventListener('click', () => {
+                const tabId = button.getAttribute('data-tab');
+                
+                tabButtons.forEach(btn => btn.classList.remove('active'));
+                tabContents.forEach(content => content.classList.remove('active'));
+                
+                button.classList.add('active');
+                const targetTab = document.getElementById(tabId);
+                if (targetTab) {
+                    targetTab.classList.add('active');
+                    
+                    if (tabId === 'social-tab' && targetTab.innerHTML === '') {
+                        this.loadSocialTasks();
+                    } else if (tabId === 'partner-tab' && targetTab.innerHTML === '') {
+                        this.loadPartnerTasks();
+                    }
+                }
+            });
+        });
+    }
+
+    async renderTasksTabContent() {
+        await this.loadSocialTasks();
+        await this.loadPartnerTasks();
+    }
+
+    async loadSocialTasks() {
+        const socialTab = document.getElementById('social-tab');
+        if (!socialTab) return;
         
         try {
-            await this.loadTasksData();
-            
-            let partnerTasksHTML = '';
-            let socialTasksHTML = '';
-            
+            let socialTasks = [];
             if (this.taskManager) {
-                const partnerTasks = this.taskManager.getPartnerTasks();
-                const socialTasks = this.taskManager.getSocialTasks();
-                
-                if (partnerTasks.length > 0) {
-                    partnerTasksHTML = this.renderTasksSection('Partner Tasks', partnerTasks, 'fa-handshake');
-                }
-                
-                if (socialTasks.length > 0) {
-                    socialTasksHTML = this.renderTasksSection('Social Tasks', socialTasks, 'fa-users');
-                } else {
-                    socialTasksHTML = `
-                        <div class="tasks-section">
-                            <div class="section-header">
-                                <div class="section-icon">
-                                    <i class="fas fa-users"></i>
-                                </div>
-                                <h3>Social Tasks</h3>
-                            </div>
-                            <div class="no-tasks-message">
-                                <p>No tasks available now</p>
-                            </div>
-                        </div>
-                    `;
-                }
+                const allTasks = await this.loadTasksData();
+                socialTasks = allTasks.filter(task => 
+                    task.type === 'social' || 
+                    task.name.toLowerCase().includes('social') ||
+                    task.name.toLowerCase().includes('channel') ||
+                    task.name.toLowerCase().includes('group')
+                );
             }
             
-            tasksContent.innerHTML += `
-                ${partnerTasksHTML}
-                ${socialTasksHTML}
-            `;
-            
-            this.setupPromoCodeEvents();
-            this.setupTasksPageEvents();
-            
+            if (socialTasks.length > 0) {
+                const tasksHTML = socialTasks.map(task => this.renderImprovedTaskCard(task)).join('');
+                socialTab.innerHTML = `
+                    <div class="tasks-list">
+                        ${tasksHTML}
+                    </div>
+                `;
+                this.setupTaskButtons();
+            } else {
+                socialTab.innerHTML = `
+                    <div class="no-tasks-improved">
+                        <i class="fas fa-users"></i>
+                        <p>No social tasks available now</p>
+                    </div>
+                `;
+            }
         } catch (error) {
-            tasksContent.innerHTML += `
-                <div class="no-data">
+            socialTab.innerHTML = `
+                <div class="no-tasks-improved">
                     <i class="fas fa-exclamation-triangle"></i>
-                    <p>Error loading tasks</p>
+                    <p>Error loading social tasks</p>
                 </div>
             `;
         }
     }
 
-    renderTasksSection(title, tasks, iconClass = 'fa-tasks') {
-        if (tasks.length === 0) return '';
+    async loadPartnerTasks() {
+        const partnerTab = document.getElementById('partner-tab');
+        if (!partnerTab) return;
         
-        const tasksHTML = tasks.map(task => this.renderTaskCard(task)).join('');
-        
-        return `
-            <div class="tasks-section">
-                <div class="section-header">
-                    <div class="section-icon">
-                        <i class="fas ${iconClass}"></i>
+        try {
+            let partnerTasks = [];
+            if (this.taskManager) {
+                const allTasks = await this.loadTasksData();
+                partnerTasks = allTasks.filter(task => 
+                    task.type === 'partner' || 
+                    task.name.toLowerCase().includes('partner') ||
+                    task.name.toLowerCase().includes('task')
+                );
+            }
+            
+            if (partnerTasks.length > 0) {
+                const tasksHTML = partnerTasks.map(task => this.renderImprovedTaskCard(task)).join('');
+                partnerTab.innerHTML = `
+                    <div class="tasks-list">
+                        ${tasksHTML}
                     </div>
-                    <h3>${title}</h3>
+                `;
+                this.setupTaskButtons();
+            } else {
+                partnerTab.innerHTML = `
+                    <div class="no-tasks-improved">
+                        <i class="fas fa-handshake"></i>
+                        <p>No partner tasks available now</p>
+                    </div>
+                `;
+            }
+        } catch (error) {
+            partnerTab.innerHTML = `
+                <div class="no-tasks-improved">
+                    <i class="fas fa-exclamation-triangle"></i>
+                    <p>Error loading partner tasks</p>
                 </div>
-                <div class="tasks-list">
-                    ${tasksHTML}
-                </div>
-            </div>
-        `;
+            `;
+        }
     }
 
-    renderTaskCard(task) {
+    renderImprovedTaskCard(task) {
         const isCompleted = this.userCompletedTasks.has(task.id);
+        const botIcon = 'https://i.ibb.co/GvWFRrnp/ninja.png';
+        const tonIcon = 'https://cdn-icons-png.flaticon.com/512/15208/15208522.png';
         
         let buttonText = 'Start';
         let buttonClass = 'start';
-        let isDisabled = isCompleted;
+        let isDisabled = isCompleted || this.isProcessingTask;
         
         if (isCompleted) {
             buttonText = 'COMPLETED';
@@ -1698,27 +1752,25 @@ class NinjaTONApp {
             isDisabled = true;
         }
         
-        const botIcon = 'https://i.ibb.co/GvWFRrnp/ninja.png';
-        
         return `
-            <div class="task-card-simple ${isCompleted ? 'task-completed' : ''}" id="task-${task.id}">
-                <div class="task-avatar-container">
+            <div class="task-card-improved ${isCompleted ? 'task-completed' : ''}" id="task-${task.id}">
+                <div class="task-avatar-improved">
                     <img src="${botIcon}" alt="Bot" class="task-bot-icon">
                 </div>
-                <div class="task-info">
-                    <h4 class="task-name" style="font-size: 0.9rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${task.name}</h4>
-                    <div class="task-reward-simple">
-                        <img src="https://cdn-icons-png.flaticon.com/512/15208/15208522.png" alt="TON" class="ton-icon-small">
-                        <span>${task.reward?.toFixed(4) || '0.0000'} TON</span>
+                <div class="task-info-improved">
+                    <h4 class="task-name-improved">${task.name}</h4>
+                    <div class="task-reward-improved">
+                        <img src="${tonIcon}" alt="TON" class="reward-icon-small">
+                        <span class="reward-amount-small">${task.reward?.toFixed(4) || '0.0000'} TON</span>
                     </div>
                 </div>
-                <div class="task-action-simple">
-                    <button class="task-btn ${buttonClass}" 
+                <div class="task-action-improved">
+                    <button class="task-btn-improved ${buttonClass}" 
                             data-task-id="${task.id}"
                             data-task-url="${task.url}"
                             data-task-type="${task.type}"
                             data-task-reward="${task.reward}"
-                            ${isDisabled || this.isProcessingTask ? 'disabled' : ''}>
+                            ${isDisabled ? 'disabled' : ''}>
                         ${buttonText}
                     </button>
                 </div>
@@ -1727,8 +1779,8 @@ class NinjaTONApp {
     }
 
     setupPromoCodeEvents() {
-        const promoBtn = document.getElementById('promo-btn');
-        const promoInput = document.getElementById('promo-input');
+        const promoBtn = document.getElementById('promo-btn-tab');
+        const promoInput = document.getElementById('promo-input-tab');
         
         if (promoBtn) {
             promoBtn.addEventListener('click', () => {
@@ -1746,8 +1798,8 @@ class NinjaTONApp {
     }
 
     async handlePromoCode() {
-        const promoInput = document.getElementById('promo-input');
-        const promoBtn = document.getElementById('promo-btn');
+        const promoInput = document.getElementById('promo-input-tab');
+        const promoBtn = document.getElementById('promo-btn-tab');
         
         if (!promoInput || !promoBtn) return;
         
@@ -1848,8 +1900,8 @@ class NinjaTONApp {
         }
     }
 
-    setupTasksPageEvents() {
-        const startButtons = document.querySelectorAll('.task-btn.start:not(:disabled)');
+    setupTaskButtons() {
+        const startButtons = document.querySelectorAll('.task-btn-improved.start:not(:disabled)');
         startButtons.forEach(btn => {
             btn.addEventListener('click', async (e) => {
                 if (this.isProcessingTask) return;
@@ -1881,71 +1933,56 @@ class NinjaTONApp {
         const questsPage = document.getElementById('quests-page');
         if (!questsPage) return;
         
-        const currentTime = Date.now();
-        const ad1TimeLeft = Math.max(0, this.adTimers.ad1 + this.adCooldown - currentTime);
-        const ad2TimeLeft = Math.max(0, this.adTimers.ad2 + this.adCooldown - currentTime);
-        
-        const ad1Available = ad1TimeLeft === 0;
-        const ad2Available = ad2TimeLeft === 0;
-        
         questsPage.innerHTML = `
-            <div class="quests-container">
-                <div class="quests-section">
-                    <h3><i class="fas fa-trophy"></i> Friends Quests</h3>
+            <div class="quests-container-improved">
+                <div class="quests-section-improved">
+                    <h3><i class="fas fa-tasks"></i> Friends Quests</h3>
                     <div id="friends-quests-list" class="quests-list">
-                        <!-- سيتم تحميل Friends Quests من QuestManager -->
                     </div>
                 </div>
                 
-                <div class="quests-section">
+                <div class="quests-section-improved">
                     <h3><i class="fas fa-tasks"></i> Tasks Quests</h3>
                     <div id="tasks-quests-list" class="quests-list">
-                        <!-- سيتم تحميل Tasks Quests من QuestManager -->
                     </div>
                 </div>
                 
-                <div class="ad-watch-section">
+                <div class="ad-watch-improved">
                     <h3><i class="fas fa-eye"></i> WATCH & EARN</h3>
-                    <div class="ad-cards-grid">
-                        <div class="ad-card">
-                            <div class="ad-card-header">
-                                <div class="ad-card-icon">
+                    <div class="ad-cards-improved">
+                        <div class="ad-card-improved">
+                            <div class="ad-header-improved">
+                                <div class="ad-icon-improved">
                                     <i class="fas fa-ad"></i>
                                 </div>
-                                <div class="ad-card-title">Watch AD #1</div>
+                                <div class="ad-title-improved">Watch AD #1</div>
                             </div>
-                            <div class="ad-card-description">
-                                Watch AdsGram 19345 ad
-                            </div>
-                            <div class="ad-card-reward">
-                                <i class="fas fa-gem"></i>
+                            <div class="ad-reward-improved">
+                                <img src="https://cdn-icons-png.flaticon.com/512/15208/15208522.png" alt="TON">
                                 <span>0.002 TON</span>
                             </div>
-                            <button class="ad-card-btn ${ad1Available ? 'available' : 'cooldown'}" 
+                            <button class="ad-btn-improved ${this.isAdAvailable(1) ? 'available' : 'cooldown'}" 
                                     id="watch-ad-1-btn"
-                                    ${!ad1Available ? 'disabled' : ''}>
-                                ${ad1Available ? 'WATCH' : this.formatTime(ad1TimeLeft)}
+                                    ${!this.isAdAvailable(1) ? 'disabled' : ''}>
+                                ${this.isAdAvailable(1) ? 'WATCH' : this.formatTime(this.getAdTimeLeft(1))}
                             </button>
                         </div>
                         
-                        <div class="ad-card">
-                            <div class="ad-card-header">
-                                <div class="ad-card-icon">
+                        <div class="ad-card-improved">
+                            <div class="ad-header-improved">
+                                <div class="ad-icon-improved">
                                     <i class="fas fa-ad"></i>
                                 </div>
-                                <div class="ad-card-title">Watch AD #2</div>
+                                <div class="ad-title-improved">Watch AD #2</div>
                             </div>
-                            <div class="ad-card-description">
-                                Watch libtl.com ad
-                            </div>
-                            <div class="ad-card-reward">
-                                <i class="fas fa-gem"></i>
+                            <div class="ad-reward-improved">
+                                <img src="https://cdn-icons-png.flaticon.com/512/15208/15208522.png" alt="TON">
                                 <span>0.001 TON</span>
                             </div>
-                            <button class="ad-card-btn ${ad2Available ? 'available' : 'cooldown'}" 
+                            <button class="ad-btn-improved ${this.isAdAvailable(2) ? 'available' : 'cooldown'}" 
                                     id="watch-ad-2-btn"
-                                    ${!ad2Available ? 'disabled' : ''}>
-                                ${ad2Available ? 'WATCH' : this.formatTime(ad2TimeLeft)}
+                                    ${!this.isAdAvailable(2) ? 'disabled' : ''}>
+                                ${this.isAdAvailable(2) ? 'WATCH' : this.formatTime(this.getAdTimeLeft(2))}
                             </button>
                         </div>
                     </div>
@@ -1957,8 +1994,8 @@ class NinjaTONApp {
         
         setTimeout(() => {
             if (this.questManager) {
-                this.questManager.renderFriendsQuests();
-                this.questManager.renderTasksQuests();
+                this.questManager.renderImprovedFriendsQuests();
+                this.questManager.renderImprovedTasksQuests();
             }
         }, 100);
     }
@@ -1968,6 +2005,18 @@ class NinjaTONApp {
         const minutes = Math.floor(totalSeconds / 60);
         const seconds = totalSeconds % 60;
         return `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+    }
+
+    isAdAvailable(adNumber) {
+        const adTimerKey = `ad${adNumber}`;
+        const currentTime = Date.now();
+        return this.adTimers[adTimerKey] + this.adCooldown <= currentTime;
+    }
+
+    getAdTimeLeft(adNumber) {
+        const adTimerKey = `ad${adNumber}`;
+        const currentTime = Date.now();
+        return Math.max(0, this.adTimers[adTimerKey] + this.adCooldown - currentTime);
     }
 
     setupAdWatchEvents() {
@@ -2078,35 +2127,32 @@ class NinjaTONApp {
         }
     }
 
-    startAdTimers() {
-        const updateAdButtons = () => {
-            const currentTime = Date.now();
+    updateAdButtons() {
+        const currentTime = Date.now();
+        
+        for (let i = 1; i <= 2; i++) {
+            const adBtn = document.getElementById(`watch-ad-${i}-btn`);
+            if (!adBtn) continue;
             
-            for (let i = 1; i <= 2; i++) {
-                const adTimerKey = `ad${i}`;
-                const adBtn = document.getElementById(`watch-ad-${i}-btn`);
-                
-                if (!adBtn) continue;
-                
-                const timeLeft = Math.max(0, this.adTimers[adTimerKey] + this.adCooldown - currentTime);
-                
-                if (timeLeft > 0) {
-                    adBtn.disabled = true;
-                    adBtn.innerHTML = this.formatTime(timeLeft);
-                    adBtn.classList.remove('available');
-                    adBtn.classList.add('cooldown');
-                } else {
-                    adBtn.disabled = false;
-                    adBtn.innerHTML = 'WATCH';
-                    adBtn.classList.add('available');
-                    adBtn.classList.remove('cooldown');
-                }
+            const timeLeft = Math.max(0, this.adTimers[`ad${i}`] + this.adCooldown - currentTime);
+            
+            if (timeLeft > 0) {
+                adBtn.disabled = true;
+                adBtn.innerHTML = this.formatTime(timeLeft);
+                adBtn.classList.remove('available');
+                adBtn.classList.add('cooldown');
+            } else {
+                adBtn.disabled = false;
+                adBtn.innerHTML = 'WATCH';
+                adBtn.classList.add('available');
+                adBtn.classList.remove('cooldown');
             }
-        };
-        
-        updateAdButtons();
-        
-        setInterval(updateAdButtons, 1000);
+        }
+    }
+
+    startAdTimers() {
+        this.updateAdButtons();
+        setInterval(() => this.updateAdButtons(), 1000);
     }
 
     async renderReferralsPage() {
@@ -2208,51 +2254,50 @@ class NinjaTONApp {
         const minimumWithdraw = this.appConfig.MINIMUM_WITHDRAW;
         
         withdrawPage.innerHTML = `
-            <div class="withdraw-container">
-                <div class="withdraw-form">
-                    <div class="form-row">
-                        <div class="form-group compact">
-                            <label for="wallet-address-input">
-                                <i class="fas fa-wallet"></i> Wallet
-                            </label>
-                            <input type="text" id="wallet-address-input" class="form-input compact-input" 
-                                   placeholder="Ex: UQCMATcdykmpWDSLdI5ob..."
-                                   required>
+            <div class="withdraw-container-improved">
+                <div class="withdraw-form-improved">
+                    <div class="form-group-improved">
+                        <label class="form-label-improved" for="wallet-input">
+                            <i class="fas fa-wallet"></i> TON Wallet Address
+                        </label>
+                        <input type="text" id="wallet-input" class="form-input-improved" 
+                               placeholder="Enter your TON wallet address (UQ...)"
+                               required>
+                    </div>
+                    
+                    <div class="form-group-improved">
+                        <label class="form-label-improved" for="amount-input">
+                            <i class="fas fa-gem"></i> Withdrawal Amount
+                        </label>
+                        <input type="number" id="amount-input" class="form-input-improved" 
+                               step="0.00001" min="${minimumWithdraw}" max="${userBalance}"
+                               placeholder="Minimum: ${minimumWithdraw} TON"
+                               required>
+                    </div>
+                    
+                    <div class="balance-info-improved">
+                        <div class="balance-row">
+                            <span class="balance-label">Available Balance:</span>
+                            <span class="balance-value">${userBalance.toFixed(5)} TON</span>
                         </div>
-                        
-                        <div class="form-group compact">
-                            <label for="withdraw-amount-input">
-                                <i class="fas fa-gem"></i> Amount
-                            </label>
-                            <input type="number" id="withdraw-amount-input" class="form-input compact-input" 
-                                   step="0.00001" min="${minimumWithdraw}" max="${userBalance}"
-                                   placeholder="Ex: ${minimumWithdraw}"
-                                   required>
+                        <div class="balance-row">
+                            <span class="balance-label">Minimum Withdrawal:</span>
+                            <span class="balance-value">${minimumWithdraw.toFixed(3)} TON</span>
                         </div>
                     </div>
                     
-                    <div class="balance-info-compact">
-                        <div class="minimum-withdraw">
-                            <i class="fas fa-exclamation-circle"></i>
-                            Minimum Withdrawal: ${minimumWithdraw.toFixed(3)} TON
-                        </div>
-                        <div class="current-balance-small">
-                            <i class="fas fa-wallet"></i>
-                            Available: ${userBalance.toFixed(3)} TON
-                        </div>
-                    </div>
-                    
-                    <button id="withdraw-submit-btn" class="withdraw-btn-compact">
-                        <i class="fas fa-paper-plane"></i> Confirm Withdrawal
+                    <button id="withdraw-btn" class="withdraw-btn-improved" 
+                            ${userBalance < minimumWithdraw ? 'disabled' : ''}>
+                        <i class="fas fa-paper-plane"></i> WITHDRAW NOW
                     </button>
                 </div>
                 
-                <div class="history-section">
+                <div class="history-section-improved">
                     <h3><i class="fas fa-history"></i> Withdrawal History</h3>
-                    <div id="withdrawal-history" class="history-list">
+                    <div class="history-list-improved" id="withdrawal-history-list">
                         ${this.userWithdrawals.length > 0 ? 
-                            this.renderWithdrawalHistory() : 
-                            '<div class="no-data"><i class="fas fa-history"></i><p>No withdrawal history</p></div>'
+                            this.renderWithdrawalHistoryImproved() : 
+                            '<div class="no-history"><i class="fas fa-history"></i><p>No withdrawal history</p></div>'
                         }
                     </div>
                 </div>
@@ -2262,37 +2307,37 @@ class NinjaTONApp {
         this.setupWithdrawPageEvents();
     }
 
-    renderWithdrawalHistory() {
-        return this.userWithdrawals.map(transaction => {
+    renderWithdrawalHistoryImproved() {
+        return this.userWithdrawals.slice(0, 5).map(transaction => {
             const date = new Date(transaction.createdAt || transaction.timestamp);
-            const day = date.getDate().toString().padStart(2, '0');
-            const month = (date.getMonth() + 1).toString().padStart(2, '0');
-            const year = date.getFullYear();
-            const formattedDate = `${day}-${month}-${year}`;
-            const formattedTime = `${date.getHours().toString().padStart(2, '0')}:${date.getMinutes().toString().padStart(2, '0')}`;
+            const formattedDate = `${date.getDate().toString().padStart(2, '0')}/${(date.getMonth() + 1).toString().padStart(2, '0')}/${date.getFullYear()} ${date.getHours().toString().padStart(2, '0')}:${date.getMinutes().toString().padStart(2, '0')}`;
             
             const amount = this.safeNumber(transaction.tonAmount || transaction.amount || 0);
             const status = transaction.status || 'pending';
+            const wallet = transaction.walletAddress || '';
+            const shortWallet = wallet.length > 8 ? 
+                `${wallet.substring(0, 6)}...${wallet.substring(wallet.length - 4)}` : 
+                wallet;
             
             return `
-                <div class="history-item">
-                    <div class="history-info">
+                <div class="history-item-improved">
+                    <div class="history-top">
                         <div class="history-amount">${amount.toFixed(5)} TON</div>
-                        <div class="history-details">
-                            <div class="history-date">${formattedDate} ${formattedTime}</div>
-                            <div class="history-wallet">${transaction.walletAddress?.substring(0, 12)}...${transaction.walletAddress?.substring(transaction.walletAddress.length - 6)}</div>
-                        </div>
+                        <span class="history-status ${status}">${status}</span>
                     </div>
-                    <span class="history-status status-${status}">${status}</span>
+                    <div class="history-details">
+                        <div class="history-date">${formattedDate}</div>
+                        <div class="history-wallet">${shortWallet}</div>
+                    </div>
                 </div>
             `;
         }).join('');
     }
 
     setupWithdrawPageEvents() {
-        const walletInput = document.getElementById('wallet-address-input');
-        const amountInput = document.getElementById('withdraw-amount-input');
-        const withdrawBtn = document.getElementById('withdraw-submit-btn');
+        const walletInput = document.getElementById('wallet-input');
+        const amountInput = document.getElementById('amount-input');
+        const withdrawBtn = document.getElementById('withdraw-btn');
         
         if (amountInput) {
             amountInput.addEventListener('input', () => {
@@ -2313,9 +2358,9 @@ class NinjaTONApp {
     }
 
     async handleWithdrawal() {
-        const walletInput = document.getElementById('wallet-address-input');
-        const amountInput = document.getElementById('withdraw-amount-input');
-        const withdrawBtn = document.getElementById('withdraw-submit-btn');
+        const walletInput = document.getElementById('wallet-input');
+        const amountInput = document.getElementById('amount-input');
+        const withdrawBtn = document.getElementById('withdraw-btn');
         
         if (!walletInput || !amountInput || !withdrawBtn) return;
         
@@ -2324,8 +2369,8 @@ class NinjaTONApp {
         const userBalance = this.safeNumber(this.userState.balance);
         const minimumWithdraw = this.appConfig.MINIMUM_WITHDRAW;
         
-        if (!walletAddress) {
-            this.notificationManager.showNotification("Error", "Please enter wallet address", "error");
+        if (!walletAddress || walletAddress.length < 20) {
+            this.notificationManager.showNotification("Error", "Please enter a valid TON wallet address", "error");
             return;
         }
         

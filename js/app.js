@@ -1466,13 +1466,12 @@ class NinjaTONApp {
     updateHeader() {
         const userPhoto = document.getElementById('user-photo');
         const userName = document.getElementById('user-name');
+        const userUsername = document.getElementById('user-username');
         const telegramId = document.getElementById('telegram-id-text');
         const tonBalance = document.getElementById('header-ton-balance');
         
         if (userPhoto) {
             userPhoto.src = this.userState.photoUrl || 'https://cdn-icons-png.flaticon.com/512/9195/9195920.png';
-            userPhoto.style.width = '60px';
-            userPhoto.style.height = '60px';
             userPhoto.style.objectFit = 'cover';
             userPhoto.oncontextmenu = (e) => e.preventDefault();
             userPhoto.ondragstart = () => false;
@@ -1483,22 +1482,19 @@ class NinjaTONApp {
             userName.textContent = this.truncateName(fullName, 20);
         }
         
+        if (userUsername) {
+            const username = this.tgUser.username ? `@${this.tgUser.username}` : 'No Username';
+            userUsername.textContent = username;
+        }
+        
         if (telegramId) {
-            telegramId.innerHTML = `
-                <span class="id-text">ID: ${this.tgUser.id || '123456789'}</span>
-                <button class="copy-icon-btn" id="copy-id-btn" data-copy="${this.tgUser.id || ''}" title="Copy ID">
-                    <i class="far fa-copy"></i>
-                </button>
-            `;
+            telegramId.textContent = this.tgUser.id || '123456789';
         }
         
         if (tonBalance) {
             const balance = this.safeNumber(this.userState.balance);
             tonBalance.textContent = `${balance.toFixed(5)} TON`;
-            tonBalance.style.display = 'block';
         }
-        
-        this.setupCopyButtons();
     }
 
     renderUI() {
@@ -2534,33 +2530,56 @@ class NinjaTONApp {
         return this.userWithdrawals.slice(0, 5).map(transaction => {
             const date = new Date(transaction.createdAt || transaction.timestamp);
             const formattedDate = this.formatDate(date);
+            const formattedTime = this.formatTime(date);
             
             const amount = this.safeNumber(transaction.tonAmount || transaction.amount || 0);
             const status = transaction.status || 'pending';
             const wallet = transaction.walletAddress || '';
-            const shortWallet = wallet.length > 8 ? 
-                `${wallet.substring(0, 6)}...${wallet.substring(wallet.length - 4)}` : 
+            const shortWallet = wallet.length > 10 ? 
+                `${wallet.substring(0, 5)}.....${wallet.substring(wallet.length - 5)}` : 
                 wallet;
             
             const transactionLink = transaction.transaction_link || `https://tonviewer.com/${wallet}`;
             
             return `
                 <div class="history-item">
-                    <div class="history-top">
-                        <div class="history-amount">${amount.toFixed(5)} TON</div>
+                    <div class="history-header">
+                        <div class="history-title">
+                            <i class="fas fa-wallet"></i>
+                            TON Withdrawal
+                        </div>
                         <span class="history-status ${status}">${status.toUpperCase()}</span>
                     </div>
+                    
                     <div class="history-details">
-                        <div class="history-date">${formattedDate}</div>
-                        <div class="history-wallet">${shortWallet}</div>
-                        ${status === 'completed' ? `
-                            <div class="history-explorer">
-                                <a href="${transactionLink}" target="_blank" class="explorer-link">
-                                    <i class="fas fa-external-link-alt"></i> View on Explorer
-                                </a>
-                            </div>
-                        ` : ''}
+                        <div class="detail-row">
+                            <span class="detail-label-small">Amount:</span>
+                            <span class="detail-value-small">${amount.toFixed(5)} TON</span>
+                        </div>
+                        
+                        <div class="detail-row">
+                            <span class="detail-label-small">Wallet:</span>
+                            <span class="wallet-address">${shortWallet}</span>
+                        </div>
                     </div>
+                    
+                    <div class="history-date-time">
+                        <div class="date-item">
+                            <span class="date-label">Date</span>
+                            <span class="date-value">${formattedDate.split(' ')[0]}</span>
+                        </div>
+                        <div class="date-item">
+                            <span class="date-label">Time</span>
+                            <span class="date-value">${formattedTime}</span>
+                        </div>
+                    </div>
+                    
+                    ${status === 'completed' ? `
+                        <div class="history-separator"></div>
+                        <a href="${transactionLink}" target="_blank" class="explorer-link">
+                            <i class="fas fa-external-link-alt"></i> View on Explorer
+                        </a>
+                    ` : ''}
                 </div>
             `;
         }).join('');
@@ -2717,6 +2736,12 @@ class NinjaTONApp {
         const hours = date.getHours().toString().padStart(2, '0');
         const minutes = date.getMinutes().toString().padStart(2, '0');
         return `${day}-${month}-${year} ${hours}:${minutes}`;
+    }
+
+    formatTime(date) {
+        const hours = date.getHours().toString().padStart(2, '0');
+        const minutes = date.getMinutes().toString().padStart(2, '0');
+        return `${hours}:${minutes}`;
     }
 
     setupEventListeners() {

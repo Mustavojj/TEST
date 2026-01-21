@@ -1148,7 +1148,7 @@ class NinjaTONApp {
                             btn.innerHTML = '<i class="fas fa-exclamation-triangle"></i> Error';
                             btn.disabled = false;
                         }
-                    }, 10000); // 10 seconds wait time
+                    }, 10000);
                 });
             }
         });
@@ -1486,7 +1486,7 @@ class NinjaTONApp {
         if (telegramId) {
             telegramId.innerHTML = `
                 <span class="id-text">ID: ${this.tgUser.id || '123456789'}</span>
-                <button class="copy-icon-btn" data-copy="${this.tgUser.id || ''}" title="Copy ID">
+                <button class="copy-icon-btn" id="copy-id-btn" data-copy="${this.tgUser.id || ''}" title="Copy ID">
                     <i class="far fa-copy"></i>
                 </button>
             `;
@@ -2548,18 +2548,18 @@ class NinjaTONApp {
                 <div class="history-item">
                     <div class="history-top">
                         <div class="history-amount">${amount.toFixed(5)} TON</div>
-                        <div class="history-status-container">
-                            <span class="history-status ${status}">${status.toUpperCase()}</span>
-                            ${status === 'completed' ? `
-                                <a href="${transactionLink}" target="_blank" class="explorer-link">
-                                    <i class="fas fa-external-link-alt"></i> View on Explorer
-                                </a>
-                            ` : ''}
-                        </div>
+                        <span class="history-status ${status}">${status.toUpperCase()}</span>
                     </div>
                     <div class="history-details">
                         <div class="history-date">${formattedDate}</div>
                         <div class="history-wallet">${shortWallet}</div>
+                        ${status === 'completed' ? `
+                            <div class="history-explorer">
+                                <a href="${transactionLink}" target="_blank" class="explorer-link">
+                                    <i class="fas fa-external-link-alt"></i> View on Explorer
+                                </a>
+                            </div>
+                        ` : ''}
                     </div>
                 </div>
             `;
@@ -2750,24 +2750,6 @@ class NinjaTONApp {
                 }
             });
         });
-        
-        const balanceCopy = document.getElementById('balance-copy-btn');
-        if (balanceCopy) {
-            balanceCopy.addEventListener('click', (e) => {
-                e.stopPropagation();
-                const balance = this.safeNumber(this.userState.balance);
-                this.copyToClipboard(balance.toFixed(5) + ' TON');
-                
-                const originalHTML = balanceCopy.innerHTML;
-                balanceCopy.innerHTML = '<i class="fas fa-check"></i>';
-                balanceCopy.classList.add('copied');
-                
-                setTimeout(() => {
-                    balanceCopy.innerHTML = originalHTML;
-                    balanceCopy.classList.remove('copied');
-                }, 2000);
-            });
-        }
     }
 
     generateReferralCode() {

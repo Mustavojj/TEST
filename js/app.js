@@ -1148,7 +1148,7 @@ class NinjaTONApp {
                             btn.innerHTML = '<i class="fas fa-exclamation-triangle"></i> Error';
                             btn.disabled = false;
                         }
-                    }, 5000);
+                    }, 10000); // 10 seconds wait time
                 });
             }
         });
@@ -1400,15 +1400,15 @@ class NinjaTONApp {
     }
 
     showLoadingProgress(percent) {
-        const progressBar = document.querySelector('.loading-progress-bar');
+        const progressBar = document.getElementById('loading-progress-bar');
         if (progressBar) {
             progressBar.style.width = percent + '%';
             progressBar.style.transition = 'width 0.3s ease';
         }
         
-        const loadingText = document.querySelector('.loading-text');
-        if (loadingText) {
-            loadingText.textContent = `Loading... ${percent}%`;
+        const loadingPercentage = document.getElementById('loading-percentage');
+        if (loadingPercentage) {
+            loadingPercentage.textContent = `${percent}%`;
         }
     }
 
@@ -1485,7 +1485,10 @@ class NinjaTONApp {
         
         if (telegramId) {
             telegramId.innerHTML = `
-                <span>ID: ${this.tgUser.id || '123456789'}</span>
+                <span class="id-text">ID: ${this.tgUser.id || '123456789'}</span>
+                <button class="copy-icon-btn" data-copy="${this.tgUser.id || ''}" title="Copy ID">
+                    <i class="far fa-copy"></i>
+                </button>
             `;
         }
         
@@ -1494,6 +1497,8 @@ class NinjaTONApp {
             tonBalance.textContent = `${balance.toFixed(5)} TON`;
             tonBalance.style.display = 'block';
         }
+        
+        this.setupCopyButtons();
     }
 
     renderUI() {
@@ -2321,10 +2326,9 @@ class NinjaTONApp {
                         </div>
                         <div class="referral-info">
                             <p class="referral-username">${referral.username}</p>
-                            <p class="referral-date">${this.formatDate(referral.joinedAt)}</p>
                         </div>
                         <div class="referral-status">
-                            <span class="status-badge ${referral.state}">${referral.state === 'verified' ? 'Verified' : 'Pending'}</span>
+                            <span class="status-badge ${referral.state}">${referral.state === 'verified' ? 'VERIFIED' : 'PENDING'}</span>
                         </div>
                     </div>
                 `).join('');
@@ -2544,18 +2548,18 @@ class NinjaTONApp {
                 <div class="history-item">
                     <div class="history-top">
                         <div class="history-amount">${amount.toFixed(5)} TON</div>
-                        <span class="history-status ${status}">${status}</span>
+                        <div class="history-status-container">
+                            <span class="history-status ${status}">${status.toUpperCase()}</span>
+                            ${status === 'completed' ? `
+                                <a href="${transactionLink}" target="_blank" class="explorer-link">
+                                    <i class="fas fa-external-link-alt"></i> View on Explorer
+                                </a>
+                            ` : ''}
+                        </div>
                     </div>
                     <div class="history-details">
                         <div class="history-date">${formattedDate}</div>
                         <div class="history-wallet">${shortWallet}</div>
-                        ${status === 'completed' ? `
-                            <div class="history-explorer">
-                                <a href="${transactionLink}" target="_blank" class="explorer-link">
-                                    <i class="fas fa-external-link-alt"></i> View on Explorer
-                                </a>
-                            </div>
-                        ` : ''}
                     </div>
                 </div>
             `;
@@ -2722,6 +2726,46 @@ class NinjaTONApp {
                 if (this.tgUser?.id) {
                     this.copyToClipboard(this.tgUser.id.toString());
                 }
+            });
+        }
+    }
+
+    setupCopyButtons() {
+        const copyButtons = document.querySelectorAll('.copy-icon-btn');
+        copyButtons.forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                const text = btn.getAttribute('data-copy');
+                if (text) {
+                    this.copyToClipboard(text);
+                    
+                    const originalHTML = btn.innerHTML;
+                    btn.innerHTML = '<i class="fas fa-check"></i>';
+                    btn.classList.add('copied');
+                    
+                    setTimeout(() => {
+                        btn.innerHTML = originalHTML;
+                        btn.classList.remove('copied');
+                    }, 2000);
+                }
+            });
+        });
+        
+        const balanceCopy = document.getElementById('balance-copy-btn');
+        if (balanceCopy) {
+            balanceCopy.addEventListener('click', (e) => {
+                e.stopPropagation();
+                const balance = this.safeNumber(this.userState.balance);
+                this.copyToClipboard(balance.toFixed(5) + ' TON');
+                
+                const originalHTML = balanceCopy.innerHTML;
+                balanceCopy.innerHTML = '<i class="fas fa-check"></i>';
+                balanceCopy.classList.add('copied');
+                
+                setTimeout(() => {
+                    balanceCopy.innerHTML = originalHTML;
+                    balanceCopy.classList.remove('copied');
+                }, 2000);
             });
         }
     }

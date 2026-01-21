@@ -2651,3 +2651,219 @@ body {
         font-size: 13px;
     }
 }
+
+/* ============================================
+   شاشة التحميل الجديدة - بدون إطار
+   ============================================ */
+.loading-card-header {
+    margin-bottom: 30px;
+    text-align: center;
+}
+
+.loading-card-logo-container {
+    width: 140px;
+    height: 140px;
+    margin: 0 auto 20px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.loading-card-logo {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    filter: drop-shadow(0 0 30px rgba(59, 130, 246, 0.6));
+    animation: pulseLogo 2s ease-in-out infinite;
+    -webkit-user-drag: none;
+    pointer-events: none;
+    border-radius: 0;
+}
+
+.loading-card-title {
+    font-size: 2.2rem;
+    font-weight: 900;
+    color: white;
+    margin-bottom: 0;
+    letter-spacing: 1px;
+    text-shadow: 0 0 20px rgba(59, 130, 246, 0.8);
+    text-transform: uppercase;
+}
+
+.loading-card-body {
+    margin-bottom: 20px;
+}
+
+.loading-subtitle {
+    font-size: 1rem;
+    color: rgba(255, 255, 255, 0.8);
+    margin-top: 15px;
+    font-weight: 600;
+    letter-spacing: 0.5px;
+}
+
+/* ============================================
+   بطاقة الملف الشخصي - محاذاة جديدة
+   ============================================ */
+.profile-content {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 15px;
+    width: 100%;
+}
+
+.profile-left {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+    flex: 1;
+}
+
+.user-avatar-container {
+    width: 70px;
+    height: 70px;
+    flex-shrink: 0;
+}
+
+.user-avatar {
+    width: 100%;
+    height: 100%;
+    border-radius: 50%;
+    border: 3px solid rgba(59, 130, 246, 0.5);
+    object-fit: cover;
+    box-shadow: 0 8px 25px rgba(0, 0, 0, 0.3);
+    background: white;
+    pointer-events: none;
+    -webkit-user-drag: none;
+}
+
+.user-info-left {
+    flex: 1;
+    min-width: 0;
+}
+
+.user-name {
+    font-size: 1.4rem;
+    font-weight: 800;
+    color: white;
+    margin: 0 0 5px 0;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    line-height: 1.3;
+    text-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+}
+
+.user-username {
+    font-size: 1rem;
+    color: rgba(255, 255, 255, 0.8);
+    margin: 0;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    font-weight: 500;
+}
+
+.profile-right {
+    flex-shrink: 0;
+    text-align: right;
+    min-width: 160px;
+}
+
+.balance-info {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    align-items: flex-end;
+}
+
+.balance-label {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 0.9rem;
+    font-weight: 700;
+    color: rgba(255, 255, 255, 0.9);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.balance-label i {
+    color: #3b82f6;
+    font-size: 1.1rem;
+}
+
+.balance-amount {
+    font-size: 1.4rem;
+    font-weight: 800;
+    color: white;
+    font-family: monospace;
+    letter-spacing: 0.5px;
+    text-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+    line-height: 1;
+}
+
+/* إزالة الأنماط القديمة */
+.loading-card-icon {
+    display: none;
+}
+
+/* Responsive */
+@media (max-width: 480px) {
+    .loading-card-logo-container {
+        width: 120px;
+        height: 120px;
+    }
+    
+    .loading-card-title {
+        font-size: 1.8rem;
+    }
+    
+    .profile-content {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 20px;
+    }
+    
+    .profile-right {
+        min-width: auto;
+        text-align: left;
+    }
+    
+    .balance-info {
+        align-items: flex-start;
+    }
+    
+    .balance-amount {
+        font-size: 1.3rem;
+    }
+}
+
+@media (max-width: 360px) {
+    .loading-card-logo-container {
+        width: 100px;
+        height: 100px;
+    }
+    
+    .loading-card-title {
+        font-size: 1.6rem;
+    }
+    
+    .user-avatar-container {
+        width: 60px;
+        height: 60px;
+    }
+    
+    .user-name {
+        font-size: 1.2rem;
+    }
+    
+    .user-username {
+        font-size: 0.9rem;
+    }
+    
+    .balance-amount {
+        font-size: 1.2rem;
+    }
+    }

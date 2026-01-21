@@ -1467,11 +1467,12 @@ class NinjaTONApp {
         const userPhoto = document.getElementById('user-photo');
         const userName = document.getElementById('user-name');
         const userUsername = document.getElementById('user-username');
-        const telegramId = document.getElementById('telegram-id-text');
         const tonBalance = document.getElementById('header-ton-balance');
         
         if (userPhoto) {
             userPhoto.src = this.userState.photoUrl || 'https://cdn-icons-png.flaticon.com/512/9195/9195920.png';
+            userPhoto.style.width = '60px';
+            userPhoto.style.height = '60px';
             userPhoto.style.objectFit = 'cover';
             userPhoto.oncontextmenu = (e) => e.preventDefault();
             userPhoto.ondragstart = () => false;
@@ -1484,16 +1485,13 @@ class NinjaTONApp {
         
         if (userUsername) {
             const username = this.tgUser.username ? `@${this.tgUser.username}` : 'No Username';
-            userUsername.textContent = username;
-        }
-        
-        if (telegramId) {
-            telegramId.textContent = this.tgUser.id || '123456789';
+            userUsername.textContent = this.truncateName(username, 20);
         }
         
         if (tonBalance) {
             const balance = this.safeNumber(this.userState.balance);
             tonBalance.textContent = `${balance.toFixed(5)} TON`;
+            tonBalance.style.display = 'block';
         }
     }
 
@@ -2530,55 +2528,46 @@ class NinjaTONApp {
         return this.userWithdrawals.slice(0, 5).map(transaction => {
             const date = new Date(transaction.createdAt || transaction.timestamp);
             const formattedDate = this.formatDate(date);
-            const formattedTime = this.formatTime(date);
+            const formattedTime = this.formatTime24(date);
             
             const amount = this.safeNumber(transaction.tonAmount || transaction.amount || 0);
             const status = transaction.status || 'pending';
             const wallet = transaction.walletAddress || '';
             const shortWallet = wallet.length > 10 ? 
-                `${wallet.substring(0, 5)}.....${wallet.substring(wallet.length - 5)}` : 
+                `${wallet.substring(0, 5)}...${wallet.substring(wallet.length - 5)}` : 
                 wallet;
             
             const transactionLink = transaction.transaction_link || `https://tonviewer.com/${wallet}`;
             
             return `
                 <div class="history-item">
-                    <div class="history-header">
+                    <div class="history-top">
                         <div class="history-title">
-                            <i class="fas fa-wallet"></i>
-                            TON Withdrawal
+                            <i class="fas fa-gem"></i>
+                            <span>TON Withdrawal</span>
                         </div>
                         <span class="history-status ${status}">${status.toUpperCase()}</span>
                     </div>
-                    
                     <div class="history-details">
-                        <div class="detail-row">
-                            <span class="detail-label-small">Amount:</span>
-                            <span class="detail-value-small">${amount.toFixed(5)} TON</span>
+                        <div class="history-row">
+                            <span class="detail-label">Amount:</span>
+                            <span class="detail-value">${amount.toFixed(5)} TON</span>
                         </div>
-                        
-                        <div class="detail-row">
-                            <span class="detail-label-small">Wallet:</span>
-                            <span class="wallet-address">${shortWallet}</span>
+                        <div class="history-row">
+                            <span class="detail-label">Wallet:</span>
+                            <span class="detail-value wallet-address" title="${wallet}">${shortWallet}</span>
                         </div>
-                    </div>
-                    
-                    <div class="history-date-time">
-                        <div class="date-item">
-                            <span class="date-label">Date</span>
-                            <span class="date-value">${formattedDate.split(' ')[0]}</span>
-                        </div>
-                        <div class="date-item">
-                            <span class="date-label">Time</span>
-                            <span class="date-value">${formattedTime}</span>
+                        <div class="history-row">
+                            <span class="detail-label">Date:</span>
+                            <span class="detail-value">${formattedDate} ${formattedTime}</span>
                         </div>
                     </div>
-                    
                     ${status === 'completed' ? `
-                        <div class="history-separator"></div>
-                        <a href="${transactionLink}" target="_blank" class="explorer-link">
-                            <i class="fas fa-external-link-alt"></i> View on Explorer
-                        </a>
+                        <div class="history-explorer">
+                            <a href="${transactionLink}" target="_blank" class="explorer-link">
+                                <i class="fas fa-external-link-alt"></i> View on Explorer
+                            </a>
+                        </div>
                     ` : ''}
                 </div>
             `;
@@ -2733,12 +2722,11 @@ class NinjaTONApp {
         const day = date.getDate().toString().padStart(2, '0');
         const month = (date.getMonth() + 1).toString().padStart(2, '0');
         const year = date.getFullYear();
-        const hours = date.getHours().toString().padStart(2, '0');
-        const minutes = date.getMinutes().toString().padStart(2, '0');
-        return `${day}-${month}-${year} ${hours}:${minutes}`;
+        return `${day}-${month}-${year}`;
     }
 
-    formatTime(date) {
+    formatTime24(timestamp) {
+        const date = new Date(timestamp);
         const hours = date.getHours().toString().padStart(2, '0');
         const minutes = date.getMinutes().toString().padStart(2, '0');
         return `${hours}:${minutes}`;

@@ -3,14 +3,14 @@ const APP_CONFIG = {
     BOT_USERNAME: "NinjaTONS_Bot",
     MINIMUM_WITHDRAW: 0.100,
     REFERRAL_BONUS_TON: 0.005,
-    REFERRAL_BONUS_SPINS: 1,
-    TASK_SPIN_BONUS: 1,
+    REFERRAL_BONUS_TASKS: 1,
+    TASK_REWARD_BONUS: 1,
     MAX_DAILY_ADS: 999999,
     AD_COOLDOWN: 300000
 };
 
 import { CacheManager, NotificationManager, SecurityManager, AdManager } from './modules/core.js';
-import { TaskManager, SpinManager, ReferralManager } from './modules/features.js';
+import { TaskManager, QuestManager, ReferralManager } from './modules/features.js';
 
 class NinjaTONApp {
     
@@ -39,9 +39,9 @@ class NinjaTONApp {
         };
         
         this.pages = [
-            { id: 'tasks-page', name: 'Earn', icon: 'fa-coins', color: '#3b82f6' },
-            { id: 'spin-page', name: 'Spin', icon: 'fa-sync-alt', color: '#3b82f6' },
-            { id: 'referrals-page', name: 'Invite', icon: 'fa-users', color: '#3b82f6' },
+            { id: 'tasks-page', name: 'Earn', icon: 'fa-money-bill-wave', color: '#3b82f6' },
+            { id: 'quests-page', name: 'Quests', icon: 'fa-flag', color: '#3b82f6' },
+            { id: 'referrals-page', name: 'Invite', icon: 'fa-user-plus', color: '#3b82f6' },
             { id: 'withdraw-page', name: 'Withdraw', icon: 'fa-wallet', color: '#3b82f6' }
         ];
         
@@ -54,7 +54,7 @@ class NinjaTONApp {
         this.tgUser = null;
         
         this.taskManager = null;
-        this.spinManager = null;
+        this.questManager = null;
         this.referralManager = null;
         
         this.currentTasksTab = 'main';
@@ -64,36 +64,14 @@ class NinjaTONApp {
         
         this.referralBonusGiven = new Set();
         
-        this.dailyAdsWatched = 0;
-        this.maxDailyAds = this.appConfig.MAX_DAILY_ADS;
-        this.lastAdWatchTime = 0;
-        this.adCooldown = this.appConfig.AD_COOLDOWN;
+        this.adTimers = {
+            ad1: 0,
+            ad2: 0
+        };
         
-        this.spinPrizes = [
-            "Game over",
-            "1 Spin",
-            "3 Spin",
-            "5 Spin",
-            "0.0001 💎",
-            "0.0005 💎",
-            "0.001 💎",
-            "0.005 💎",
-            "0.01 💎",
-            "0.05 💎"
-        ];
-        
-        this.spinQuests = [
-            { spins: 10, reward: 0.01, completed: false, claimed: false },
-            { spins: 50, reward: 0.02, completed: false, claimed: false },
-            { spins: 100, reward: 0.05, completed: false, claimed: false },
-            { spins: 200, reward: 0.10, completed: false, claimed: false },
-            { spins: 500, reward: 0.20, completed: false, claimed: false }
-        ];
-        
-        this.totalSpinsCompleted = 0;
+        this.adCooldown = 300000; // 5 دقائق
         
         this.referralMonitorInterval = null;
-        this.adButtonCooldownTimer = null;
         
         this.autoAdTimer = null;
         this.autoAdInterval = null;
@@ -121,8 +99,7 @@ class NinjaTONApp {
                 this.limits = {
                     'task_start': { limit: 1, window: 3000 },
                     'withdrawal': { limit: 1, window: 86400000 },
-                    'ad_reward': { limit: 10, window: 300000 },
-                    'spin': { limit: 10, window: 60000 }
+                    'ad_reward': { limit: 10, window: 300000 }
                 };
             }
 
@@ -216,7 +193,7 @@ class NinjaTONApp {
             
             this.adManager = new AdManager(this);
             this.taskManager = new TaskManager(this);
-            this.spinManager = new SpinManager(this);
+            this.questManager = new QuestManager(this);
             this.referralManager = new ReferralManager(this);
             
             this.startReferralMonitor();
@@ -248,9 +225,9 @@ class NinjaTONApp {
             this.showLoadingProgress(85);
             
             try {
-                await this.loadDailyAdsWatched();
-            } catch (spinError) {
-                console.warn('Spin data load failed:', spinError);
+                await this.loadAdTimers();
+            } catch (adError) {
+                console.warn('Ad timers load failed:', adError);
             }
             
             this.showLoadingProgress(90);
@@ -552,8 +529,6 @@ class NinjaTONApp {
             firstName: this.getShortName(this.tgUser.first_name || 'User'),
             photoUrl: this.tgUser.photo_url || 'https://cdn-icons-png.flaticon.com/512/9195/9195920.png',
             balance: 0,
-            spins: 0,
-            totalSpins: 0,
             referrals: 0,
             referralCode: this.generateReferralCode(),
             totalEarned: 0,
@@ -596,7 +571,6 @@ class NinjaTONApp {
                         state: 'pending',
                         bonusGiven: false,
                         bonusAmount: this.appConfig.REFERRAL_BONUS_TON,
-                        spinsBonus: this.appConfig.REFERRAL_BONUS_SPINS,
                         verifiedAt: null
                     });
                 } else {
@@ -614,8 +588,6 @@ class NinjaTONApp {
             firstName: this.getShortName(this.tgUser.first_name || ''),
             photoUrl: this.tgUser.photo_url || 'https://cdn-icons-png.flaticon.com/512/9195/9195920.png',
             balance: 0,
-            spins: 0,
-            totalSpins: 0,
             referrals: 0,
             referredBy: referralId,
             referralCode: this.generateReferralCode(),
@@ -752,22 +724,6 @@ class NinjaTONApp {
     }
 
     async updateExistingUser(userRef, userData) {
-        const now = new Date();
-        const today = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
-        const todayKey = today.getTime();
-        const lastAdReset = userData.lastAdResetDate || 0;
-        
-        if (lastAdReset < todayKey) {
-            userData.dailyAdsWatched = 0;
-            await userRef.update({
-                dailyAdsWatched: 0,
-                lastAdResetDate: todayKey
-            });
-            this.dailyAdsWatched = 0;
-        } else {
-            this.dailyAdsWatched = userData.dailyAdsWatched || 0;
-        }
-        
         await userRef.update({ 
             lastActive: Date.now(),
             username: this.tgUser.username ? `@${this.tgUser.username}` : 'No Username',
@@ -782,11 +738,6 @@ class NinjaTONApp {
             await userRef.update({ completedTasks: [] });
         }
         
-        if (!userData.spins) {
-            userData.spins = 0;
-            await userRef.update({ spins: 0 });
-        }
-        
         const defaultData = {
             referralCode: userData.referralCode || this.generateReferralCode(),
             lastDailyCheckin: userData.lastDailyCheckin || 0,
@@ -798,10 +749,6 @@ class NinjaTONApp {
             totalWithdrawals: userData.totalWithdrawals || 0,
             balance: userData.balance || 0,
             referrals: userData.referrals || 0,
-            spins: userData.spins || 0,
-            totalSpins: userData.totalSpins || 0,
-            dailyAdsWatched: this.dailyAdsWatched,
-            lastAdResetDate: todayKey,
             firebaseUid: this.auth?.currentUser?.uid || userData.firebaseUid || null,
             welcomeTasksCompleted: userData.welcomeTasksCompleted || false,
             welcomeTasksCompletedAt: userData.welcomeTasksCompletedAt || null
@@ -856,17 +803,14 @@ class NinjaTONApp {
             if (referrerData.status === 'ban') return;
             
             const referralBonus = this.appConfig.REFERRAL_BONUS_TON;
-            const spinsBonus = this.appConfig.REFERRAL_BONUS_SPINS;
             
             const newBalance = this.safeNumber(referrerData.balance) + referralBonus;
-            const newSpins = (referrerData.spins || 0) + spinsBonus;
             const newReferrals = (referrerData.referrals || 0) + 1;
             const newReferralEarnings = this.safeNumber(referrerData.referralEarnings) + referralBonus;
             const newTotalEarned = this.safeNumber(referrerData.totalEarned) + referralBonus;
             
             await referrerRef.update({
                 balance: newBalance,
-                spins: newSpins,
                 referrals: newReferrals,
                 referralEarnings: newReferralEarnings,
                 totalEarned: newTotalEarned
@@ -876,19 +820,17 @@ class NinjaTONApp {
                 state: 'verified',
                 bonusGiven: true,
                 verifiedAt: Date.now(),
-                bonusAmount: referralBonus,
-                spinsBonus: spinsBonus
+                bonusAmount: referralBonus
             });
             
             await this.db.ref(`users/${newUserId}`).update({
                 referralState: 'verified'
             });
             
-            await this.sendReferralNotification(referrerId, newUserId, referralBonus, spinsBonus);
+            await this.sendReferralNotification(referrerId, newUserId, referralBonus);
             
             if (this.tgUser && referrerId === this.tgUser.id) {
                 this.userState.balance = newBalance;
-                this.userState.spins = newSpins;
                 this.userState.referrals = newReferrals;
                 this.userState.referralEarnings = newReferralEarnings;
                 this.userState.totalEarned = newTotalEarned;
@@ -897,7 +839,7 @@ class NinjaTONApp {
                 
                 this.notificationManager.showNotification(
                     "🎉 New Referral!", 
-                    `+${this.appConfig.REFERRAL_BONUS_TON} TON + ${this.appConfig.REFERRAL_BONUS_SPINS} SPIN!`, 
+                    `+${this.appConfig.REFERRAL_BONUS_TON} TON!`, 
                     "success"
                 );
             }
@@ -911,7 +853,7 @@ class NinjaTONApp {
         }
     }
 
-    async sendReferralNotification(referrerId, newUserId, tonBonus, spinsBonus) {
+    async sendReferralNotification(referrerId, newUserId, tonBonus) {
         try {
             const referrerRef = this.db.ref(`users/${referrerId}`);
             const referrerSnapshot = await referrerRef.once('value');
@@ -932,7 +874,7 @@ class NinjaTONApp {
             
             const message = `🎉 *NEW REFERRAL VERIFIED!*\n\n` +
                           `👤 *New User:* ${firstName} (@${username})\n` +
-                          `💰 *Earned:* ${tonBonus.toFixed(3)} TON + ${spinsBonus} Spin(s)\n` +
+                          `💰 *Earned:* ${tonBonus.toFixed(3)} TON\n` +
                           `📊 *Total Referrals:* ${referrerData.referrals || 1}\n` +
                           `💎 *Total Earnings:* ${(referrerData.referralEarnings || 0).toFixed(3)} TON\n\n` +
                           `🥷 *Keep inviting to earn more!*`;
@@ -941,8 +883,7 @@ class NinjaTONApp {
                 referrerId,
                 newUserId,
                 message,
-                tonBonus,
-                spinsBonus
+                tonBonus
             });
             
             const response = await fetch('/api/telegram', {
@@ -1360,7 +1301,6 @@ class NinjaTONApp {
                     balance: newBalance,
                     totalEarned: this.safeNumber(this.userState.totalEarned) + reward,
                     totalTasks: this.safeNumber(this.userState.totalTasks) + 4,
-                    spins: (this.userState.spins || 0) + (this.appConfig.TASK_SPIN_BONUS * 4),
                     welcomeTasksCompleted: true,
                     welcomeTasksCompletedAt: Date.now(),
                     welcomeTasksVerifiedAt: Date.now()
@@ -1370,7 +1310,6 @@ class NinjaTONApp {
             this.userState.balance = newBalance;
             this.userState.totalEarned = this.safeNumber(this.userState.totalEarned) + reward;
             this.userState.totalTasks = this.safeNumber(this.userState.totalTasks) + 4;
-            this.userState.spins = (this.userState.spins || 0) + (this.appConfig.TASK_SPIN_BONUS * 4);
             this.userState.welcomeTasksCompleted = true;
             this.userState.welcomeTasksCompletedAt = Date.now();
             this.userState.welcomeTasksVerifiedAt = Date.now();
@@ -1441,17 +1380,25 @@ class NinjaTONApp {
         }
     }
 
-    async loadDailyAdsWatched() {
+    async loadAdTimers() {
         try {
-            const lastWatch = localStorage.getItem(`last_ad_watch_${this.tgUser.id}`);
-            this.lastAdWatchTime = lastWatch ? parseInt(lastWatch) : 0;
-            
-            const storedAds = localStorage.getItem(`daily_ads_watched_${this.tgUser.id}`);
-            this.dailyAdsWatched = storedAds ? parseInt(storedAds) : 0;
-            
+            const savedTimers = localStorage.getItem(`ad_timers_${this.tgUser.id}`);
+            if (savedTimers) {
+                this.adTimers = JSON.parse(savedTimers);
+            }
         } catch (error) {
-            this.dailyAdsWatched = 0;
-            this.lastAdWatchTime = 0;
+            this.adTimers = {
+                ad1: 0,
+                ad2: 0
+            };
+        }
+    }
+
+    async saveAdTimers() {
+        try {
+            localStorage.setItem(`ad_timers_${this.tgUser.id}`, JSON.stringify(this.adTimers));
+        } catch (error) {
+            console.error('Error saving ad timers:', error);
         }
     }
 
@@ -1567,7 +1514,7 @@ class NinjaTONApp {
     renderUI() {
         this.updateHeader();
         this.renderTasksPage();
-        this.renderSpinPage();
+        this.renderQuestsPage();
         this.renderReferralsPage();
         this.renderWithdrawPage();
         this.setupNavigation();
@@ -1619,8 +1566,8 @@ class NinjaTONApp {
             
             if (pageId === 'tasks-page') {
                 this.renderTasksPage();
-            } else if (pageId === 'spin-page') {
-                this.renderSpinPage();
+            } else if (pageId === 'quests-page') {
+                this.renderQuestsPage();
             } else if (pageId === 'referrals-page') {
                 this.renderReferralsPage();
             } else if (pageId === 'withdraw-page') {
@@ -1763,7 +1710,6 @@ class NinjaTONApp {
                     <div class="task-reward-simple">
                         <img src="https://cdn-icons-png.flaticon.com/512/15208/15208522.png" alt="TON" class="ton-icon-small">
                         <span>${task.reward?.toFixed(4) || '0.0000'} TON</span>
-                        <span class="game-bonus-blue">+${this.appConfig.TASK_SPIN_BONUS} SPIN</span>
                     </div>
                 </div>
                 <div class="task-action-simple">
@@ -1931,449 +1877,236 @@ class NinjaTONApp {
         });
     }
 
-    renderSpinPage() {
-        const spinPage = document.getElementById('spin-page');
-        if (!spinPage) return;
+    renderQuestsPage() {
+        const questsPage = document.getElementById('quests-page');
+        if (!questsPage) return;
         
-        const userSpins = this.userState.spins || 0;
         const currentTime = Date.now();
-        const timeSinceLastAd = currentTime - this.lastAdWatchTime;
-        const isAdButtonCooldown = timeSinceLastAd < this.adCooldown;
-        const remainingCooldown = Math.max(0, this.adCooldown - timeSinceLastAd);
-        const remainingMinutes = Math.ceil(remainingCooldown / 60000);
+        const ad1TimeLeft = Math.max(0, this.adTimers.ad1 + this.adCooldown - currentTime);
+        const ad2TimeLeft = Math.max(0, this.adTimers.ad2 + this.adCooldown - currentTime);
         
-        spinPage.innerHTML = `
-            <div class="spin-container">
-                <div class="spin-game-section">
-                    <div class="wheel-container" id="wheel-container">
-                        <div class="wheel">
-                            <div class="wheel-inner" id="wheel">
-                                ${this.spinPrizes.map((prize, index) => `
-                                    <div class="wheel-item" style="transform: rotate(${index * 36}deg);">
-                                        <div class="wheel-item-content" style="transform: rotate(-${index * 36}deg);">
-                                            ${prize}
-                                        </div>
-                                    </div>
-                                `).join('')}
-                            </div>
-                            <div class="wheel-center">
-                                <i class="fas fa-gem"></i>
-                            </div>
-                            <div class="wheel-pointer">
-                                <i class="fas fa-caret-down"></i>
-                            </div>
-                        </div>
+        const ad1Available = ad1TimeLeft === 0;
+        const ad2Available = ad2TimeLeft === 0;
+        
+        questsPage.innerHTML = `
+            <div class="quests-container">
+                <div class="quests-section">
+                    <h3><i class="fas fa-trophy"></i> Friends Quests</h3>
+                    <div id="friends-quests-list" class="quests-list">
+                        <!-- سيتم تحميل Friends Quests من QuestManager -->
                     </div>
-                    
-                    <button class="spin-play-btn ${userSpins > 0 ? '' : 'disabled'}" 
-                            id="play-spin-btn" 
-                            ${userSpins <= 0 ? 'disabled' : ''}>
-                        <i class="fas fa-sync-alt"></i>
-                        SPIN WHEEL (${userSpins})
-                    </button>
                 </div>
                 
-                <div class="get-spins-section">
-                    <h3><i class="fas fa-plus-circle"></i> GET MORE SPINS</h3>
-                    
-                    <div class="get-method-card">
-                        <div class="get-method-header">
-                            <div class="get-method-icon">
-                                <i class="fas fa-eye"></i>
-                            </div>
-                            <div class="get-method-title">WATCH ADS</div>
-                        </div>
-                        <div class="get-method-description">
-                            Watch Ad every 5 minutes and earn +1 Spin
-                            ${isAdButtonCooldown ? `<div class="cooldown-timer">Available in: ${remainingMinutes}m</div>` : ''}
-                        </div>
-                        <button class="get-method-btn" id="watch-ad-btn"
-                                ${isAdButtonCooldown ? 'disabled' : ''}>
-                            ${isAdButtonCooldown ? 'COOLDOWN' : 'WATCH (+1)'}
-                        </button>
+                <div class="quests-section">
+                    <h3><i class="fas fa-tasks"></i> Tasks Quests</h3>
+                    <div id="tasks-quests-list" class="quests-list">
+                        <!-- سيتم تحميل Tasks Quests من QuestManager -->
                     </div>
-                    
-                    <div class="get-method-card">
-                        <div class="get-method-header">
-                            <div class="get-method-icon">
-                                <i class="fas fa-tasks"></i>
+                </div>
+                
+                <div class="ad-watch-section">
+                    <h3><i class="fas fa-eye"></i> WATCH & EARN</h3>
+                    <div class="ad-cards-grid">
+                        <div class="ad-card">
+                            <div class="ad-card-header">
+                                <div class="ad-card-icon">
+                                    <i class="fas fa-ad"></i>
+                                </div>
+                                <div class="ad-card-title">Watch AD #1</div>
                             </div>
-                            <div class="get-method-title">COMPLETE TASKS</div>
-                        </div>
-                        <div class="get-method-description">
-                            Complete tasks and earn TON + ${this.appConfig.TASK_SPIN_BONUS} Spin each
-                        </div>
-                        <button class="get-method-btn" id="go-tasks-btn">
-                            GO
-                        </button>
-                    </div>
-                    
-                    <div class="get-method-card">
-                        <div class="get-method-header">
-                            <div class="get-method-icon">
-                                <i class="fas fa-user-plus"></i>
+                            <div class="ad-card-description">
+                                Watch AdsGram 19345 ad
                             </div>
-                            <div class="get-method-title">INVITE FRIENDS</div>
+                            <div class="ad-card-reward">
+                                <i class="fas fa-gem"></i>
+                                <span>0.002 TON</span>
+                            </div>
+                            <button class="ad-card-btn ${ad1Available ? 'available' : 'cooldown'}" 
+                                    id="watch-ad-1-btn"
+                                    ${!ad1Available ? 'disabled' : ''}>
+                                ${ad1Available ? 'WATCH' : this.formatTime(ad1TimeLeft)}
+                            </button>
                         </div>
-                        <div class="get-method-description">
-                            Invite friends and earn ${this.appConfig.REFERRAL_BONUS_TON} TON + ${this.appConfig.REFERRAL_BONUS_SPINS} Spin each
+                        
+                        <div class="ad-card">
+                            <div class="ad-card-header">
+                                <div class="ad-card-icon">
+                                    <i class="fas fa-ad"></i>
+                                </div>
+                                <div class="ad-card-title">Watch AD #2</div>
+                            </div>
+                            <div class="ad-card-description">
+                                Watch libtl.com ad
+                            </div>
+                            <div class="ad-card-reward">
+                                <i class="fas fa-gem"></i>
+                                <span>0.001 TON</span>
+                            </div>
+                            <button class="ad-card-btn ${ad2Available ? 'available' : 'cooldown'}" 
+                                    id="watch-ad-2-btn"
+                                    ${!ad2Available ? 'disabled' : ''}>
+                                ${ad2Available ? 'WATCH' : this.formatTime(ad2TimeLeft)}
+                            </button>
                         </div>
-                        <button class="get-method-btn" id="go-referrals-btn">
-                            GO
-                        </button>
                     </div>
                 </div>
             </div>
         `;
         
-        this.setupSpinEvents();
-        this.setupGetSpinsEvents();
+        this.setupAdWatchEvents();
+        
+        setTimeout(() => {
+            if (this.questManager) {
+                this.questManager.renderFriendsQuests();
+                this.questManager.renderTasksQuests();
+            }
+        }, 100);
     }
 
-    setupSpinEvents() {
-        const spinBtn = document.getElementById('play-spin-btn');
-        if (spinBtn) {
-            spinBtn.addEventListener('click', () => {
-                this.playSpin();
-            });
-        }
+    formatTime(milliseconds) {
+        const totalSeconds = Math.floor(milliseconds / 1000);
+        const minutes = Math.floor(totalSeconds / 60);
+        const seconds = totalSeconds % 60;
+        return `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
     }
 
-    setupGetSpinsEvents() {
-        const watchAdBtn = document.getElementById('watch-ad-btn');
-        const gotoTasksBtn = document.getElementById('go-tasks-btn');
-        const goReferralsBtn = document.getElementById('go-referrals-btn');
+    setupAdWatchEvents() {
+        const watchAd1Btn = document.getElementById('watch-ad-1-btn');
+        const watchAd2Btn = document.getElementById('watch-ad-2-btn');
         
-        if (watchAdBtn) {
-            watchAdBtn.addEventListener('click', () => {
-                this.watchAdForSpin();
-            });
-        }
-        
-        if (gotoTasksBtn) {
-            gotoTasksBtn.addEventListener('click', () => {
-                this.showPage('tasks-page');
+        if (watchAd1Btn) {
+            watchAd1Btn.addEventListener('click', async () => {
+                await this.watchAd(1);
             });
         }
         
-        if (goReferralsBtn) {
-            goReferralsBtn.addEventListener('click', () => {
-                this.showPage('referrals-page');
+        if (watchAd2Btn) {
+            watchAd2Btn.addEventListener('click', async () => {
+                await this.watchAd(2);
             });
         }
+        
+        this.startAdTimers();
     }
 
-    async watchAdForSpin() {
+    async watchAd(adNumber) {
         const currentTime = Date.now();
-        const timeSinceLastAd = currentTime - this.lastAdWatchTime;
+        const adTimerKey = `ad${adNumber}`;
         
-        if (timeSinceLastAd < this.adCooldown) {
-            const remainingCooldown = this.adCooldown - timeSinceLastAd;
-            const remainingMinutes = Math.ceil(remainingCooldown / 60000);
-            this.notificationManager.showNotification("Cooldown", `Please wait ${remainingMinutes} minute(s) before watching another ad`, "info");
+        if (this.adTimers[adTimerKey] + this.adCooldown > currentTime) {
+            const timeLeft = this.adTimers[adTimerKey] + this.adCooldown - currentTime;
+            this.notificationManager.showNotification("Cooldown", `Please wait ${this.formatTime(timeLeft)}`, "info");
             return;
         }
         
-        if (!this.adManager) {
-            this.notificationManager.showNotification("Error", "Ad system not available", "error");
-            return;
-        }
-        
-        const watchAdBtn = document.getElementById('watch-ad-btn');
-        if (watchAdBtn) {
-            watchAdBtn.disabled = true;
-            watchAdBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Loading...';
+        const adBtn = document.getElementById(`watch-ad-${adNumber}-btn`);
+        if (adBtn) {
+            adBtn.disabled = true;
+            adBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Loading...';
         }
         
         try {
             let adShown = false;
-            if (window.AdBlock19345 && typeof window.AdBlock19345.show === 'function') {
-                adShown = await new Promise((resolve) => {
-                    window.AdBlock19345.show().then(() => {
-                        resolve(true);
-                    }).catch(() => {
-                        resolve(false);
-                    });
-                });
-            }
             
-            if (adShown) {
-                this.lastAdWatchTime = Date.now();
-                
-                const newSpins = (this.userState.spins || 0) + 1;
-                this.userState.spins = newSpins;
-                
-                if (this.db) {
-                    await this.db.ref(`users/${this.tgUser.id}`).update({
-                        spins: newSpins,
-                        lastAdWatchTime: this.lastAdWatchTime
-                    });
-                }
-                
-                this.cache.delete(`user_${this.tgUser.id}`);
-                
-                this.updateHeader();
-                this.renderSpinPage();
-                
-                this.notificationManager.showNotification("Success", "+1 Spin! Ad watched successfully", "success");
-                
-                this.startAdButtonCooldown();
-                
-            } else {
-                this.notificationManager.showNotification("Error", "Failed to show ad", "error");
-            }
-            
-        } catch (error) {
-            this.notificationManager.showNotification("Error", "Failed to watch ad", "error");
-        } finally {
-            if (watchAdBtn && !this.isAdButtonCooldown) {
-                watchAdBtn.disabled = false;
-                watchAdBtn.innerHTML = 'WATCH (+1)';
-            }
-        }
-    }
-
-    startAdButtonCooldown() {
-        if (this.adButtonCooldownTimer) {
-            clearInterval(this.adButtonCooldownTimer);
-        }
-        
-        const watchAdBtn = document.getElementById('watch-ad-btn');
-        if (!watchAdBtn) return;
-        
-        watchAdBtn.disabled = true;
-        
-        let remainingTime = this.adCooldown;
-        
-        this.adButtonCooldownTimer = setInterval(() => {
-            remainingTime -= 1000;
-            
-            if (remainingTime <= 0) {
-                clearInterval(this.adButtonCooldownTimer);
-                watchAdBtn.disabled = false;
-                watchAdBtn.innerHTML = 'WATCH (+1)';
-                
-                const cooldownTimer = document.querySelector('.cooldown-timer');
-                if (cooldownTimer) cooldownTimer.remove();
-                
-                return;
-            }
-            
-            const remainingMinutes = Math.ceil(remainingTime / 60000);
-            
-            watchAdBtn.innerHTML = `COOLDOWN (${remainingMinutes}m)`;
-            
-            let cooldownTimer = document.querySelector('.cooldown-timer');
-            if (!cooldownTimer) {
-                cooldownTimer = document.createElement('div');
-                cooldownTimer.className = 'cooldown-timer';
-                const description = document.querySelector('.get-method-description');
-                if (description) description.appendChild(cooldownTimer);
-            }
-            cooldownTimer.textContent = `Available in: ${remainingMinutes}m`;
-            
-        }, 1000);
-    }
-
-    async playSpin() {
-        if (this.userState.spins <= 0) {
-            this.notificationManager.showNotification("No Spins", "You don't have any spins left", "info");
-            return;
-        }
-        
-        const wheel = document.getElementById('wheel');
-        const spinBtn = document.getElementById('play-spin-btn');
-        
-        if (!wheel || !spinBtn) return;
-        
-        spinBtn.disabled = true;
-        spinBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Spinning...';
-        
-        const newSpins = this.userState.spins - 1;
-        
-        if (this.db) {
-            await this.db.ref(`users/${this.tgUser.id}`).update({
-                spins: newSpins,
-                totalSpins: (this.userState.totalSpins || 0) + 1
-            });
-        }
-        
-        this.userState.spins = newSpins;
-        this.userState.totalSpins = (this.userState.totalSpins || 0) + 1;
-        this.cache.delete(`user_${this.tgUser.id}`);
-        this.updateHeader();
-        
-        const spinDegrees = 3600 + Math.random() * 360;
-        const prizeIndex = Math.floor(Math.random() * this.spinPrizes.length);
-        const targetDegree = prizeIndex * 36;
-        
-        wheel.style.transition = 'none';
-        wheel.style.transform = 'rotate(0deg)';
-        
-        setTimeout(() => {
-            wheel.style.transition = 'transform 10s cubic-bezier(0.2, 0.8, 0.3, 1)';
-            wheel.style.transform = `rotate(${spinDegrees}deg)`;
-            
-            let speed = 10;
-            const slowDown = () => {
-                if (speed > 0.1) {
-                    speed *= 0.95;
-                    const currentDegrees = parseFloat(wheel.style.transform.replace('rotate(', '').replace('deg)', '')) || 0;
-                    wheel.style.transform = `rotate(${currentDegrees + speed}deg)`;
-                    requestAnimationFrame(slowDown);
-                } else {
-                    wheel.style.transition = 'transform 2s ease-out';
-                    const finalDegrees = spinDegrees - (spinDegrees % 36) + targetDegree;
-                    wheel.style.transform = `rotate(${finalDegrees}deg)`;
-                    
-                    setTimeout(() => {
-                        this.processSpinResult(prizeIndex);
-                    }, 2000);
-                }
-            };
-            
-            setTimeout(() => {
-                requestAnimationFrame(slowDown);
-            }, 10000);
-        }, 50);
-    }
-
-    async processSpinResult(prizeIndex) {
-        const prize = this.spinPrizes[prizeIndex];
-        const spinBtn = document.getElementById('play-spin-btn');
-        
-        if (spinBtn) {
-            spinBtn.disabled = false;
-            spinBtn.innerHTML = `<i class="fas fa-sync-alt"></i> SPIN WHEEL (${this.userState.spins})`;
-        }
-        
-        setTimeout(() => {
-            this.showSpinPrizeModal(prize, prizeIndex);
-        }, 1000);
-    }
-
-    showSpinPrizeModal(prize, prizeIndex) {
-        const modal = document.createElement('div');
-        modal.className = 'spin-result-modal';
-        modal.innerHTML = `
-            <div class="spin-result-content">
-                <button class="close-modal-btn" id="close-spin-modal">
-                    <i class="fas fa-times"></i>
-                </button>
-                
-                <div class="spin-result-header">
-                    <i class="fas fa-trophy"></i>
-                    <h3>Spin Result!</h3>
-                </div>
-                
-                <div class="spin-result-display">
-                    <div class="spin-prize-icon">
-                        ${prize.includes('💎') ? '<i class="fas fa-gem"></i>' : 
-                          prize.includes('Spin') ? '<i class="fas fa-sync-alt"></i>' : 
-                          '<i class="fas fa-times"></i>'}
-                    </div>
-                    
-                    <div class="spin-prize-amount">${prize}</div>
-                    
-                    <div class="spin-prize-description">
-                        ${prize === 'Game over' ? 'Better luck next time!' : 
-                          prize.includes('Spin') ? 'Spins added to your balance!' : 
-                          'TON added to your balance!'}
-                    </div>
-                </div>
-                
-                <div class="spin-result-actions">
-                    <button class="spin-result-claim" id="claim-spin-prize">
-                        <i class="fas fa-gift"></i> CLAIM PRIZE
-                    </button>
-                </div>
-            </div>
-        `;
-        
-        document.body.appendChild(modal);
-        
-        const closeBtn = document.getElementById('close-spin-modal');
-        closeBtn.addEventListener('click', () => {
-            modal.remove();
-            this.notificationManager.showNotification("Cancelled", "Prize not claimed", "info");
-        });
-        
-        const claimBtn = document.getElementById('claim-spin-prize');
-        claimBtn.addEventListener('click', async () => {
-            claimBtn.disabled = true;
-            claimBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Processing...';
-            
-            try {
-                let adShown = false;
-                if (window.AdBlock19344 && typeof window.AdBlock19344.show === 'function') {
+            if (adNumber === 1) {
+                if (window.AdBlock19345 && typeof window.AdBlock19345.show === 'function') {
                     adShown = await new Promise((resolve) => {
-                        window.AdBlock19344.show().then(() => {
+                        window.AdBlock19345.show().then(() => {
                             resolve(true);
                         }).catch(() => {
                             resolve(false);
                         });
                     });
                 }
+            } else if (adNumber === 2) {
+                if (window.TLG && typeof window.TLG.show === 'function') {
+                    adShown = await new Promise((resolve) => {
+                        window.TLG.show().then(() => {
+                            resolve(true);
+                        }).catch(() => {
+                            resolve(false);
+                        });
+                    });
+                }
+            }
+            
+            if (adShown) {
+                this.adTimers[adTimerKey] = currentTime;
+                await this.saveAdTimers();
                 
-                if (!adShown) {
-                    this.notificationManager.showNotification("Ad Required", "Please watch the ad to claim your prize", "info");
-                    claimBtn.disabled = false;
-                    claimBtn.innerHTML = '<i class="fas fa-gift"></i> CLAIM PRIZE';
-                    return;
+                const reward = adNumber === 1 ? 0.002 : 0.001;
+                const currentBalance = this.safeNumber(this.userState.balance);
+                const newBalance = currentBalance + reward;
+                
+                if (this.db) {
+                    await this.db.ref(`users/${this.tgUser.id}`).update({
+                        balance: newBalance,
+                        totalEarned: this.safeNumber(this.userState.totalEarned) + reward,
+                        totalTasks: this.safeNumber(this.userState.totalTasks) + 1
+                    });
                 }
                 
-                if (prize === 'Game over') {
-                    this.notificationManager.showNotification("Game Over", "No prize this time. Try again!", "info");
-                } else if (prize.includes('Spin')) {
-                    const spinCount = parseInt(prize.split(' ')[0]);
-                    const newSpins = (this.userState.spins || 0) + spinCount;
-                    this.userState.spins = newSpins;
-                    
-                    if (this.db) {
-                        await this.db.ref(`users/${this.tgUser.id}`).update({
-                            spins: newSpins
-                        });
-                    }
-                    
-                    this.notificationManager.showNotification("Success", `+${spinCount} Spin added to your balance!`, "success");
-                } else if (prize.includes('💎')) {
-                    const tonAmount = parseFloat(prize.split(' ')[0]);
-                    const currentBalance = this.safeNumber(this.userState.balance);
-                    const newBalance = currentBalance + tonAmount;
-                    
-                    if (this.db) {
-                        await this.db.ref(`users/${this.tgUser.id}`).update({
-                            balance: newBalance,
-                            totalEarned: this.safeNumber(this.userState.totalEarned) + tonAmount
-                        });
-                    }
-                    
-                    this.userState.balance = newBalance;
-                    this.userState.totalEarned = this.safeNumber(this.userState.totalEarned) + tonAmount;
-                    
-                    this.notificationManager.showNotification("Success", `+${tonAmount} TON added to your balance!`, "success");
-                }
+                this.userState.balance = newBalance;
+                this.userState.totalEarned = this.safeNumber(this.userState.totalEarned) + reward;
+                this.userState.totalTasks = this.safeNumber(this.userState.totalTasks) + 1;
                 
                 this.cache.delete(`user_${this.tgUser.id}`);
                 
                 this.updateHeader();
-                this.renderSpinPage();
+                this.renderQuestsPage();
                 
-                modal.remove();
+                this.notificationManager.showNotification("Success", `+${reward} TON! Ad watched successfully`, "success");
                 
-            } catch (error) {
-                this.notificationManager.showNotification("Error", "Failed to claim prize", "error");
-                claimBtn.disabled = false;
-                claimBtn.innerHTML = '<i class="fas fa-gift"></i> CLAIM PRIZE';
+                if (this.questManager) {
+                    await this.questManager.updateQuestsProgress();
+                }
+                
+            } else {
+                this.notificationManager.showNotification("Error", "Failed to show ad", "error");
+                if (adBtn) {
+                    adBtn.disabled = false;
+                    adBtn.innerHTML = 'WATCH';
+                }
             }
-        });
+            
+        } catch (error) {
+            this.notificationManager.showNotification("Error", "Failed to watch ad", "error");
+            if (adBtn) {
+                adBtn.disabled = false;
+                adBtn.innerHTML = 'WATCH';
+            }
+        }
+    }
+
+    startAdTimers() {
+        const updateAdButtons = () => {
+            const currentTime = Date.now();
+            
+            for (let i = 1; i <= 2; i++) {
+                const adTimerKey = `ad${i}`;
+                const adBtn = document.getElementById(`watch-ad-${i}-btn`);
+                
+                if (!adBtn) continue;
+                
+                const timeLeft = Math.max(0, this.adTimers[adTimerKey] + this.adCooldown - currentTime);
+                
+                if (timeLeft > 0) {
+                    adBtn.disabled = true;
+                    adBtn.innerHTML = this.formatTime(timeLeft);
+                    adBtn.classList.remove('available');
+                    adBtn.classList.add('cooldown');
+                } else {
+                    adBtn.disabled = false;
+                    adBtn.innerHTML = 'WATCH';
+                    adBtn.classList.add('available');
+                    adBtn.classList.remove('cooldown');
+                }
+            }
+        };
         
-        setTimeout(() => {
-            if (modal.parentNode) {
-                modal.remove();
-                this.notificationManager.showNotification("Time Expired", "Prize claim window closed", "info");
-            }
-        }, 30000);
+        updateAdButtons();
+        
+        setInterval(updateAdButtons, 1000);
     }
 
     async renderReferralsPage() {

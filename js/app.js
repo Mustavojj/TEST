@@ -678,7 +678,7 @@ class NinjaTONApp {
                     animation:fadeIn 0.6s ease-out;
                 ">
                     <div style="margin-bottom:24px;">
-                        <svg xmlns="http://www.w3.org/2000 24" viewBox="0 0 24 24" fill="none" stroke="#ff4d4d" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round" style="animation:pulse 1.8s infinite ease-in-out;">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="#ff4d4d" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round" style="animation:pulse 1.8s infinite ease-in-out;">
                             <circle cx="12" cy="12" r="10" stroke="#ff4d4d"/>
                             <line x1="15" y1="9" x2="9" y2="15" stroke="#ff4d4d"/>
                             <line x1="9" y1="9" x2="15" y2="15" stroke="#ff4d4d"/>
@@ -1646,13 +1646,7 @@ class NinjaTONApp {
         try {
             let socialTasks = [];
             if (this.taskManager) {
-                const allTasks = await this.loadTasksData();
-                socialTasks = allTasks.filter(task => 
-                    task.type === 'social' || 
-                    task.name.toLowerCase().includes('social') ||
-                    task.name.toLowerCase().includes('channel') ||
-                    task.name.toLowerCase().includes('group')
-                );
+                socialTasks = await this.taskManager.loadTasksFromDatabase('social');
             }
             
             if (socialTasks.length > 0) {
@@ -1688,12 +1682,7 @@ class NinjaTONApp {
         try {
             let partnerTasks = [];
             if (this.taskManager) {
-                const allTasks = await this.loadTasksData();
-                partnerTasks = allTasks.filter(task => 
-                    task.type === 'partner' || 
-                    task.name.toLowerCase().includes('partner') ||
-                    task.name.toLowerCase().includes('task')
-                );
+                partnerTasks = await this.taskManager.loadTasksFromDatabase('partner');
             }
             
             if (partnerTasks.length > 0) {
@@ -1724,7 +1713,7 @@ class NinjaTONApp {
 
     renderTaskCard(task) {
         const isCompleted = this.userCompletedTasks.has(task.id);
-        const botIcon = 'https://i.ibb.co/GvWFRrnp/ninja.png';
+        const defaultIcon = 'https://i.ibb.co/GvWFRrnp/ninja.png';
         const tonIcon = 'https://cdn-icons-png.flaticon.com/512/15208/15208522.png';
         
         let buttonText = 'Start';
@@ -1740,13 +1729,14 @@ class NinjaTONApp {
         return `
             <div class="task-card ${isCompleted ? 'task-completed' : ''}" id="task-${task.id}">
                 <div class="task-avatar">
-                    <img src="${botIcon}" alt="Bot" class="task-bot-icon">
+                    <img src="${task.picture || defaultIcon}" alt="Task" class="task-bot-icon">
                 </div>
                 <div class="task-info">
                     <h4 class="task-name">${task.name}</h4>
+                    <p class="task-description">${task.description || 'Join & Get Reward'}</p>
                     <div class="task-reward">
                         <img src="${tonIcon}" alt="TON" class="reward-icon">
-                        <span class="reward-amount">${task.reward?.toFixed(4) || '0.0000'} TON</span>
+                        <span class="reward-amount">Reward: ${task.reward?.toFixed(5) || '0.00000'} TON</span>
                     </div>
                 </div>
                 <div class="task-action">
@@ -1952,8 +1942,7 @@ class NinjaTONApp {
                                         <img src="https://cdn-icons-png.flaticon.com/512/15208/15208522.png" alt="TON" class="ton-reward-icon">
                                     </div>
                                     <div class="reward-amount">
-                                        <span class="reward-value">0.01</span>
-                                        <span class="reward-currency">TON</span>
+                                        <span class="reward-value">Reward: 0.01 TON</span>
                                     </div>
                                 </div>
                             </div>
@@ -1998,8 +1987,7 @@ class NinjaTONApp {
                                         <img src="https://cdn-icons-png.flaticon.com/512/15208/15208522.png" alt="TON" class="ton-reward-icon">
                                     </div>
                                     <div class="reward-amount">
-                                        <span class="reward-value">0.03</span>
-                                        <span class="reward-currency">TON</span>
+                                        <span class="reward-value">Reward: 0.03 TON</span>
                                     </div>
                                 </div>
                             </div>
@@ -2027,7 +2015,7 @@ class NinjaTONApp {
                             </div>
                             <div class="ad-reward">
                                 <img src="https://cdn-icons-png.flaticon.com/512/15208/15208522.png" alt="TON">
-                                <span>0.002 TON</span>
+                                <span>Reward: 0.002 TON</span>
                             </div>
                             <button class="ad-btn ${this.isAdAvailable(1) ? 'available' : 'cooldown'}" 
                                     id="watch-ad-1-btn"
@@ -2045,7 +2033,7 @@ class NinjaTONApp {
                             </div>
                             <div class="ad-reward">
                                 <img src="https://cdn-icons-png.flaticon.com/512/15208/15208522.png" alt="TON">
-                                <span>0.001 TON</span>
+                                <span>Reward: 0.001 TON</span>
                             </div>
                             <button class="ad-btn ${this.isAdAvailable(2) ? 'available' : 'cooldown'}" 
                                     id="watch-ad-2-btn"
@@ -2260,7 +2248,7 @@ class NinjaTONApp {
                 
                 <div class="referral-stats-section">
                     <h3><i class="fas fa-chart-bar"></i> Referrals Statistics</h3>
-                    <div class="stats-grid">
+                    <div class="stats-grid-two">
                         <div class="stat-card">
                             <div class="stat-icon">
                                 <i class="fas fa-users"></i>
@@ -2276,7 +2264,7 @@ class NinjaTONApp {
                             </div>
                             <div class="stat-info">
                                 <h4>Total Earnings</h4>
-                                <p class="stat-value">${referralEarnings.toFixed(3)} TON</p>
+                                <p class="stat-value">${referralEarnings.toFixed(5)} TON</p>
                             </div>
                         </div>
                     </div>
@@ -2333,7 +2321,7 @@ class NinjaTONApp {
                         </div>
                         <div class="referral-info">
                             <p class="referral-username">${referral.username}</p>
-                            <p class="referral-date">${new Date(referral.joinedAt).toLocaleDateString()}</p>
+                            <p class="referral-date">${this.formatDate(referral.joinedAt)}</p>
                         </div>
                         <div class="referral-status">
                             <span class="status-badge ${referral.state}">${referral.state === 'verified' ? 'Verified' : 'Pending'}</span>
@@ -2541,7 +2529,7 @@ class NinjaTONApp {
     renderWithdrawalHistory() {
         return this.userWithdrawals.slice(0, 5).map(transaction => {
             const date = new Date(transaction.createdAt || transaction.timestamp);
-            const formattedDate = `${date.getDate().toString().padStart(2, '0')}/${(date.getMonth() + 1).toString().padStart(2, '0')}/${date.getFullYear()} ${date.getHours().toString().padStart(2, '0')}:${date.getMinutes().toString().padStart(2, '0')}`;
+            const formattedDate = this.formatDate(date);
             
             const amount = this.safeNumber(transaction.tonAmount || transaction.amount || 0);
             const status = transaction.status || 'pending';
@@ -2715,6 +2703,16 @@ class NinjaTONApp {
                 this.isCopying = false;
             }, 1000);
         });
+    }
+
+    formatDate(timestamp) {
+        const date = new Date(timestamp);
+        const day = date.getDate().toString().padStart(2, '0');
+        const month = (date.getMonth() + 1).toString().padStart(2, '0');
+        const year = date.getFullYear();
+        const hours = date.getHours().toString().padStart(2, '0');
+        const minutes = date.getMinutes().toString().padStart(2, '0');
+        return `${day}-${month}-${year} ${hours}:${minutes}`;
     }
 
     setupEventListeners() {

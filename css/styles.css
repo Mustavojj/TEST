@@ -4713,3 +4713,388 @@ body {
         font-size: 3rem;
     }
     }
+
+
+        /* Quests Page Styles */
+.quests-container {
+    padding: 20px 15px;
+    max-width: 480px;
+    margin: 0 auto;
+}
+
+.quests-section {
+    background: rgba(59, 130, 246, 0.12);
+    border-radius: 24px;
+    padding: 20px;
+    margin-bottom: 20px;
+    border: 2px solid rgba(59, 130, 246, 0.25);
+    backdrop-filter: blur(20px);
+    box-shadow: 0 15px 35px rgba(0, 0, 0, 0.25);
+}
+
+.quests-section h3 {
+    color: #3b82f6;
+    font-size: 1.2rem;
+    font-weight: 700;
+    margin-bottom: 20px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.quests-list {
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+}
+
+.quest-card {
+    background: linear-gradient(135deg, rgba(59, 130, 246, 0.15), rgba(29, 78, 216, 0.1));
+    border-radius: 20px;
+    padding: 18px;
+    border: 1px solid rgba(59, 130, 246, 0.3);
+    transition: transform 0.3s, border-color 0.3s;
+}
+
+.quest-card.completed {
+    border-color: rgba(16, 185, 129, 0.4);
+    background: linear-gradient(135deg, rgba(16, 185, 129, 0.15), rgba(5, 150, 105, 0.1));
+}
+
+.quest-card:hover {
+    transform: translateY(-3px);
+    border-color: rgba(59, 130, 246, 0.5);
+}
+
+.quest-card.completed:hover {
+    border-color: rgba(16, 185, 129, 0.6);
+}
+
+.quest-card-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 15px;
+}
+
+.quest-type-badge {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: rgba(59, 130, 246, 0.2);
+    color: #60a5fa;
+    padding: 6px 12px;
+    border-radius: 12px;
+    font-size: 0.8rem;
+    font-weight: 600;
+}
+
+.quest-card.completed .quest-type-badge {
+    background: rgba(16, 185, 129, 0.2);
+    color: #34d399;
+}
+
+.quest-status {
+    font-size: 0.75rem;
+    font-weight: 700;
+    padding: 4px 10px;
+    border-radius: 20px;
+    text-transform: uppercase;
+}
+
+.quest-status.progress {
+    background: rgba(245, 158, 11, 0.2);
+    color: #fbbf24;
+}
+
+.quest-status.ready {
+    background: rgba(16, 185, 129, 0.2);
+    color: #34d399;
+}
+
+.quest-card-body {
+    margin-bottom: 15px;
+}
+
+.quest-title {
+    color: white;
+    font-size: 1rem;
+    font-weight: 700;
+    margin-bottom: 12px;
+}
+
+.quest-progress-container {
+    margin-bottom: 15px;
+}
+
+.quest-progress-info {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 6px;
+    font-size: 0.85rem;
+    color: #cbd5e1;
+}
+
+.quest-progress-bar {
+    height: 8px;
+    background: rgba(59, 130, 246, 0.2);
+    border-radius: 4px;
+    overflow: hidden;
+}
+
+.quest-progress-fill {
+    height: 100%;
+    background: linear-gradient(135deg, #3b82f6, #1d4ed8);
+    border-radius: 4px;
+    transition: width 0.5s ease;
+}
+
+.quest-card.completed .quest-progress-fill {
+    background: linear-gradient(135deg, #10b981, #059669);
+}
+
+.quest-reward-display {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    background: rgba(0, 0, 0, 0.2);
+    padding: 12px;
+    border-radius: 16px;
+    border: 1px solid rgba(59, 130, 246, 0.2);
+}
+
+.quest-card.completed .quest-reward-display {
+    border-color: rgba(16, 185, 129, 0.2);
+}
+
+.reward-icon {
+    width: 36px;
+    height: 36px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(59, 130, 246, 0.2);
+    border-radius: 10px;
+}
+
+.quest-card.completed .reward-icon {
+    background: rgba(16, 185, 129, 0.2);
+}
+
+.ton-reward-icon {
+    width: 24px;
+    height: 24px;
+}
+
+.reward-amount {
+    flex: 1;
+}
+
+.reward-value {
+    font-size: 1.3rem;
+    font-weight: 800;
+    color: white;
+    display: block;
+    line-height: 1;
+}
+
+.reward-currency {
+    font-size: 0.85rem;
+    color: #cbd5e1;
+}
+
+.quest-card-footer {
+    text-align: center;
+}
+
+.quest-claim-btn {
+    width: 100%;
+    padding: 12px;
+    border: none;
+    border-radius: 14px;
+    font-weight: 700;
+    font-size: 0.95rem;
+    cursor: pointer;
+    transition: all 0.3s;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.quest-claim-btn.available {
+    background: linear-gradient(135deg, #10b981, #059669);
+    color: white;
+    border: 1.5px solid rgba(16, 185, 129, 0.4);
+}
+
+.quest-claim-btn.available:hover:not(:disabled) {
+    background: linear-gradient(135deg, #059669, #047857);
+    transform: translateY(-2px);
+    box-shadow: 0 8px 20px rgba(16, 185, 129, 0.3);
+}
+
+.quest-claim-btn.disabled {
+    background: linear-gradient(135deg, #4b5563, #374151);
+    color: #9ca3af;
+    cursor: not-allowed;
+    border: 1.5px solid rgba(255, 255, 255, 0.1);
+}
+
+/* Ad Watch Section */
+.ad-watch-section {
+    background: rgba(59, 130, 246, 0.12);
+    border-radius: 24px;
+    padding: 20px;
+    border: 2px solid rgba(59, 130, 246, 0.25);
+    backdrop-filter: blur(20px);
+}
+
+.ad-watch-section h3 {
+    color: #3b82f6;
+    font-size: 1.2rem;
+    font-weight: 700;
+    margin-bottom: 20px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.ad-cards-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 15px;
+}
+
+.ad-card {
+    background: linear-gradient(135deg, rgba(59, 130, 246, 0.15), rgba(29, 78, 216, 0.1));
+    border-radius: 20px;
+    padding: 18px;
+    border: 1px solid rgba(59, 130, 246, 0.3);
+    transition: transform 0.3s, border-color 0.3s;
+    display: flex;
+    flex-direction: column;
+}
+
+.ad-card:hover {
+    transform: translateY(-3px);
+    border-color: rgba(59, 130, 246, 0.5);
+}
+
+.ad-card-header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 12px;
+}
+
+.ad-card-icon {
+    width: 40px;
+    height: 40px;
+    background: linear-gradient(135deg, rgba(59, 130, 246, 0.3), rgba(29, 78, 216, 0.2));
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #3b82f6;
+    font-size: 1.2rem;
+}
+
+.ad-card-title {
+    font-weight: 700;
+    color: white;
+    font-size: 0.95rem;
+    flex: 1;
+}
+
+.ad-card-description {
+    color: #cbd5e1;
+    font-size: 0.8rem;
+    line-height: 1.4;
+    margin-bottom: 12px;
+    flex: 1;
+}
+
+.ad-card-reward {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 15px;
+    background: rgba(0, 0, 0, 0.2);
+    padding: 10px;
+    border-radius: 12px;
+    border: 1px solid rgba(59, 130, 246, 0.2);
+}
+
+.ad-card-reward i {
+    color: #f59e0b;
+    font-size: 1.2rem;
+}
+
+.ad-card-reward span {
+    color: white;
+    font-weight: 700;
+    font-size: 1rem;
+}
+
+.ad-card-btn {
+    width: 100%;
+    padding: 12px;
+    border: none;
+    border-radius: 14px;
+    color: white;
+    font-weight: 700;
+    font-size: 0.9rem;
+    cursor: pointer;
+    transition: all 0.3s;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.ad-card-btn.available {
+    background: linear-gradient(135deg, #3b82f6, #1d4ed8);
+    border: 1.5px solid rgba(59, 130, 246, 0.4);
+}
+
+.ad-card-btn.available:hover:not(:disabled) {
+    background: linear-gradient(135deg, #2563eb, #1e40af);
+    transform: translateY(-2px);
+    box-shadow: 0 8px 20px rgba(59, 130, 246, 0.3);
+}
+
+.ad-card-btn.cooldown {
+    background: linear-gradient(135deg, #4b5563, #374151);
+    border: 1.5px solid rgba(255, 255, 255, 0.1);
+    cursor: not-allowed;
+}
+
+/* Responsive Adjustments */
+@media (max-width: 480px) {
+    .ad-cards-grid {
+        grid-template-columns: 1fr;
+    }
+    
+    .quest-card {
+        padding: 15px;
+    }
+    
+    .quests-section {
+        padding: 15px;
+    }
+    
+    .ad-watch-section {
+        padding: 15px;
+    }
+}
+
+/* إزالة أنماط Spin السابقة */
+.spin-container,
+.wheel-container,
+.wheel,
+.wheel-inner,
+.wheel-item,
+.wheel-center,
+.wheel-pointer,
+.get-spins-section,
+.spin-play-btn,
+.spin-result-modal {
+    display: none !important;
+        }

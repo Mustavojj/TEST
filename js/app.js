@@ -1,5 +1,3 @@
-[file name]: app.js
-[file content begin]
 const APP_CONFIG = {
     APP_NAME: "Ninja TON",
     BOT_USERNAME: "NinjaTONS_Bot",
@@ -2833,4 +2831,3 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }, 300);
 });
-[file content end]

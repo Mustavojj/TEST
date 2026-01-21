@@ -1,3 +1,5 @@
+[file name]: app.js
+[file content begin]
 const APP_CONFIG = {
     APP_NAME: "Ninja TON",
     BOT_USERNAME: "NinjaTONS_Bot",
@@ -1471,8 +1473,8 @@ class NinjaTONApp {
         
         if (userPhoto) {
             userPhoto.src = this.userState.photoUrl || 'https://cdn-icons-png.flaticon.com/512/9195/9195920.png';
-            userPhoto.style.width = '60px';
-            userPhoto.style.height = '60px';
+            userPhoto.style.width = '70px';
+            userPhoto.style.height = '70px';
             userPhoto.style.objectFit = 'cover';
             userPhoto.oncontextmenu = (e) => e.preventDefault();
             userPhoto.ondragstart = () => false;
@@ -2831,3 +2833,4 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }, 300);
 });
+[file content end]

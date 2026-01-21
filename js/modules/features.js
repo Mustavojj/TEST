@@ -29,97 +29,8 @@ class TaskManager {
         }
         
         try {
-            this.partnerTasks = [];
-            this.socialTasks = [];
-            
-            const sampleSocialTasks = [
-                {
-                    id: 'social1',
-                    name: 'Join Telegram Channel',
-                    url: 'https://t.me/NINJA_TONS',
-                    type: 'channel',
-                    category: 'social',
-                    reward: FEATURES_CONFIG.SOCIAL_TASK_REWARD,
-                    description: 'Join our main channel'
-                },
-                {
-                    id: 'social2',
-                    name: 'Join Telegram Group',
-                    url: 'https://t.me/NEJARS',
-                    type: 'group',
-                    category: 'social',
-                    reward: FEATURES_CONFIG.SOCIAL_TASK_REWARD,
-                    description: 'Join our community group'
-                }
-            ];
-            
-            const samplePartnerTasks = [
-                {
-                    id: 'partner1',
-                    name: 'Follow on Twitter',
-                    url: 'https://twitter.com',
-                    type: 'social',
-                    category: 'partner',
-                    reward: FEATURES_CONFIG.PARTNER_TASK_REWARD,
-                    description: 'Follow our Twitter account'
-                },
-                {
-                    id: 'partner2',
-                    name: 'Join Partner Channel',
-                    url: 'https://t.me/MONEYHUB9_69',
-                    type: 'channel',
-                    category: 'partner',
-                    reward: FEATURES_CONFIG.PARTNER_TASK_REWARD,
-                    description: 'Join partner channel'
-                }
-            ];
-            
-            if (this.app.db) {
-                try {
-                    const tasksSnapshot = await this.app.db.ref('config/tasks').once('value');
-                    
-                    if (tasksSnapshot.exists()) {
-                        tasksSnapshot.forEach(child => {
-                            try {
-                                const taskData = child.val();
-                                const category = taskData.category || 'social';
-                                
-                                const fixedReward = category === 'partner' 
-                                    ? FEATURES_CONFIG.PARTNER_TASK_REWARD 
-                                    : FEATURES_CONFIG.SOCIAL_TASK_REWARD;
-                                
-                                const task = { 
-                                    id: child.key, 
-                                    name: taskData.name || 'Unknown Task',
-                                    url: taskData.url || '',
-                                    type: taskData.type || 'channel',
-                                    category: category,
-                                    reward: fixedReward,
-                                    description: taskData.description || 'Join & Get Reward'
-                                };
-                                
-                                if (!this.app.userCompletedTasks.has(task.id)) {
-                                    if (task.category === 'partner') {
-                                        this.partnerTasks.push(task);
-                                    } else {
-                                        this.socialTasks.push(task);
-                                    }
-                                }
-                            } catch (error) {
-                            }
-                        });
-                    } else {
-                        this.socialTasks = sampleSocialTasks.filter(task => !this.app.userCompletedTasks.has(task.id));
-                        this.partnerTasks = samplePartnerTasks.filter(task => !this.app.userCompletedTasks.has(task.id));
-                    }
-                } catch (error) {
-                    this.socialTasks = sampleSocialTasks.filter(task => !this.app.userCompletedTasks.has(task.id));
-                    this.partnerTasks = samplePartnerTasks.filter(task => !this.app.userCompletedTasks.has(task.id));
-                }
-            } else {
-                this.socialTasks = sampleSocialTasks.filter(task => !this.app.userCompletedTasks.has(task.id));
-                this.partnerTasks = samplePartnerTasks.filter(task => !this.app.userCompletedTasks.has(task.id));
-            }
+            this.partnerTasks = await this.loadTasksFromDatabase('partner');
+            this.socialTasks = await this.loadTasksFromDatabase('social');
             
             this.app.cache.set(cacheKey, {
                 partnerTasks: this.partnerTasks,
@@ -129,6 +40,52 @@ class TaskManager {
         } catch (error) {
             this.partnerTasks = [];
             this.socialTasks = [];
+        }
+    }
+
+    async loadTasksFromDatabase(category) {
+        try {
+            if (!this.app.db) return [];
+            
+            const tasks = [];
+            const tasksSnapshot = await this.app.db.ref(`config/tasks/${category}`).once('value');
+            
+            if (tasksSnapshot.exists()) {
+                tasksSnapshot.forEach(child => {
+                    try {
+                        const taskData = child.val();
+                        
+                        if (taskData.status !== 'active' && taskData.taskStatus !== 'active') {
+                            return;
+                        }
+                        
+                        const task = { 
+                            id: child.key, 
+                            name: taskData.name || 'Unknown Task',
+                            description: taskData.description || 'Join & Get Reward',
+                            picture: taskData.picture || 'https://i.ibb.co/GvWFRrnp/ninja.png',
+                            url: taskData.url || '',
+                            type: taskData.type || 'channel',
+                            category: category,
+                            reward: this.app.safeNumber(taskData.reward || 0.001),
+                            currentCompletions: taskData.currentCompletions || 0,
+                            maxCompletions: taskData.maxCompletions || 999999
+                        };
+                        
+                        if (!this.app.userCompletedTasks.has(task.id)) {
+                            tasks.push(task);
+                        }
+                    } catch (error) {
+                        console.error('Error processing task:', error);
+                    }
+                });
+            }
+            
+            return tasks;
+            
+        } catch (error) {
+            console.error(`Error loading ${category} tasks:`, error);
+            return [];
         }
     }
 
@@ -332,9 +289,7 @@ class TaskManager {
                 throw new Error("Task not found");
             }
             
-            const taskReward = task.category === 'partner' 
-                ? FEATURES_CONFIG.PARTNER_TASK_REWARD 
-                : FEATURES_CONFIG.SOCIAL_TASK_REWARD;
+            const taskReward = this.app.safeNumber(reward);
             
             const currentBalance = this.app.safeNumber(this.app.userState.balance);
             const totalEarned = this.app.safeNumber(this.app.userState.totalEarned);
@@ -354,6 +309,8 @@ class TaskManager {
             updates.completedTasks = [...this.app.userCompletedTasks];
             
             await this.app.db.ref(`users/${this.app.tgUser.id}`).update(updates);
+            
+            await this.app.db.ref(`config/tasks/${task.category}/${taskId}/currentCompletions`).transaction(current => (current || 0) + 1);
             
             if (this.app.userState.referredBy) {
                 await this.app.processReferralTaskBonus(this.app.userState.referredBy, taskReward);
@@ -379,7 +336,7 @@ class TaskManager {
             
             this.app.notificationManager.showNotification(
                 "Completed!", 
-                `You received ${taskReward.toFixed(4)} TON!`, 
+                `You received ${taskReward.toFixed(5)} TON!`, 
                 "success"
             );
             

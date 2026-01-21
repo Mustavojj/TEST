@@ -35,19 +35,17 @@
     <div class="app-background"></div>
     
     <div id="app-loader" style="background: #000000;">
-        <div class="loading-simple">
-            <div class="loading-logo-container">
-                <img src="https://i.ibb.co/GvWFRrnp/ninja.png" 
-                     alt="Ninja TON" 
-                     class="loading-logo"
-                     oncontextmenu="return false;" 
-                     ondragstart="return false;">
-            </div>
+        <div class="loading-container">
+            <img src="https://i.ibb.co/GvWFRrnp/ninja.png" 
+                 alt="Ninja TON" 
+                 class="loading-logo"
+                 oncontextmenu="return false;" 
+                 ondragstart="return false;">
             <p class="loading-text">Loading Ninja TON...</p>
+            <p class="loading-percentage" id="loading-percentage">0%</p>
             <div class="loading-progress-container">
                 <div class="loading-progress-bar" id="loading-progress-bar"></div>
             </div>
-            <p class="loading-percentage" id="loading-percentage">0%</p>
         </div>
     </div>
 
@@ -61,34 +59,26 @@
                              alt="User" 
                              oncontextmenu="return false;" 
                              ondragstart="return false;">
-                        <div class="user-status"></div>
                     </div>
                     <div class="user-info">
-                        <div class="user-main">
-                            <h2 id="user-name" class="user-name">User</h2>
-                            <div class="user-details-card">
-                                <div class="user-details-row">
-                                    <div class="user-detail-item">
-                                        <div class="detail-label">
-                                            <i class="fas fa-id-card"></i>
-                                            <span>Telegram ID</span>
-                                        </div>
-                                        <div class="detail-value-container">
-                                            <span id="telegram-id-text" class="detail-value">123456789</span>
-                                            <button class="copy-icon-btn" id="copy-id-btn" data-copy="123456789" title="Copy ID">
-                                                <i class="far fa-copy"></i>
-                                            </button>
-                                        </div>
+                        <h2 id="user-name" class="user-name">User</h2>
+                        <p id="user-username" class="user-username">@username</p>
+                        
+                        <div class="user-details-card">
+                            <div class="user-details-grid">
+                                <div class="detail-item">
+                                    <div class="detail-label">
+                                        <i class="fas fa-id-card"></i>
+                                        <span>Telegram ID</span>
                                     </div>
-                                    <div class="user-detail-item">
-                                        <div class="detail-label">
-                                            <i class="fas fa-wallet"></i>
-                                            <span>Balance</span>
-                                        </div>
-                                        <div class="detail-value">
-                                            <span id="header-ton-balance" class="balance-value">0.00000 TON</span>
-                                        </div>
+                                    <div class="detail-value" id="telegram-id-text">123456789</div>
+                                </div>
+                                <div class="detail-item">
+                                    <div class="detail-label">
+                                        <i class="fas fa-wallet"></i>
+                                        <span>Balance</span>
                                     </div>
+                                    <div class="detail-value balance-value" id="header-ton-balance">0.00000 TON</div>
                                 </div>
                             </div>
                         </div>
@@ -181,4 +171,4 @@
         })();
     </script>
 </body>
-</html>
+                            </html>

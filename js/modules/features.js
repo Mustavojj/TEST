@@ -1,8 +1,8 @@
 const FEATURES_CONFIG = {
     TASK_VERIFICATION_DELAY: 10,
     REFERRAL_BONUS_TON: 0.005,
-    REFERRAL_BONUS_GAMES: 1,
-    TASK_GAME_BONUS: 1,
+    REFERRAL_BONUS_SPINS: 1,
+    TASK_SPIN_BONUS: 1,
     REFERRALS_PER_PAGE: 10,
     PARTNER_TASK_REWARD: 0.001,
     SOCIAL_TASK_REWARD: 0.0005
@@ -360,7 +360,7 @@ class TaskManager {
             updates.totalEarned = totalEarned + taskReward;
             updates.totalTasks = totalTasks + 1;
             
-            updates.dicePlays = (this.app.userState.dicePlays || 0) + FEATURES_CONFIG.TASK_GAME_BONUS;
+            updates.spins = (this.app.userState.spins || 0) + FEATURES_CONFIG.TASK_SPIN_BONUS;
             
             this.app.userCompletedTasks.add(taskId);
             updates.completedTasks = [...this.app.userCompletedTasks];
@@ -383,11 +383,8 @@ class TaskManager {
             this.app.userState.balance = currentBalance + taskReward;
             this.app.userState.totalEarned = totalEarned + taskReward;
             this.app.userState.totalTasks = totalTasks + 1;
-            this.app.userState.dicePlays = (this.app.userState.dicePlays || 0) + FEATURES_CONFIG.TASK_GAME_BONUS;
+            this.app.userState.spins = (this.app.userState.spins || 0) + FEATURES_CONFIG.TASK_SPIN_BONUS;
             this.app.userState.completedTasks = [...this.app.userCompletedTasks];
-            
-            this.app.totalTasksCompleted = totalTasks + 1;
-            await this.app.updateTasksCompleted();
             
             if (button) {
                 const taskCard = document.getElementById(`task-${taskId}`);
@@ -404,14 +401,14 @@ class TaskManager {
             
             this.app.notificationManager.showNotification(
                 "Completed!", 
-                `You received ${taskReward.toFixed(4)} TON + ${FEATURES_CONFIG.TASK_GAME_BONUS} GAME!`, 
+                `You received ${taskReward.toFixed(4)} TON + ${FEATURES_CONFIG.TASK_SPIN_BONUS} SPIN!`, 
                 "success"
             );
             
             await this.app.updateAppStats('totalTasks', 1);
             
             this.app.updateHeader();
-            this.app.renderDicePage();
+            this.app.renderSpinPage();
             
             this.app.cache.delete(`tasks_${this.app.tgUser.id}`);
             this.app.cache.delete(`user_${this.app.tgUser.id}`);
@@ -484,13 +481,13 @@ class TaskManager {
     }
 }
 
-class DiceManager {
+class SpinManager {
     constructor(app) {
         this.app = app;
     }
     
-    async handleDicePlay() {
-        return this.app.playDice();
+    async handleSpin() {
+        return this.app.playSpin();
     }
 }
 
@@ -586,7 +583,7 @@ class ReferralManager {
         const referralLink = `https://t.me/NinjaTONS_Bot/earn?startapp=${this.app.tgUser.id}`;
         const referrals = this.app.safeNumber(this.app.userState.referrals || 0);
         const referralEarnings = this.app.safeNumber(this.app.userState.referralEarnings || 0);
-        const referralGames = referrals * FEATURES_CONFIG.REFERRAL_BONUS_GAMES;
+        const referralSpins = referrals * FEATURES_CONFIG.REFERRAL_BONUS_SPINS;
         
         const last10Referrals = this.recentReferrals.slice(0, 10);
         
@@ -602,8 +599,7 @@ class ReferralManager {
                     </div>
                     
                     <div class="referral-instructions">
-                        <p><i class="fas fa-info-circle"></i> <b>Earn ${FEATURES_CONFIG.REFERRAL_BONUS_TON} TON +${FEATURES_CONFIG.REFERRAL_BONUS_GAMES} GAME Per Referral</b></p>
-                
+                        <p><i class="fas fa-info-circle"></i> <b>Earn ${FEATURES_CONFIG.REFERRAL_BONUS_TON} TON +${FEATURES_CONFIG.REFERRAL_BONUS_SPINS} SPIN Per Referral</b></p>
                     </div>
                     
                     <button class="share-btn" id="share-referral-btn">
@@ -631,7 +627,7 @@ class ReferralManager {
                                 <h4>Total Earnings</h4>
                                 <p class="stat-value">
                                     <span>${referralEarnings.toFixed(3)} TON</span>
-                                    <span class="play-part">${referralGames} GAME${referralGames !== 1 ? 'S' : ''}</span>
+                                    <span class="play-part">${referralSpins} SPIN${referralSpins !== 1 ? 'S' : ''}</span>
                                 </p>
                             </div>
                         </div>
@@ -664,7 +660,6 @@ class ReferralManager {
                     <i class="fas fa-handshake"></i>
                     <p>No referrals yet</p>
                     <p class="hint">Share your link to earn free TON!</p>
-                  
                 </div>
                 `}
             </div>
@@ -704,4 +699,4 @@ class ReferralManager {
     }
 }
 
-export { TaskManager, DiceManager, ReferralManager };
+export { TaskManager, SpinManager, ReferralManager };

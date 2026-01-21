@@ -1918,6 +1918,9 @@ class NinjaTONApp {
         const questsPage = document.getElementById('quests-page');
         if (!questsPage) return;
         
+        const userReferrals = this.safeNumber(this.userState.referrals || 0);
+        const userTotalTasks = this.safeNumber(this.userState.totalTasks || 0);
+        
         questsPage.innerHTML = `
             <div class="quests-container">
                 <div class="quests-section">
@@ -1929,19 +1932,19 @@ class NinjaTONApp {
                                     <i class="fas fa-user-plus"></i>
                                     Friends
                                 </div>
-                                <div class="quest-status progress">
-                                    In Progress
+                                <div class="quest-status ${userReferrals >= 5 ? 'ready' : 'progress'}">
+                                    ${userReferrals >= 5 ? 'Ready' : 'In Progress'}
                                 </div>
                             </div>
                             <div class="quest-card-body">
                                 <h4 class="quest-title">Invite 5 Friends</h4>
                                 <div class="quest-progress-container">
                                     <div class="quest-progress-info">
-                                        <span>0/5</span>
-                                        <span>0%</span>
+                                        <span>${userReferrals}/5</span>
+                                        <span>${Math.min((userReferrals / 5) * 100, 100).toFixed(0)}%</span>
                                     </div>
                                     <div class="quest-progress-bar">
-                                        <div class="quest-progress-fill" style="width: 0%"></div>
+                                        <div class="quest-progress-fill" style="width: ${Math.min((userReferrals / 5) * 100, 100)}%"></div>
                                     </div>
                                 </div>
                                 <div class="quest-reward-display">
@@ -1955,8 +1958,11 @@ class NinjaTONApp {
                                 </div>
                             </div>
                             <div class="quest-card-footer">
-                                <button class="quest-claim-btn disabled" disabled>
-                                    IN PROGRESS
+                                <button class="quest-claim-btn ${userReferrals >= 5 ? 'available' : 'disabled'}" 
+                                        data-quest-type="friends"
+                                        data-quest-index="0"
+                                        ${userReferrals < 5 ? 'disabled' : ''}>
+                                    ${userReferrals >= 5 ? 'CLAIM' : 'IN PROGRESS'}
                                 </button>
                             </div>
                         </div>
@@ -1972,19 +1978,19 @@ class NinjaTONApp {
                                     <i class="fas fa-tasks"></i>
                                     Tasks
                                 </div>
-                                <div class="quest-status progress">
-                                    In Progress
+                                <div class="quest-status ${userTotalTasks >= 50 ? 'ready' : 'progress'}">
+                                    ${userTotalTasks >= 50 ? 'Ready' : 'In Progress'}
                                 </div>
                             </div>
                             <div class="quest-card-body">
                                 <h4 class="quest-title">Complete 50 Tasks</h4>
                                 <div class="quest-progress-container">
                                     <div class="quest-progress-info">
-                                        <span>${this.userState.totalTasks || 0}/50</span>
-                                        <span>${Math.min(((this.userState.totalTasks || 0) / 50) * 100, 100).toFixed(0)}%</span>
+                                        <span>${userTotalTasks}/50</span>
+                                        <span>${Math.min((userTotalTasks / 50) * 100, 100).toFixed(0)}%</span>
                                     </div>
                                     <div class="quest-progress-bar">
-                                        <div class="quest-progress-fill" style="width: ${Math.min(((this.userState.totalTasks || 0) / 50) * 100, 100)}%"></div>
+                                        <div class="quest-progress-fill" style="width: ${Math.min((userTotalTasks / 50) * 100, 100)}%"></div>
                                     </div>
                                 </div>
                                 <div class="quest-reward-display">
@@ -1998,11 +2004,11 @@ class NinjaTONApp {
                                 </div>
                             </div>
                             <div class="quest-card-footer">
-                                <button class="quest-claim-btn ${this.userState.totalTasks >= 50 ? 'available' : 'disabled'}" 
+                                <button class="quest-claim-btn ${userTotalTasks >= 50 ? 'available' : 'disabled'}" 
                                         data-quest-type="tasks"
                                         data-quest-index="0"
-                                        ${this.userState.totalTasks < 50 ? 'disabled' : ''}>
-                                    ${this.userState.totalTasks >= 50 ? 'CLAIM' : 'IN PROGRESS'}
+                                        ${userTotalTasks < 50 ? 'disabled' : ''}>
+                                    ${userTotalTasks >= 50 ? 'CLAIM' : 'IN PROGRESS'}
                                 </button>
                             </div>
                         </div>
@@ -2506,15 +2512,9 @@ class NinjaTONApp {
                                required>
                     </div>
                     
-                    <div class="balance-info">
-                        <div class="balance-row">
-                            <span class="balance-label">Available Balance:</span>
-                            <span class="balance-value">${userBalance.toFixed(5)} TON</span>
-                        </div>
-                        <div class="balance-row">
-                            <span class="balance-label">Minimum Withdrawal:</span>
-                            <span class="balance-value">${minimumWithdraw.toFixed(3)} TON</span>
-                        </div>
+                    <div class="withdraw-minimum-info">
+                        <i class="fas fa-info-circle"></i>
+                        <span>Minimum Withdrawal: <strong>${minimumWithdraw.toFixed(3)} TON</strong></span>
                     </div>
                     
                     <button id="withdraw-btn" class="withdraw-btn" 
@@ -2550,6 +2550,8 @@ class NinjaTONApp {
                 `${wallet.substring(0, 6)}...${wallet.substring(wallet.length - 4)}` : 
                 wallet;
             
+            const transactionLink = transaction.transaction_link || `https://tonviewer.com/${wallet}`;
+            
             return `
                 <div class="history-item">
                     <div class="history-top">
@@ -2559,6 +2561,13 @@ class NinjaTONApp {
                     <div class="history-details">
                         <div class="history-date">${formattedDate}</div>
                         <div class="history-wallet">${shortWallet}</div>
+                        ${status === 'completed' ? `
+                            <div class="history-explorer">
+                                <a href="${transactionLink}" target="_blank" class="explorer-link">
+                                    <i class="fas fa-external-link-alt"></i> View on Explorer
+                                </a>
+                            </div>
+                        ` : ''}
                     </div>
                 </div>
             `;

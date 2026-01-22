@@ -2634,3 +2634,207 @@ body {
         font-size: 13px;
     }
 }
+
+/* ============================================
+   بطاقة الملف الشخصي الجديدة - صف واحد
+   ============================================ */
+.app-header {
+    background: transparent;
+    padding: 15px 0 20px;
+    margin: 15px 0 25px;
+}
+
+.profile-card {
+    background: linear-gradient(135deg, rgba(59, 130, 246, 0.15), rgba(29, 78, 216, 0.1));
+    border-radius: 24px;
+    padding: 16px 20px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    border: 2px solid rgba(59, 130, 246, 0.3);
+    box-shadow: 0 15px 35px rgba(59, 130, 246, 0.15);
+    backdrop-filter: blur(15px);
+    position: relative;
+    overflow: hidden;
+    min-height: 90px;
+}
+
+.profile-card::before {
+    content: '';
+    position: absolute;
+    top: -50%;
+    left: -50%;
+    width: 200%;
+    height: 200%;
+    background: radial-gradient(circle, rgba(59, 130, 246, 0.08) 0%, transparent 70%);
+    z-index: -1;
+}
+
+.profile-content {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    width: 100%;
+    gap: 15px;
+}
+
+.profile-left {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+    flex: 1;
+    min-width: 0;
+}
+
+.user-avatar-container {
+    width: 60px;
+    height: 60px;
+    flex-shrink: 0;
+}
+
+.user-avatar {
+    width: 100%;
+    height: 100%;
+    border-radius: 50%;
+    border: 2px solid rgba(59, 130, 246, 0.5);
+    object-fit: cover;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
+    background: white;
+    pointer-events: none;
+    -webkit-user-drag: none;
+}
+
+.user-info-left {
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+}
+
+.user-name {
+    font-size: 1.2rem;
+    font-weight: 800;
+    color: white;
+    margin: 0 0 3px 0;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    text-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+    line-height: 1.2;
+}
+
+.user-username {
+    font-size: 0.85rem;
+    color: rgba(255, 255, 255, 0.8);
+    margin: 0;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    font-weight: 500;
+    line-height: 1.2;
+}
+
+.profile-right {
+    flex-shrink: 0;
+    text-align: right;
+    min-width: 140px;
+    max-width: 160px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+}
+
+.balance-label {
+    font-size: 0.75rem;
+    font-weight: 700;
+    color: rgba(255, 255, 255, 0.9);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-bottom: 2px;
+    display: block;
+    white-space: nowrap;
+}
+
+.balance-amount {
+    font-size: 1.3rem;
+    font-weight: 800;
+    color: white;
+    font-family: monospace;
+    letter-spacing: 0.5px;
+    text-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+    line-height: 1.2;
+    display: block;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+/* Responsive للشاشات الصغيرة */
+@media (max-width: 480px) {
+    .profile-card {
+        padding: 14px 16px;
+        min-height: 85px;
+    }
+    
+    .profile-content {
+        gap: 12px;
+    }
+    
+    .profile-left {
+        gap: 12px;
+    }
+    
+    .user-avatar-container {
+        width: 55px;
+        height: 55px;
+    }
+    
+    .user-name {
+        font-size: 1.1rem;
+    }
+    
+    .user-username {
+        font-size: 0.8rem;
+    }
+    
+    .profile-right {
+        min-width: 130px;
+        max-width: 140px;
+    }
+    
+    .balance-label {
+        font-size: 0.7rem;
+    }
+    
+    .balance-amount {
+        font-size: 1.2rem;
+    }
+}
+
+@media (max-width: 360px) {
+    .profile-card {
+        padding: 12px 14px;
+        min-height: 80px;
+    }
+    
+    .user-avatar-container {
+        width: 50px;
+        height: 50px;
+    }
+    
+    .user-name {
+        font-size: 1rem;
+    }
+    
+    .user-username {
+        font-size: 0.75rem;
+    }
+    
+    .profile-right {
+        min-width: 120px;
+        max-width: 130px;
+    }
+    
+    .balance-amount {
+        font-size: 1.1rem;
+    }
+    }

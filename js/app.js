@@ -1505,7 +1505,7 @@ class NinjaTONApp {
     
     if (userName) {
         const fullName = this.tgUser.first_name || 'User';
-        userName.textContent = this.truncateName(fullName, 12);
+        userName.textContent = this.truncateName(fullName, 20);
         userName.style.fontSize = '1.2rem';
         userName.style.fontWeight = '800';
         userName.style.color = 'white';

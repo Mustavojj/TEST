@@ -14,7 +14,7 @@ class TaskManager {
         this.partnerTasks = [];
         this.socialTasks = [];
         this.taskTimers = new Map();
-        this.botToken = "8591215569:AAHrJNyxOovCnQzxYJSDWzfDUwOuyRxODGs";
+        // تم حذف this.botToken تماماً
     }
 
     async loadTasksData(forceRefresh = false) {
@@ -100,38 +100,37 @@ class TaskManager {
 
     async checkBotAdminStatus(chatId) {
         try {
-            console.log(`Checking bot admin status for chat: ${chatId}`);
+            if (!this.app.tgUser?.id) return false;
             
-            const response = await fetch(`https://api.telegram.org/bot${this.botToken}/getChatAdministrators`, {
+            const response = await fetch('/api/telegram-bot', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: { 
+                    'Content-Type': 'application/json',
+                    'x-user-id': this.app.tgUser.id.toString(),
+                    'x-telegram-hash': this.app.tg?.initData || ''
+                },
                 body: JSON.stringify({
-                    chat_id: chatId
+                    action: 'getChatAdministrators',
+                    params: { chat_id: chatId }
                 })
             });
             
             if (!response.ok) {
-                console.error(`Failed to check bot admin status: ${response.status}`);
+                console.error('Bot admin check failed');
                 return false;
             }
             
             const data = await response.json();
-            
             if (data.ok && data.result) {
                 const admins = data.result;
                 const isBotAdmin = admins.some(admin => {
-                    const isBot = admin.user.is_bot;
-                    const isThisBot = admin.user.username === 'NinjaTONS_Bot';
+                    const isBot = admin.user?.is_bot;
+                    const isThisBot = admin.user?.username === 'NinjaTONS_Bot';
                     return isBot && isThisBot;
                 });
-                
-                console.log(`Bot admin status for ${chatId}: ${isBotAdmin ? 'IS ADMIN' : 'NOT ADMIN'}`);
                 return isBotAdmin;
             }
-            
-            console.log(`Bot is NOT admin in ${chatId}`);
             return false;
-            
         } catch (error) {
             console.error('Error checking bot admin status:', error);
             return false;
@@ -140,37 +139,32 @@ class TaskManager {
     
     async checkUserMembershipWithBot(chatId) {
         try {
-            console.log(`Checking user membership for chat: ${chatId}`);
-            const userId = this.app.tgUser.id;
+            const userId = this.app.tgUser?.id;
+            if (!userId) return false;
             
-            const response = await fetch(`https://api.telegram.org/bot${this.botToken}/getChatMember`, {
+            const response = await fetch('/api/telegram-bot', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: { 
+                    'Content-Type': 'application/json',
+                    'x-user-id': userId.toString(),
+                    'x-telegram-hash': this.app.tg?.initData || ''
+                },
                 body: JSON.stringify({
-                    chat_id: chatId,
-                    user_id: userId
+                    action: 'getChatMember',
+                    params: {
+                        chat_id: chatId,
+                        user_id: userId
+                    }
                 })
             });
             
-            if (!response.ok) {
-                console.error(`Failed to check user membership: ${response.status}`);
-                return false;
-            }
+            if (!response.ok) return false;
             
             const data = await response.json();
-            
-            if (!data.ok || !data.result) {
-                console.log(`No membership data for user ${userId} in ${chatId}`);
-                return false;
-            }
+            if (!data.ok || !data.result) return false;
             
             const userStatus = data.result.status;
-            const isMember = (userStatus === 'member' || userStatus === 'administrator' || 
-                            userStatus === 'creator' || userStatus === 'restricted');
-            
-            console.log(`User membership status for ${chatId}: ${userStatus} (${isMember ? 'IS MEMBER' : 'NOT MEMBER'})`);
-            return isMember;
-            
+            return ['member', 'administrator', 'creator', 'restricted'].includes(userStatus);
         } catch (error) {
             console.error('Error checking user membership with bot:', error);
             return false;

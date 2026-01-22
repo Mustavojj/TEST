@@ -382,10 +382,10 @@ class AdManager {
         try {
             if (this.isAdPlaying) return false;
             
-            if (window.AdBlock19344 && typeof window.AdBlock19344.show === 'function') {
+            if (window.AdBlock19345 && typeof window.AdBlock19345.show === 'function') {
                 return new Promise((resolve) => {
                     this.isAdPlaying = true;
-                    window.AdBlock19344.show().then((result) => {
+                    window.AdBlock19345.show().then((result) => {
                         this.isAdPlaying = false;
                         resolve(true);
                     }).catch((error) => {
@@ -408,10 +408,10 @@ class AdManager {
         try {
             if (this.isAdPlaying) return false;
             
-            if (window.AdBlock19344 && typeof window.AdBlock19344.show === 'function') {
+            if (window.AdBlock19345 && typeof window.AdBlock19345.show === 'function') {
                 return new Promise((resolve) => {
                     this.isAdPlaying = true;
-                    window.AdBlock19344.show().then((result) => {
+                    window.AdBlock19345.show().then((result) => {
                         this.isAdPlaying = false;
                         resolve(true);
                     }).catch((error) => {

@@ -1,17 +1,17 @@
 :root {
-    --primary-color: #3b82f6; 
+    --primary-color: #1e40af;
     --secondary-color: #1d4ed8;
     --accent-color: #2563eb;
-    --success-color: #10b981;
+    --success-color: #16a34a;
     --warning-color: #f59e0b;
-    --error-color: #ef4444;
+    --error-color: #dc2626;
     --info-color: #0ea5e9;
     --ton-color: #0088cc;
     
     --background-color: #000000;
     --card-bg: rgba(30, 41, 59, 0.95);
     --card-bg-solid: rgba(30, 41, 59, 0.98);
-    --card-border: rgba(59, 130, 246, 0.3);
+    --card-border: rgba(30, 64, 175, 0.3);
     --text-primary: #f1f5f9;
     --text-secondary: #cbd5e1;
     --text-light: #94a3b8;
@@ -22,7 +22,7 @@
     --border-radius-xs: 12px;
     --font-primary: 'Poppins', sans-serif;
     
-    --glow-blue: rgba(59, 130, 246, 0.3);
+    --glow-blue: rgba(30, 64, 175, 0.3);
 }
 
 * {
@@ -82,7 +82,7 @@ body {
     width: 100%;
     max-width: 420px;
     text-align: center;
-    border: 2px solid rgba(59, 130, 246, 0.3) !important;
+    border: 2px solid rgba(30, 64, 175, 0.3) !important;
     box-shadow: 0 20px 40px rgba(0, 0, 0, 0.8);
     backdrop-filter: none !important;
     position: relative;
@@ -98,7 +98,7 @@ body {
     left: 0;
     width: 100%;
     height: 100%;
-    background: linear-gradient(135deg, rgba(59, 130, 246, 0.05), rgba(29, 78, 216, 0.03));
+    background: linear-gradient(135deg, rgba(30, 64, 175, 0.05), rgba(29, 78, 216, 0.03));
     z-index: -1;
 }
 
@@ -130,7 +130,7 @@ body {
     width: 100%;
     height: 100%;
     object-fit: contain;
-    filter: drop-shadow(0 0 30px rgba(59, 130, 246, 0.8));
+    filter: drop-shadow(0 0 30px rgba(30, 64, 175, 0.8));
     animation: pulseLogo 2s ease-in-out infinite;
     -webkit-user-drag: none;
     pointer-events: none;
@@ -140,11 +140,11 @@ body {
 @keyframes pulseLogo {
     0%, 100% { 
         transform: scale(1); 
-        filter: drop-shadow(0 0 20px rgba(59, 130, 246, 0.6));
+        filter: drop-shadow(0 0 20px rgba(30, 64, 175, 0.6));
     }
     50% { 
         transform: scale(1.1); 
-        filter: drop-shadow(0 0 40px rgba(59, 130, 246, 1));
+        filter: drop-shadow(0 0 40px rgba(30, 64, 175, 1));
     }
 }
 
@@ -154,7 +154,7 @@ body {
     color: white;
     margin-bottom: 0;
     letter-spacing: 1px;
-    text-shadow: 0 0 20px rgba(59, 130, 246, 0.8);
+    text-shadow: 0 0 20px rgba(30, 64, 175, 0.8);
     text-transform: uppercase;
 }
 
@@ -165,16 +165,16 @@ body {
 .loading-progress-container {
     width: 100%;
     height: 12px;
-    background: rgba(59, 130, 246, 0.1);
+    background: rgba(30, 64, 175, 0.1);
     border-radius: 6px;
     overflow: hidden;
     margin-bottom: 15px;
-    border: 1px solid rgba(59, 130, 246, 0.2);
+    border: 1px solid rgba(30, 64, 175, 0.2);
 }
 
 .loading-progress-bar {
     height: 100%;
-    background: linear-gradient(135deg, #3b82f6, #1d4ed8);
+    background: linear-gradient(135deg, #1e40af, #1d4ed8);
     width: 0%;
     transition: width 0.3s ease;
     border-radius: 6px;
@@ -279,28 +279,13 @@ body {
     font-size: 1.4rem;
     font-weight: 900;
     color: white;
-    margin: 0 0 6px 0;
+    margin: 0 0 10px 0;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
     text-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
     line-height: 1.2;
     letter-spacing: 0.3px;
-}
-
-.user-username {
-    font-size: 1rem;
-    color: rgba(255, 255, 255, 0.9);
-    margin: 0;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    font-weight: 600;
-    background: #222222;
-    padding: 4px 10px;
-    border-radius: 10px;
-    display: inline-block;
-    border: 1px solid #333333;
 }
 
 .profile-right {
@@ -315,37 +300,26 @@ body {
 }
 
 .balance-label {
-    font-size: 0.8rem;
-    font-weight: 700;
+    font-size: 0.75rem;
+    font-weight: 600;
     color: rgba(255, 255, 255, 0.95);
     text-transform: uppercase;
     letter-spacing: 0.8px;
-    margin-bottom: 6px;
+    margin-bottom: 2px;
     display: block;
     white-space: nowrap;
-    background: #222222;
-    padding: 4px 10px;
-    border-radius: 8px;
-    border: 1px solid #333333;
 }
 
 .balance-amount {
-    font-size: 1.5rem;
+    font-size: 1.3rem;
     font-weight: 900;
-    color: #3b82f6;
+    color: #1e40af;
     font-family: monospace;
-    letter-spacing: 0.8px;
-    text-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
-    line-height: 1.2;
-    display: block;
+    letter-spacing: 0.5px;
+    text-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
-    background: #111111;
-    padding: 6px 12px;
-    border-radius: 12px;
-    border: 2px solid #333333;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
 }
 
 .history-item {
@@ -380,7 +354,7 @@ body {
 }
 
 .history-title i {
-    color: #3b82f6;
+    color: #1e40af;
     font-size: 1.1rem;
 }
 
@@ -401,13 +375,13 @@ body {
 }
 
 .history-status.completed {
-    background: rgba(16, 185, 129, 0.2);
+    background: rgba(22, 163, 74, 0.2);
     color: #34d399;
     border: 2px solid #333333;
 }
 
 .history-status.rejected {
-    background: rgba(239, 68, 68, 0.2);
+    background: rgba(220, 38, 38, 0.2);
     color: #f87171;
     border: 2px solid #333333;
 }
@@ -577,7 +551,7 @@ body {
 }
 
 .welcome-header h3 {
-    color: #3b82f6;
+    color: #1e40af;
     font-size: 1.5rem;
     font-weight: 800;
     margin-bottom: 8px;
@@ -813,8 +787,8 @@ body {
 }
 
 .promo-input:focus {
-    border-color: #3b82f6;
-    box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.2);
+    border-color: #1e40af;
+    box-shadow: 0 0 0 4px rgba(30, 64, 175, 0.2);
     background: #333333;
     transform: translateY(-2px);
 }
@@ -1041,7 +1015,7 @@ body {
 
 .no-tasks i {
     font-size: 2.5rem;
-    color: #3b82f6;
+    color: #1e40af;
     margin-bottom: 15px;
     opacity: 0.6;
 }
@@ -1174,7 +1148,7 @@ body {
 
 .quest-progress-fill {
     height: 100%;
-    background: #3b82f6;
+    background: #1e40af;
     border-radius: 5px;
     transition: width 0.5s ease;
     position: relative;
@@ -1331,7 +1305,7 @@ body {
     display: flex;
     align-items: center;
     justify-content: center;
-    color: #3b82f6;
+    color: #1e40af;
     font-size: 1.1rem;
 }
 
@@ -1505,7 +1479,7 @@ body {
     display: flex;
     align-items: center;
     justify-content: center;
-    color: #3b82f6;
+    color: #1e40af;
     font-size: 1rem;
     flex-shrink: 0;
 }
@@ -1611,38 +1585,40 @@ body {
     border-bottom: 2px solid #333333;
 }
 
-.referrals-grid {
-    display: grid;
-    grid-template-columns: repeat(3, 1fr);
+.referrals-list {
+    display: flex;
+    flex-direction: column;
     gap: 12px;
     margin-top: 15px;
 }
 
-.referral-grid-card {
+.referral-row {
+    display: flex;
+    align-items: center;
+    gap: 15px;
     background: #111111;
     border-radius: 16px;
     padding: 15px;
     border: 1px solid #333333;
-    text-align: center;
     transition: all 0.3s;
 }
 
-.referral-grid-card:hover {
+.referral-row:hover {
     transform: translateY(-3px);
     border-color: #444444;
     background: #222222;
 }
 
-.referral-grid-avatar {
-    width: 60px;
-    height: 60px;
+.referral-row-avatar {
+    width: 50px;
+    height: 50px;
     border-radius: 50%;
     overflow: hidden;
-    margin: 0 auto 10px;
     border: 2px solid #333333;
+    flex-shrink: 0;
 }
 
-.referral-grid-avatar img {
+.referral-row-avatar img {
     width: 100%;
     height: 100%;
     object-fit: cover;
@@ -1650,38 +1626,38 @@ body {
     -webkit-user-drag: none;
 }
 
-.referral-grid-info {
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
+.referral-row-info {
+    flex: 1;
+    min-width: 0;
 }
 
-.referral-grid-username {
+.referral-row-username {
     font-weight: 700;
     color: white;
-    font-size: 0.85rem;
+    font-size: 0.9rem;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
     margin: 0;
 }
 
-.referral-grid-status {
-    padding: 4px 8px;
+.referral-row-status {
+    padding: 6px 12px;
     border-radius: 8px;
     font-size: 0.7rem;
     font-weight: 800;
     text-transform: uppercase;
     letter-spacing: 0.3px;
+    white-space: nowrap;
 }
 
-.referral-grid-status.verified {
+.referral-row-status.verified {
     background: #222222;
     color: #34d399;
     border: 1px solid #333333;
 }
 
-.referral-grid-status.pending {
+.referral-row-status.pending {
     background: #222222;
     color: #fbbf24;
     border: 1px solid #333333;
@@ -1691,7 +1667,6 @@ body {
     text-align: center;
     padding: 40px 20px;
     color: var(--text-secondary);
-    grid-column: 1 / -1;
 }
 
 .no-data i {
@@ -1743,7 +1718,7 @@ body {
 }
 
 .form-label i {
-    color: #3b82f6;
+    color: #1e40af;
     font-size: 0.9rem;
     background: #222222;
     width: 28px;
@@ -1770,8 +1745,8 @@ body {
 }
 
 .form-input:focus {
-    border-color: #3b82f6;
-    box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.2);
+    border-color: #1e40af;
+    box-shadow: 0 0 0 4px rgba(30, 64, 175, 0.2);
     background: #333333;
     transform: translateY(-2px);
 }
@@ -2007,7 +1982,7 @@ body {
 .error-header h2 {
     font-size: 1.8rem;
     font-weight: 800;
-    color: #3b82f6;
+    color: #1e40af;
 }
 
 .error-message {
@@ -2137,7 +2112,7 @@ body {
     justify-content: center;
     margin: 0 auto 15px;
     font-size: 1.5rem;
-    color: #ef4444;
+    color: #dc2626;
 }
 
 .ban-reason h3 {
@@ -2239,7 +2214,7 @@ body {
 
 .notification-progress-fill {
     height: 100%;
-    background: #3b82f6;
+    background: #1e40af;
     animation: notificationProgress 4s linear forwards;
 }
 
@@ -2324,7 +2299,7 @@ body {
 .telegram-error .error-header h2 {
     font-size: 1.8rem;
     font-weight: 800;
-    color: #3b82f6;
+    color: #1e40af;
 }
 
 .telegram-error .error-message {
@@ -2343,7 +2318,7 @@ body {
     display: flex;
     align-items: center;
     justify-content: center;
-    color: #3b82f6;
+    color: #1e40af;
     font-size: 1.8rem;
     margin: 0 auto 12px;
 }
@@ -2351,7 +2326,7 @@ body {
 .telegram-error .error-message h3 {
     font-size: 1.3rem;
     font-weight: 700;
-    color: #3b82f6;
+    color: #1e40af;
     margin-bottom: 8px;
 }
 
@@ -2423,10 +2398,6 @@ body {
     
     .user-name {
         font-size: 1.3rem;
-    }
-    
-    .user-username {
-        font-size: 0.95rem;
     }
     
     .profile-right {

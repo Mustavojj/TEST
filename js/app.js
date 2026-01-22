@@ -1464,51 +1464,59 @@ class NinjaTONApp {
     }
 
     updateHeader() {
-        const userPhoto = document.getElementById('user-photo');
-        const userName = document.getElementById('user-name');
-        const userUsername = document.getElementById('user-username');
-        const tonBalance = document.getElementById('header-ton-balance');
-        
-        if (userPhoto) {
-            userPhoto.src = this.userState.photoUrl || 'https://cdn-icons-png.flaticon.com/512/9195/9195920.png';
-            userPhoto.style.width = '60px';
-            userPhoto.style.height = '60px';
-            userPhoto.style.borderRadius = '50%';
-            userPhoto.style.objectFit = 'cover';
-            userPhoto.style.border = '2px solid rgba(59, 130, 246, 0.5)';
-            userPhoto.style.boxShadow = '0 4px 15px rgba(0, 0, 0, 0.3)';
-            userPhoto.oncontextmenu = (e) => e.preventDefault();
-            userPhoto.ondragstart = () => false;
-        }
-        
-        if (userName) {
-            const fullName = this.tgUser.first_name || 'User';
-            userName.textContent = this.truncateName(fullName, 15);
-            userName.style.fontSize = '1.3rem';
-            userName.style.fontWeight = '800';
-            userName.style.color = 'white';
-            userName.style.margin = '0 0 5px 0';
-        }
-        
-        if (userUsername) {
-            const username = this.tgUser.username ? `@${this.tgUser.username}` : 'No Username';
-            userUsername.textContent = this.truncateName(username, 15);
-            userUsername.style.fontSize = '0.95rem';
-            userUsername.style.color = 'rgba(255, 255, 255, 0.8)';
-            userUsername.style.margin = '0';
-        }
-        
-        if (tonBalance) {
-            const balance = this.safeNumber(this.userState.balance);
-            tonBalance.textContent = `${balance.toFixed(5)} TON`;
-            tonBalance.style.fontSize = '1.4rem';
-            tonBalance.style.fontWeight = '800';
-            tonBalance.style.color = 'white';
-            tonBalance.style.fontFamily = 'monospace';
-            tonBalance.style.letterSpacing = '0.5px';
-            tonBalance.style.textShadow = '0 2px 8px rgba(0, 0, 0, 0.3)';
-        }
+    const userPhoto = document.getElementById('user-photo');
+    const userName = document.getElementById('user-name');
+    const userUsername = document.getElementById('user-username');
+    const tonBalance = document.getElementById('header-ton-balance');
+    
+    if (userPhoto) {
+        userPhoto.src = this.userState.photoUrl || 'https://cdn-icons-png.flaticon.com/512/9195/9195920.png';
+        userPhoto.style.width = '60px';
+        userPhoto.style.height = '60px';
+        userPhoto.style.borderRadius = '50%';
+        userPhoto.style.objectFit = 'cover';
+        userPhoto.style.border = '2px solid rgba(59, 130, 246, 0.5)';
+        userPhoto.style.boxShadow = '0 4px 15px rgba(0, 0, 0, 0.3)';
+        userPhoto.oncontextmenu = (e) => e.preventDefault();
+        userPhoto.ondragstart = () => false;
     }
+    
+    if (userName) {
+        const fullName = this.tgUser.first_name || 'User';
+        userName.textContent = this.truncateName(fullName, 12);
+        userName.style.fontSize = '1.2rem';
+        userName.style.fontWeight = '800';
+        userName.style.color = 'white';
+        userName.style.margin = '0 0 3px 0';
+        userName.style.whiteSpace = 'nowrap';
+        userName.style.overflow = 'hidden';
+        userName.style.textOverflow = 'ellipsis';
+    }
+    
+    if (userUsername) {
+        const username = this.tgUser.username ? `@${this.tgUser.username}` : 'No Username';
+        userUsername.textContent = this.truncateName(username, 12);
+        userUsername.style.fontSize = '0.85rem';
+        userUsername.style.color = 'rgba(255, 255, 255, 0.8)';
+        userUsername.style.margin = '0';
+        userUsername.style.whiteSpace = 'nowrap';
+        userUsername.style.overflow = 'hidden';
+        userUsername.style.textOverflow = 'ellipsis';
+    }
+    
+    if (tonBalance) {
+        const balance = this.safeNumber(this.userState.balance);
+        tonBalance.textContent = `${balance.toFixed(5)} TON`;
+        tonBalance.style.fontSize = '1.3rem';
+        tonBalance.style.fontWeight = '800';
+        tonBalance.style.color = 'white';
+        tonBalance.style.fontFamily = 'monospace';
+        tonBalance.style.letterSpacing = '0.5px';
+        tonBalance.style.textShadow = '0 2px 8px rgba(0, 0, 0, 0.3)';
+        tonBalance.style.whiteSpace = 'nowrap';
+        tonBalance.style.marginTop = '5px';
+    }
+            }
 
     renderUI() {
         this.updateHeader();

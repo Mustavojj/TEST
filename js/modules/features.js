@@ -48,7 +48,7 @@ class TaskManager {
             if (!this.app.db) return [];
             
             const tasks = [];
-            const tasksSnapshot = await this.app.db.ref(`config/tasks/${category}`).once('value');
+            const tasksSnapshot = await this.app.db.ref(`config/tasks`).once('value');
             
             if (tasksSnapshot.exists()) {
                 tasksSnapshot.forEach(child => {
@@ -56,6 +56,10 @@ class TaskManager {
                         const taskData = child.val();
                         
                         if (taskData.status !== 'active' && taskData.taskStatus !== 'active') {
+                            return;
+                        }
+                        
+                        if (taskData.category !== category) {
                             return;
                         }
                         
@@ -370,11 +374,7 @@ class TaskManager {
             
             await this.app.db.ref(`users/${this.app.tgUser.id}`).update(updates);
             
-            await this.app.db.ref(`config/tasks/${task.category}/${taskId}/currentCompletions`).transaction(current => (current || 0) + 1);
-            
-            if (this.app.userState.referredBy) {
-                await this.app.processReferralTaskBonus(this.app.userState.referredBy, taskReward);
-            }
+            await this.app.db.ref(`config/tasks/${taskId}/currentCompletions`).transaction(current => (current || 0) + 1);
             
             this.app.userState.balance = currentBalance + taskReward;
             this.app.userState.totalEarned = totalEarned + taskReward;

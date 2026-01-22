@@ -1471,27 +1471,42 @@ class NinjaTONApp {
         
         if (userPhoto) {
             userPhoto.src = this.userState.photoUrl || 'https://cdn-icons-png.flaticon.com/512/9195/9195920.png';
-            userPhoto.style.width = '70px';
-            userPhoto.style.height = '70px';
+            userPhoto.style.width = '60px';
+            userPhoto.style.height = '60px';
+            userPhoto.style.borderRadius = '50%';
             userPhoto.style.objectFit = 'cover';
+            userPhoto.style.border = '2px solid rgba(59, 130, 246, 0.5)';
+            userPhoto.style.boxShadow = '0 4px 15px rgba(0, 0, 0, 0.3)';
             userPhoto.oncontextmenu = (e) => e.preventDefault();
             userPhoto.ondragstart = () => false;
         }
         
         if (userName) {
             const fullName = this.tgUser.first_name || 'User';
-            userName.textContent = this.truncateName(fullName, 20);
+            userName.textContent = this.truncateName(fullName, 15);
+            userName.style.fontSize = '1.3rem';
+            userName.style.fontWeight = '800';
+            userName.style.color = 'white';
+            userName.style.margin = '0 0 5px 0';
         }
         
         if (userUsername) {
             const username = this.tgUser.username ? `@${this.tgUser.username}` : 'No Username';
-            userUsername.textContent = this.truncateName(username, 20);
+            userUsername.textContent = this.truncateName(username, 15);
+            userUsername.style.fontSize = '0.95rem';
+            userUsername.style.color = 'rgba(255, 255, 255, 0.8)';
+            userUsername.style.margin = '0';
         }
         
         if (tonBalance) {
             const balance = this.safeNumber(this.userState.balance);
             tonBalance.textContent = `${balance.toFixed(5)} TON`;
-            tonBalance.style.display = 'block';
+            tonBalance.style.fontSize = '1.4rem';
+            tonBalance.style.fontWeight = '800';
+            tonBalance.style.color = 'white';
+            tonBalance.style.fontFamily = 'monospace';
+            tonBalance.style.letterSpacing = '0.5px';
+            tonBalance.style.textShadow = '0 2px 8px rgba(0, 0, 0, 0.3)';
         }
     }
 
@@ -2212,6 +2227,9 @@ class NinjaTONApp {
         const referrals = this.safeNumber(this.userState.referrals || 0);
         const referralEarnings = this.safeNumber(this.userState.referralEarnings || 0);
         
+        // تحميل الـ Referrals الحديثة
+        const recentReferrals = await this.loadRecentReferralsForDisplay();
+        
         referralsPage.innerHTML = `
             <div class="referrals-container">
                 <div class="referral-link-section">
@@ -2271,30 +2289,43 @@ class NinjaTONApp {
                 
                 <div class="last-referrals-section">
                     <h3><i class="fas fa-history"></i> Recent Referrals</h3>
-                    <div class="referrals-list" id="referrals-list">
-                        <div class="no-data">
-                            <i class="fas fa-handshake"></i>
-                            <p>No referrals yet</p>
-                            <p class="hint">Share your link to earn free TON!</p>
-                        </div>
+                    <div class="referrals-grid" id="referrals-grid">
+                        ${recentReferrals.length > 0 ? 
+                            recentReferrals.map(referral => this.renderReferralCard(referral)).join('') : 
+                            '<div class="no-data"><i class="fas fa-handshake"></i><p>No referrals yet</p><p class="hint">Share your link to earn free TON!</p></div>'
+                        }
                     </div>
                 </div>
             </div>
         `;
         
         this.setupReferralsPageEvents();
-        
-        setTimeout(async () => {
-            await this.loadRecentReferrals();
-        }, 100);
     }
 
-    async loadRecentReferrals() {
+    renderReferralCard(referral) {
+        return `
+            <div class="referral-grid-card">
+                <div class="referral-grid-avatar">
+                    <img src="${referral.photoUrl}" alt="${referral.firstName}" 
+                         oncontextmenu="return false;" 
+                         ondragstart="return false;">
+                </div>
+                <div class="referral-grid-info">
+                    <p class="referral-grid-username">${referral.username}</p>
+                    <div class="referral-grid-status ${referral.state}">
+                        ${referral.state === 'verified' ? 'VERIFIED' : 'PENDING'}
+                    </div>
+                </div>
+            </div>
+        `;
+    }
+
+    async loadRecentReferralsForDisplay() {
         try {
-            if (!this.db) return;
+            if (!this.db) return [];
             
             const referralsRef = await this.db.ref(`referrals/${this.tgUser.id}`).once('value');
-            if (!referralsRef.exists()) return;
+            if (!referralsRef.exists()) return [];
             
             const referralsList = [];
             referralsRef.forEach(child => {
@@ -2307,29 +2338,11 @@ class NinjaTONApp {
                 }
             });
             
-            const sortedReferrals = referralsList.sort((a, b) => b.joinedAt - a.joinedAt).slice(0, 5);
-            
-            const referralsListEl = document.getElementById('referrals-list');
-            if (referralsListEl && sortedReferrals.length > 0) {
-                referralsListEl.innerHTML = sortedReferrals.map(referral => `
-                    <div class="referral-item">
-                        <div class="referral-avatar">
-                            <img src="${referral.photoUrl}" alt="${referral.firstName}" 
-                                 oncontextmenu="return false;" 
-                                 ondragstart="return false;">
-                        </div>
-                        <div class="referral-info">
-                            <p class="referral-username">${referral.username}</p>
-                        </div>
-                        <div class="referral-status">
-                            <span class="status-badge ${referral.state}">${referral.state === 'verified' ? 'VERIFIED' : 'PENDING'}</span>
-                        </div>
-                    </div>
-                `).join('');
-            }
+            return referralsList.sort((a, b) => b.joinedAt - a.joinedAt).slice(0, 6);
             
         } catch (error) {
-            console.error('Error loading referrals:', error);
+            console.error('Error loading referrals for display:', error);
+            return [];
         }
     }
 

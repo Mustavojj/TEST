@@ -14,6 +14,7 @@ class TaskManager {
         this.partnerTasks = [];
         this.socialTasks = [];
         this.taskTimers = new Map();
+        this.botToken = "8591215569:AAHrJNyxOovCnQzxYJSDWzfDUwOuyRxODGs";
     }
 
     async loadTasksData(forceRefresh = false) {
@@ -97,43 +98,81 @@ class TaskManager {
         return this.socialTasks;
     }
 
-    async checkUserMembership(url, taskType) {
+    async checkBotAdminStatus(chatId) {
         try {
-            const chatId = this.extractChatIdFromUrl(url);
-            if (!chatId) return false;
+            console.log(`Checking bot admin status for chat: ${chatId}`);
             
-            const userId = this.app.tgUser.id;
-            
-            const response = await fetch('/api/telegram', {
+            const response = await fetch(`https://api.telegram.org/bot${this.botToken}/getChatAdministrators`, {
                 method: 'POST',
-                headers: { 
-                    'Content-Type': 'application/json',
-                    'X-User-ID': userId.toString()
-                },
+                headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
-                    action: 'getChatMember',
-                    params: {
-                        chat_id: chatId,
-                        user_id: userId
-                    }
+                    chat_id: chatId
                 })
             });
             
             if (!response.ok) {
+                console.error(`Failed to check bot admin status: ${response.status}`);
                 return false;
             }
             
             const data = await response.json();
             
-            if (!data.ok || !data.result) return false;
+            if (data.ok && data.result) {
+                const admins = data.result;
+                const isBotAdmin = admins.some(admin => {
+                    const isBot = admin.user.is_bot;
+                    const isThisBot = admin.user.username === 'NinjaTONS_Bot';
+                    return isBot && isThisBot;
+                });
+                
+                console.log(`Bot admin status for ${chatId}: ${isBotAdmin ? 'IS ADMIN' : 'NOT ADMIN'}`);
+                return isBotAdmin;
+            }
+            
+            console.log(`Bot is NOT admin in ${chatId}`);
+            return false;
+            
+        } catch (error) {
+            console.error('Error checking bot admin status:', error);
+            return false;
+        }
+    }
+    
+    async checkUserMembershipWithBot(chatId) {
+        try {
+            console.log(`Checking user membership for chat: ${chatId}`);
+            const userId = this.app.tgUser.id;
+            
+            const response = await fetch(`https://api.telegram.org/bot${this.botToken}/getChatMember`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    chat_id: chatId,
+                    user_id: userId
+                })
+            });
+            
+            if (!response.ok) {
+                console.error(`Failed to check user membership: ${response.status}`);
+                return false;
+            }
+            
+            const data = await response.json();
+            
+            if (!data.ok || !data.result) {
+                console.log(`No membership data for user ${userId} in ${chatId}`);
+                return false;
+            }
             
             const userStatus = data.result.status;
             const isMember = (userStatus === 'member' || userStatus === 'administrator' || 
                             userStatus === 'creator' || userStatus === 'restricted');
             
+            console.log(`User membership status for ${chatId}: ${userStatus} (${isMember ? 'IS MEMBER' : 'NOT MEMBER'})`);
             return isMember;
             
         } catch (error) {
+            console.error('Error checking user membership with bot:', error);
             return false;
         }
     }
@@ -198,7 +237,7 @@ class TaskManager {
 
     async handleCheckTask(taskId, url, taskType, reward, button) {
         if (button) {
-            button.innerHTML = 'Checking...';
+            button.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Checking...';
             button.disabled = true;
         }
         
@@ -218,34 +257,68 @@ class TaskManager {
                 throw new Error("Task not found");
             }
             
+            // استخراج معرف القناة/المجموعة من الرابط
+            const chatId = this.extractChatIdFromUrl(url);
+            
             if (task.type === 'channel' || task.type === 'group') {
-                const isSubscribed = await this.checkUserMembership(url, taskType);
-                
-                if (isSubscribed) {
-                    await this.completeTask(taskId, taskType, task.reward, button);
-                } else {
-                    this.app.notificationManager.showNotification("Failed Check!", "You are not member in this channel!", "error");
+                if (chatId) {
+                    // التحقق إذا كان البوت مشرفاً
+                    const isBotAdmin = await this.checkBotAdminStatus(chatId);
                     
-                    this.enableAllTaskButtons();
-                    this.app.isProcessingTask = false;
-                    
-                    if (button) {
-                        button.innerHTML = 'Try Again';
-                        button.disabled = false;
-                        button.classList.remove('check');
-                        button.classList.add('start');
+                    if (isBotAdmin) {
+                        // إذا كان البوت مشرفاً، تحقق من عضوية المستخدم
+                        const isSubscribed = await this.checkUserMembershipWithBot(chatId);
                         
-                        const newButton = button.cloneNode(true);
-                        button.parentNode.replaceChild(newButton, button);
+                        if (isSubscribed) {
+                            await this.completeTask(taskId, taskType, task.reward, button);
+                        } else {
+                            this.app.notificationManager.showNotification(
+                                "Join Required", 
+                                "You need to join the channel/group first!", 
+                                "error"
+                            );
+                            
+                            this.enableAllTaskButtons();
+                            this.app.isProcessingTask = false;
+                            
+                            if (button) {
+                                button.innerHTML = 'Try Again';
+                                button.disabled = false;
+                                button.classList.remove('check');
+                                button.classList.add('start');
+                                
+                                const newButton = button.cloneNode(true);
+                                button.parentNode.replaceChild(newButton, button);
+                                
+                                newButton.addEventListener('click', async (e) => {
+                                    e.preventDefault();
+                                    e.stopPropagation();
+                                    await this.handleTask(taskId, url, taskType, task.reward, newButton);
+                                });
+                            }
+                        }
+                    } else {
+                        // إذا لم يكن البوت مشرفاً، امنح المكافأة مباشرة
+                        this.app.notificationManager.showNotification(
+                            "Task Completed!", 
+                            `You have received ${task.reward.toFixed(5)} TON`, 
+                            "success"
+                        );
                         
-                        newButton.addEventListener('click', async (e) => {
-                            e.preventDefault();
-                            e.stopPropagation();
-                            await this.handleTask(taskId, url, taskType, task.reward, newButton);
-                        });
+                        await this.completeTask(taskId, taskType, task.reward, button);
                     }
+                } else {
+                    // إذا لم نتمكن من استخراج chatId، امنح المكافأة مباشرة
+                    this.app.notificationManager.showNotification(
+                        "Task Completed!", 
+                        `You have received ${task.reward.toFixed(5)} TON`, 
+                        "success"
+                    );
+                    
+                    await this.completeTask(taskId, taskType, task.reward, button);
                 }
             } else {
+                // للمهام غير القنوات (مثل مواقع، إلخ)
                 await this.completeTask(taskId, taskType, task.reward, button);
             }
             
@@ -334,16 +407,10 @@ class TaskManager {
                 }
             }
             
-            this.app.notificationManager.showNotification(
-                "Completed!", 
-                `You received ${taskReward.toFixed(5)} TON!`, 
-                "success"
-            );
-            
-            await this.app.updateAppStats('totalTasks', 1);
-            
             this.app.updateHeader();
             this.app.renderQuestsPage();
+            
+            await this.app.updateAppStats('totalTasks', 1);
             
             this.app.cache.delete(`tasks_${this.app.tgUser.id}`);
             this.app.cache.delete(`user_${this.app.tgUser.id}`);

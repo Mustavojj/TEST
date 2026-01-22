@@ -14,7 +14,6 @@ class TaskManager {
         this.partnerTasks = [];
         this.socialTasks = [];
         this.taskTimers = new Map();
-        // تم حذف this.botToken تماماً
     }
 
     async loadTasksData(forceRefresh = false) {
@@ -251,16 +250,13 @@ class TaskManager {
                 throw new Error("Task not found");
             }
             
-            // استخراج معرف القناة/المجموعة من الرابط
             const chatId = this.extractChatIdFromUrl(url);
             
             if (task.type === 'channel' || task.type === 'group') {
                 if (chatId) {
-                    // التحقق إذا كان البوت مشرفاً
                     const isBotAdmin = await this.checkBotAdminStatus(chatId);
                     
                     if (isBotAdmin) {
-                        // إذا كان البوت مشرفاً، تحقق من عضوية المستخدم
                         const isSubscribed = await this.checkUserMembershipWithBot(chatId);
                         
                         if (isSubscribed) {
@@ -292,7 +288,6 @@ class TaskManager {
                             }
                         }
                     } else {
-                        // إذا لم يكن البوت مشرفاً، امنح المكافأة مباشرة
                         this.app.notificationManager.showNotification(
                             "Task Completed!", 
                             `You have received ${task.reward.toFixed(5)} TON`, 
@@ -302,7 +297,6 @@ class TaskManager {
                         await this.completeTask(taskId, taskType, task.reward, button);
                     }
                 } else {
-                    // إذا لم نتمكن من استخراج chatId، امنح المكافأة مباشرة
                     this.app.notificationManager.showNotification(
                         "Task Completed!", 
                         `You have received ${task.reward.toFixed(5)} TON`, 
@@ -312,7 +306,6 @@ class TaskManager {
                     await this.completeTask(taskId, taskType, task.reward, button);
                 }
             } else {
-                // للمهام غير القنوات (مثل مواقع، إلخ)
                 await this.completeTask(taskId, taskType, task.reward, button);
             }
             

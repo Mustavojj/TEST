@@ -858,12 +858,6 @@ class NinjaTONApp {
                 this.userState.totalEarned = newTotalEarned;
                 
                 this.updateHeader();
-                
-                this.notificationManager.showNotification(
-                    "🎉 New Referral!", 
-                    `+${this.appConfig.REFERRAL_BONUS_TON} TON!`, 
-                    "success"
-                );
             }
             
             console.log(`Referral bonus processed for referrer ${referrerId}, new user ${newUserId}`);
@@ -1536,38 +1530,28 @@ class NinjaTONApp {
         
         if (userName) {
             const fullName = this.tgUser.first_name || 'User';
-            userName.textContent = this.truncateName(fullName, 12);
+            userName.textContent = this.truncateName(fullName, 20);
             userName.style.fontSize = '1.2rem';
             userName.style.fontWeight = '800';
             userName.style.color = 'white';
-            userName.style.margin = '0 0 3px 0';
+            userName.style.margin = '0';
             userName.style.whiteSpace = 'nowrap';
             userName.style.overflow = 'hidden';
             userName.style.textOverflow = 'ellipsis';
         }
         
         if (userUsername) {
-            const username = this.tgUser.username ? `@${this.tgUser.username}` : 'No Username';
-            userUsername.textContent = this.truncateName(username, 12);
-            userUsername.style.fontSize = '0.85rem';
-            userUsername.style.color = 'rgba(255, 255, 255, 0.8)';
-            userUsername.style.margin = '0';
-            userUsername.style.whiteSpace = 'nowrap';
-            userUsername.style.overflow = 'hidden';
-            userUsername.style.textOverflow = 'ellipsis';
+            userUsername.style.display = 'none';
         }
         
         if (tonBalance) {
             const balance = this.safeNumber(this.userState.balance);
-            tonBalance.textContent = `${balance.toFixed(5)} TON`;
-            tonBalance.style.fontSize = '1.3rem';
-            tonBalance.style.fontWeight = '800';
-            tonBalance.style.color = '#3b82f6';
-            tonBalance.style.fontFamily = 'monospace';
-            tonBalance.style.letterSpacing = '0.5px';
-            tonBalance.style.textShadow = '0 2px 8px rgba(0, 0, 0, 0.3)';
-            tonBalance.style.whiteSpace = 'nowrap';
-            tonBalance.style.marginTop = '5px';
+            tonBalance.innerHTML = `
+                <div style="display: flex; flex-direction: column; align-items: flex-end; gap: 2px;">
+                    <span style="font-size: 0.75rem; font-weight: 600; color: rgba(255, 255, 255, 0.95); text-transform: uppercase; letter-spacing: 0.8px; white-space: nowrap;">Balance:</span>
+                    <span style="font-size: 1.3rem; font-weight: 900; color: #3b82f6; font-family: monospace; letter-spacing: 0.5px; text-shadow: 0 2px 8px rgba(0, 0, 0, 0.3); white-space: nowrap;">${balance.toFixed(5)} TON</span>
+                </div>
+            `;
         }
     }
 
@@ -2000,19 +1984,22 @@ class NinjaTONApp {
             { required: 500, reward: 0.50, current: userTotalTasks }
         ];
         
+        const nextFriendsQuest = friendsQuests.find(q => q.current < q.required) || friendsQuests[0];
+        const nextTasksQuest = tasksQuests.find(q => q.current < q.required) || tasksQuests[0];
+        
         questsPage.innerHTML = `
             <div class="quests-container">
                 <div class="quests-section">
                     <h3><i class="fas fa-user-plus"></i> Friends Quests</h3>
                     <div id="friends-quests-list" class="quests-list">
-                        ${friendsQuests.map((quest, index) => this.renderQuestCard('friends', index, quest.required, quest.reward, quest.current)).join('')}
+                        ${this.renderQuestCard('friends', 0, nextFriendsQuest.required, nextFriendsQuest.reward, nextFriendsQuest.current)}
                     </div>
                 </div>
                 
                 <div class="quests-section">
                     <h3><i class="fas fa-tasks"></i> Tasks Quests</h3>
                     <div id="tasks-quests-list" class="quests-list">
-                        ${tasksQuests.map((quest, index) => this.renderQuestCard('tasks', index, quest.required, quest.reward, quest.current)).join('')}
+                        ${this.renderQuestCard('tasks', 0, nextTasksQuest.required, nextTasksQuest.reward, nextTasksQuest.current)}
                     </div>
                 </div>
                 
@@ -2196,10 +2183,6 @@ class NinjaTONApp {
                         totalEarned: this.safeNumber(this.userState.totalEarned) + reward,
                         totalTasks: this.safeNumber(this.userState.totalTasks) + 1
                     });
-                    
-                    if (this.userState.referredBy) {
-                        await this.processReferralTaskBonus(this.userState.referredBy, reward);
-                    }
                 }
                 
                 this.userState.balance = newBalance;
@@ -2335,9 +2318,9 @@ class NinjaTONApp {
                 
                 <div class="last-referrals-section">
                     <h3><i class="fas fa-history"></i> Recent Referrals</h3>
-                    <div class="referrals-grid" id="referrals-grid">
+                    <div class="referrals-list" id="referrals-list">
                         ${recentReferrals.length > 0 ? 
-                            recentReferrals.map(referral => this.renderReferralCard(referral)).join('') : 
+                            recentReferrals.map(referral => this.renderReferralRow(referral)).join('') : 
                             '<div class="no-data"><i class="fas fa-handshake"></i><p>No referrals yet</p><p class="hint">Share your link to earn free TON!</p></div>'
                         }
                     </div>
@@ -2348,19 +2331,19 @@ class NinjaTONApp {
         this.setupReferralsPageEvents();
     }
 
-    renderReferralCard(referral) {
+    renderReferralRow(referral) {
         return `
-            <div class="referral-grid-card">
-                <div class="referral-grid-avatar">
+            <div class="referral-row">
+                <div class="referral-row-avatar">
                     <img src="${referral.photoUrl}" alt="${referral.firstName}" 
                          oncontextmenu="return false;" 
                          ondragstart="return false;">
                 </div>
-                <div class="referral-grid-info">
-                    <p class="referral-grid-username">${referral.username}</p>
-                    <div class="referral-grid-status ${referral.state}">
-                        ${referral.state === 'verified' ? 'VERIFIED' : 'PENDING'}
-                    </div>
+                <div class="referral-row-info">
+                    <p class="referral-row-username">${referral.username}</p>
+                </div>
+                <div class="referral-row-status ${referral.state}">
+                    ${referral.state === 'verified' ? 'COMPLETED' : 'PENDING'}
                 </div>
             </div>
         `;
@@ -2384,7 +2367,7 @@ class NinjaTONApp {
                 }
             });
             
-            return referralsList.sort((a, b) => b.joinedAt - a.joinedAt).slice(0, 6);
+            return referralsList.sort((a, b) => b.joinedAt - a.joinedAt).slice(0, 10);
             
         } catch (error) {
             console.error('Error loading referrals for display:', error);

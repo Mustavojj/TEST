@@ -217,27 +217,28 @@ body {
 }
 
 /* ============================================
-   بطاقة الملف الشخصي الجديدة
+   بطاقة الملف الشخصي الجديدة - تحسين
    ============================================ */
 .app-header {
     background: transparent;
-    padding: 15px 0 20px;
-    margin: 15px 0 25px;
+    padding: 15px 0 15px;
+    margin: 10px 0 20px;
 }
 
 .profile-card {
-    background: linear-gradient(135deg, rgba(59, 130, 246, 0.15), rgba(29, 78, 216, 0.1));
+    background: linear-gradient(135deg, rgba(59, 130, 246, 0.2), rgba(29, 78, 216, 0.15));
     border-radius: 24px;
-    padding: 20px;
+    padding: 18px 20px;
     display: flex;
     align-items: center;
     justify-content: space-between;
     gap: 15px;
-    border: 2px solid rgba(59, 130, 246, 0.3);
-    box-shadow: 0 15px 35px rgba(59, 130, 246, 0.15);
-    backdrop-filter: blur(15px);
+    border: 2px solid rgba(59, 130, 246, 0.4);
+    box-shadow: 0 15px 35px rgba(59, 130, 246, 0.25);
+    backdrop-filter: blur(20px);
     position: relative;
     overflow: hidden;
+    min-height: 100px;
 }
 
 .profile-card::before {
@@ -247,7 +248,7 @@ body {
     left: -50%;
     width: 200%;
     height: 200%;
-    background: radial-gradient(circle, rgba(59, 130, 246, 0.08) 0%, transparent 70%);
+    background: radial-gradient(circle, rgba(59, 130, 246, 0.12) 0%, transparent 70%);
     z-index: -1;
 }
 
@@ -256,32 +257,53 @@ body {
     align-items: center;
     justify-content: space-between;
     width: 100%;
-    padding: 0 10px;
+    gap: 15px;
 }
 
 .profile-left {
     display: flex;
     align-items: center;
-    gap: 15px;
+    gap: 18px;
     flex: 1;
+    min-width: 0;
 }
 
 .user-avatar-container {
-    width: 60px;
-    height: 60px;
+    width: 70px;
+    height: 70px;
     flex-shrink: 0;
+    position: relative;
 }
 
 .user-avatar {
     width: 100%;
     height: 100%;
     border-radius: 50%;
-    border: 2px solid rgba(59, 130, 246, 0.5);
+    border: 3px solid rgba(59, 130, 246, 0.6);
     object-fit: cover;
-    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
-    background: white;
+    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.4);
+    background: linear-gradient(135deg, #3b82f6, #1d4ed8);
     pointer-events: none;
     -webkit-user-drag: none;
+}
+
+.user-avatar-container::after {
+    content: '';
+    position: absolute;
+    top: -3px;
+    left: -3px;
+    right: -3px;
+    bottom: -3px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #3b82f6, #1d4ed8, #3b82f6);
+    z-index: -1;
+    opacity: 0.6;
+    animation: rotate 3s linear infinite;
+}
+
+@keyframes rotate {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
 }
 
 .user-info-left {
@@ -291,51 +313,79 @@ body {
 }
 
 .user-name {
-    font-size: 1.3rem;
-    font-weight: 800;
+    font-size: 1.4rem;
+    font-weight: 900;
     color: white;
-    margin: 0 0 5px 0;
+    margin: 0 0 6px 0;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
-    text-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+    text-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
+    line-height: 1.2;
+    letter-spacing: 0.3px;
 }
 
 .user-username {
-    font-size: 0.95rem;
-    color: rgba(255, 255, 255, 0.8);
+    font-size: 1rem;
+    color: rgba(255, 255, 255, 0.9);
     margin: 0;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
-    font-weight: 500;
+    font-weight: 600;
+    background: rgba(59, 130, 246, 0.2);
+    padding: 4px 10px;
+    border-radius: 10px;
+    display: inline-block;
+    border: 1px solid rgba(59, 130, 246, 0.3);
 }
 
 .profile-right {
     flex-shrink: 0;
     text-align: right;
     min-width: 160px;
+    max-width: 180px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: flex-end;
 }
 
 .balance-label {
-    font-size: 0.9rem;
+    font-size: 0.8rem;
     font-weight: 700;
-    color: rgba(255, 255, 255, 0.9);
+    color: rgba(255, 255, 255, 0.95);
     text-transform: uppercase;
-    letter-spacing: 0.5px;
-    margin-bottom: 5px;
+    letter-spacing: 0.8px;
+    margin-bottom: 6px;
     display: block;
+    white-space: nowrap;
+    background: rgba(0, 0, 0, 0.2);
+    padding: 4px 10px;
+    border-radius: 8px;
+    border: 1px solid rgba(59, 130, 246, 0.2);
 }
 
 .balance-amount {
-    font-size: 1.4rem;
-    font-weight: 800;
+    font-size: 1.5rem;
+    font-weight: 900;
     color: white;
     font-family: monospace;
-    letter-spacing: 0.5px;
-    text-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
-    line-height: 1;
+    letter-spacing: 0.8px;
+    text-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
+    line-height: 1.2;
     display: block;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    background: linear-gradient(135deg, #3b82f6, #1d4ed8);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    padding: 6px 12px;
+    border-radius: 12px;
+    border: 2px solid rgba(59, 130, 246, 0.3);
+    box-shadow: 0 4px 12px rgba(59, 130, 246, 0.2);
 }
 
 /* ============================================
@@ -1030,6 +1080,28 @@ body {
     box-shadow: 0 6px 15px rgba(0, 0, 0, 0.2);
 }
 
+.refresh-tasks-btn {
+    margin-top: 15px;
+    padding: 10px 20px;
+    background: linear-gradient(135deg, #3b82f6, #1d4ed8);
+    border: none;
+    border-radius: 12px;
+    color: white;
+    font-weight: 700;
+    font-size: 0.9rem;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    transition: all 0.3s;
+}
+
+.refresh-tasks-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 15px rgba(59, 130, 246, 0.3);
+}
+
 .no-tasks {
     text-align: center;
     padding: 40px 20px;
@@ -1050,7 +1122,7 @@ body {
     color: var(--text-secondary);
     font-size: 1rem;
     font-weight: 600;
-    margin: 0;
+    margin: 0 0 15px 0;
 }
 
 /* ============================================
@@ -1402,6 +1474,15 @@ body {
     color: #9ca3af;
     cursor: not-allowed;
     border: 2px solid rgba(255, 255, 255, 0.1);
+}
+
+.ad-btn.soon {
+    background: linear-gradient(135deg, #6b7280, #4b5563);
+    color: #9ca3af;
+    cursor: not-allowed;
+    border: 2px solid rgba(255, 255, 255, 0.1);
+    font-weight: 800;
+    letter-spacing: 1px;
 }
 
 /* ============================================
@@ -2421,10 +2502,13 @@ body {
         font-size: 1.8rem;
     }
     
+    .profile-card {
+        padding: 16px 18px;
+        min-height: 95px;
+    }
+    
     .profile-content {
-        flex-direction: column;
-        align-items: stretch;
-        gap: 20px;
+        gap: 12px;
     }
     
     .profile-left {
@@ -2432,29 +2516,29 @@ body {
     }
     
     .user-avatar-container {
-        width: 55px;
-        height: 55px;
+        width: 65px;
+        height: 65px;
     }
     
     .user-name {
-        font-size: 1.2rem;
+        font-size: 1.3rem;
     }
     
     .user-username {
-        font-size: 0.9rem;
+        font-size: 0.95rem;
     }
     
     .profile-right {
-        min-width: auto;
-        text-align: left;
+        min-width: 150px;
+        max-width: 160px;
     }
     
     .balance-label {
-        font-size: 0.85rem;
+        font-size: 0.75rem;
     }
     
     .balance-amount {
-        font-size: 1.3rem;
+        font-size: 1.4rem;
     }
     
     .ad-cards {
@@ -2482,12 +2566,12 @@ body {
     }
     
     .referral-grid-avatar {
-        width: 50px;
-        height: 50px;
+        width: 55px;
+        height: 55px;
     }
     
     .referral-grid-username {
-        font-size: 0.8rem;
+        font-size: 0.85rem;
     }
     
     .tasks-tabs {
@@ -2552,6 +2636,33 @@ body {
         font-size: 1.6rem;
     }
     
+    .profile-card {
+        padding: 14px 16px;
+        min-height: 90px;
+    }
+    
+    .user-avatar-container {
+        width: 60px;
+        height: 60px;
+    }
+    
+    .user-name {
+        font-size: 1.2rem;
+    }
+    
+    .user-username {
+        font-size: 0.9rem;
+    }
+    
+    .profile-right {
+        min-width: 140px;
+        max-width: 150px;
+    }
+    
+    .balance-amount {
+        font-size: 1.3rem;
+    }
+    
     .referrals-grid {
         grid-template-columns: repeat(2, 1fr);
         gap: 8px;
@@ -2581,23 +2692,6 @@ body {
         padding: 6px 8px;
         border-radius: 16px;
         bottom: 6px;
-    }
-    
-    .user-avatar-container {
-        width: 50px;
-        height: 50px;
-    }
-    
-    .user-name {
-        font-size: 1.1rem;
-    }
-    
-    .user-username {
-        font-size: 0.85rem;
-    }
-    
-    .balance-amount {
-        font-size: 1.2rem;
     }
 }
 
@@ -2634,207 +2728,3 @@ body {
         font-size: 13px;
     }
 }
-
-/* ============================================
-   بطاقة الملف الشخصي الجديدة - صف واحد
-   ============================================ */
-.app-header {
-    background: transparent;
-    padding: 15px 0 20px;
-    margin: 15px 0 25px;
-}
-
-.profile-card {
-    background: linear-gradient(135deg, rgba(59, 130, 246, 0.15), rgba(29, 78, 216, 0.1));
-    border-radius: 24px;
-    padding: 16px 20px;
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    border: 2px solid rgba(59, 130, 246, 0.3);
-    box-shadow: 0 15px 35px rgba(59, 130, 246, 0.15);
-    backdrop-filter: blur(15px);
-    position: relative;
-    overflow: hidden;
-    min-height: 90px;
-}
-
-.profile-card::before {
-    content: '';
-    position: absolute;
-    top: -50%;
-    left: -50%;
-    width: 200%;
-    height: 200%;
-    background: radial-gradient(circle, rgba(59, 130, 246, 0.08) 0%, transparent 70%);
-    z-index: -1;
-}
-
-.profile-content {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    width: 100%;
-    gap: 15px;
-}
-
-.profile-left {
-    display: flex;
-    align-items: center;
-    gap: 15px;
-    flex: 1;
-    min-width: 0;
-}
-
-.user-avatar-container {
-    width: 60px;
-    height: 60px;
-    flex-shrink: 0;
-}
-
-.user-avatar {
-    width: 100%;
-    height: 100%;
-    border-radius: 50%;
-    border: 2px solid rgba(59, 130, 246, 0.5);
-    object-fit: cover;
-    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
-    background: white;
-    pointer-events: none;
-    -webkit-user-drag: none;
-}
-
-.user-info-left {
-    flex: 1;
-    min-width: 0;
-    overflow: hidden;
-}
-
-.user-name {
-    font-size: 1.2rem;
-    font-weight: 800;
-    color: white;
-    margin: 0 0 3px 0;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    text-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
-    line-height: 1.2;
-}
-
-.user-username {
-    font-size: 0.85rem;
-    color: rgba(255, 255, 255, 0.8);
-    margin: 0;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    font-weight: 500;
-    line-height: 1.2;
-}
-
-.profile-right {
-    flex-shrink: 0;
-    text-align: right;
-    min-width: 140px;
-    max-width: 160px;
-    display: flex;
-    flex-direction: column;
-    justify-content: center;
-}
-
-.balance-label {
-    font-size: 0.75rem;
-    font-weight: 700;
-    color: rgba(255, 255, 255, 0.9);
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
-    margin-bottom: 2px;
-    display: block;
-    white-space: nowrap;
-}
-
-.balance-amount {
-    font-size: 1.3rem;
-    font-weight: 800;
-    color: white;
-    font-family: monospace;
-    letter-spacing: 0.5px;
-    text-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
-    line-height: 1.2;
-    display: block;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-}
-
-/* Responsive للشاشات الصغيرة */
-@media (max-width: 480px) {
-    .profile-card {
-        padding: 14px 16px;
-        min-height: 85px;
-    }
-    
-    .profile-content {
-        gap: 12px;
-    }
-    
-    .profile-left {
-        gap: 12px;
-    }
-    
-    .user-avatar-container {
-        width: 55px;
-        height: 55px;
-    }
-    
-    .user-name {
-        font-size: 1.1rem;
-    }
-    
-    .user-username {
-        font-size: 0.8rem;
-    }
-    
-    .profile-right {
-        min-width: 130px;
-        max-width: 140px;
-    }
-    
-    .balance-label {
-        font-size: 0.7rem;
-    }
-    
-    .balance-amount {
-        font-size: 1.2rem;
-    }
-}
-
-@media (max-width: 360px) {
-    .profile-card {
-        padding: 12px 14px;
-        min-height: 80px;
-    }
-    
-    .user-avatar-container {
-        width: 50px;
-        height: 50px;
-    }
-    
-    .user-name {
-        font-size: 1rem;
-    }
-    
-    .user-username {
-        font-size: 0.75rem;
-    }
-    
-    .profile-right {
-        min-width: 120px;
-        max-width: 130px;
-    }
-    
-    .balance-amount {
-        font-size: 1.1rem;
-    }
-    }

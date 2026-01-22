@@ -4,8 +4,8 @@ const APP_CONFIG = {
     MINIMUM_WITHDRAW: 0.100,
     REFERRAL_BONUS_TON: 0.003,
     REFERRAL_PERCENTAGE: 10,
-    REFERRAL_BONUS_TASKS: 1,
-    TASK_REWARD_BONUS: 1,
+    REFERRAL_BONUS_TASKS: 0,
+    TASK_REWARD_BONUS: 0,
     MAX_DAILY_ADS: 999999,
     AD_COOLDOWN: 300000
 };
@@ -2126,6 +2126,7 @@ class NinjaTONApp {
         }
         
         if (watchAd2Btn) {
+            watchAd2Btn.disabled = true; 
             watchAd2Btn.addEventListener('click', async () => {
                 await this.watchAd(2);
             });

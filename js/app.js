@@ -302,7 +302,7 @@ class NinjaTONApp {
                 throw new Error('Firebase SDK not loaded');
             }
             
-            // طلب config من API
+            
             let firebaseConfig;
             try {
                 const response = await fetch('/api/firebase-config', {
@@ -1096,7 +1096,7 @@ class NinjaTONApp {
                 
                 <div class="welcome-footer">
                     <button class="check-welcome-btn" id="check-welcome-btn" disabled>
-                        <i class="fas fa-check-circle"></i> Check & Get 0.01 TON
+                        <i class="fas fa-check-circle"></i> Check & Get 0.005 TON
                     </button>
                     <p>
                         <i class="fas fa-info-circle"></i> Join all 4 channels then click CHECK
@@ -1188,9 +1188,9 @@ class NinjaTONApp {
                         await app.completeWelcomeTasks();
                         modal.remove();
                         app.showPage('tasks-page');
-                        app.notificationManager.showNotification("Success", "Welcome tasks completed! +0.01 TON", "success");
+                        app.notificationManager.showNotification("Success", "Welcome tasks completed! You have received 0.005 TON", "success");
                     } else {
-                        checkBtn.innerHTML = '<i class="fas fa-check-circle"></i> Check & Get 0.01 TON';
+                        checkBtn.innerHTML = '<i class="fas fa-check-circle"></i> Check & Get 0.005 TON';
                         checkBtn.disabled = false;
                         
                         if (verificationResult.missing.length > 0) {
@@ -1299,7 +1299,7 @@ class NinjaTONApp {
     
     async completeWelcomeTasks() {
         try {
-            const reward = 0.01;
+            const reward = 0.005;
             const currentBalance = this.safeNumber(this.userState.balance);
             const newBalance = currentBalance + reward;
             

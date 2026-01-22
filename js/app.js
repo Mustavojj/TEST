@@ -302,16 +302,36 @@ class NinjaTONApp {
                 throw new Error('Firebase SDK not loaded');
             }
             
-            const firebaseConfig = {
-                apiKey: "AIzaSyA0APJwsUQd1kTg3y8J-9yVukiZzUBdRos",
-                authDomain: "neja-go.firebaseapp.com",
-                databaseURL: "https://neja-go-default-rtdb.europe-west1.firebasedatabase.app",
-                projectId: "neja-go",
-                storageBucket: "neja-go.firebasestorage.app",
-                messagingSenderId: "60526443918",
-                appId: "1:60526443918:web:fca257ab5c782e0f1178df",
-                measurementId: "G-SJGF6HVQRE"
-            };
+            // طلب config من API
+            let firebaseConfig;
+            try {
+                const response = await fetch('/api/firebase-config', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'x-telegram-user': this.tgUser?.id?.toString() || '',
+                        'x-telegram-auth': this.tg?.initData || ''
+                    }
+                });
+                
+                if (response.ok) {
+                    firebaseConfig = await response.json();
+                } else {
+                    throw new Error('Failed to load Firebase config from API');
+                }
+            } catch (apiError) {
+                console.warn('API config load failed, using fallback:', apiError);
+                firebaseConfig = {
+                    apiKey: "fallback-key-123",
+                    authDomain: "fallback.firebaseapp.com",
+                    databaseURL: "https://fallback-default-rtdb.firebaseio.com",
+                    projectId: "fallback-project",
+                    storageBucket: "fallback.firebasestorage.app",
+                    messagingSenderId: "1234567890",
+                    appId: "1:1234567890:web:abcdef123456",
+                    measurementId: "G-XXXXXXX"
+                };
+            }
             
             let firebaseApp;
             
@@ -1240,11 +1260,12 @@ class NinjaTONApp {
                 return false;
             }
             
-            const response = await fetch('/api/telegram', {
+            const response = await fetch('/api/telegram-bot', {
                 method: 'POST',
                 headers: { 
                     'Content-Type': 'application/json',
-                    'X-User-ID': this.tgUser.id.toString()
+                    'x-user-id': this.tgUser.id.toString(),
+                    'x-telegram-hash': this.tg?.initData || ''
                 },
                 body: JSON.stringify({
                     action: 'getChatMember',
@@ -1271,6 +1292,7 @@ class NinjaTONApp {
             return false;
             
         } catch (error) {
+            console.error('Check Telegram membership error:', error);
             return false;
         }
     }

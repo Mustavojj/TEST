@@ -373,11 +373,7 @@ class AdManager {
                 this.isAdPlaying = true;
                 window.AdBlock19344.show().then((result) => {
                     this.isAdPlaying = false;
-                    this.app.notificationManager?.showNotification(
-                        "Ad Completed",
-                        "Thank you for watching the ad",
-                        "info"
-                    );
+                    
                     resolve(true);
                 }).catch((error) => {
                     this.isAdPlaying = false;

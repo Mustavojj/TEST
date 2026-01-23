@@ -2104,7 +2104,7 @@ class NinjaTONApp {
         const referralsPage = document.getElementById('referrals-page');
         if (!referralsPage) return;
         
-        const referralLink = `https://t.me/NinjaTONS_Bot/earn?startapp=${this.tgUser.id}`;
+        const referralLink = `https://t.me/NINJA2_Rbot/earn?startapp=${this.tgUser.id}`;
         const referrals = this.safeNumber(this.userState.referrals || 0);
         const referralEarnings = this.safeNumber(this.userState.referralEarnings || 0);
         

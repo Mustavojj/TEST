@@ -1545,7 +1545,7 @@ class NinjaTONApp {
                                 <i class="fas fa-gift"></i>
                             </div>
                             <h3>Promo Codes</h3>
-                            <p>Enter promo code to get bonus TON</p>
+                            
                         </div>
                         <input type="text" id="promo-input" class="promo-input" 
                                placeholder="Enter promo code" maxlength="20">

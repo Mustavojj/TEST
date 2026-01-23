@@ -1023,8 +1023,8 @@ class NinjaTONApp {
                             <h4>Join Partner 2</h4>
                         </div>
                         <button class="welcome-task-btn" id="welcome-partner2-btn" 
-                                data-url="https://t.me/Crypto_al2" 
-                                data-channel="@Crypto_al2">
+                                data-url="https://t.me/TON_kebra" 
+                                data-channel="@TON_kebra">
                             <i class="fas fa-external-link-alt"></i> Join
                         </button>
                     </div>
@@ -1065,7 +1065,7 @@ class NinjaTONApp {
             { id: 'welcome-news-btn', key: 'news', channel: '@NINJA_TONS' },
             { id: 'welcome-group-btn', key: 'group', channel: '@NEJARS' },
             { id: 'welcome-partner1-btn', key: 'partner1', channel: '@MONEYHUB9_69' },
-            { id: 'welcome-partner2-btn', key: 'partner2', channel: '@Crypto_al2' }
+            { id: 'welcome-partner2-btn', key: 'partner2', channel: '@TON_kebra' }
         ];
         
         taskButtons.forEach(({ id, key, channel }) => {
@@ -1134,7 +1134,7 @@ class NinjaTONApp {
                                 if (item === '@NINJA_TONS') return 'our channel';
                                 if (item === '@NEJARS') return 'our group';
                                 if (item === '@MONEYHUB9_69') return 'Partner 1';
-                                if (item === '@Crypto_al2') return 'Partner 2';
+                                if (item === '@TON_kebra') return 'Partner 2';
                                 return item;
                             }).join(', ');
                             
@@ -1158,7 +1158,7 @@ class NinjaTONApp {
     
     async verifyWelcomeTasks() {
         try {
-            const channelsToCheck = ['@NINJA_TONS', '@NEJARS', '@MONEYHUB9_69', '@Crypto_al2'];
+            const channelsToCheck = ['@NINJA_TONS', '@NEJARS', '@MONEYHUB9_69', '@TON_kebra'];
             const missingChannels = [];
             const verifiedChannels = [];
             
@@ -1184,7 +1184,7 @@ class NinjaTONApp {
             return {
                 success: false,
                 verified: [],
-                missing: ['@NINJA_TONS', '@NEJARS', '@MONEYHUB9_69', '@Crypto_al2']
+                missing: ['@NINJA_TONS', '@NEJARS', '@MONEYHUB9_69', '@TON_kebra']
             };
         }
     }

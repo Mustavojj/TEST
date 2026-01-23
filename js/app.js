@@ -7,7 +7,7 @@ const APP_CONFIG = {
     REFERRAL_BONUS_TASKS: 1,
     TASK_REWARD_BONUS: 1,
     MAX_DAILY_ADS: 999999,
-    AD_COOLDOWN: 300000
+    AD_COOLDOWN: 600000 
 };
 
 import { CacheManager, NotificationManager, SecurityManager, AdManager } from './modules/core.js';
@@ -21,7 +21,6 @@ class NinjaTONApp {
         this.db = null;
         this.auth = null;
         this.firebaseInitialized = false;
-        this.configLoaded = false;
         
         this.currentUser = null;
         this.userState = {};
@@ -66,17 +65,12 @@ class NinjaTONApp {
         this.referralBonusGiven = new Set();
         
         this.adTimers = {
-            ad1: 0,
-            ad2: 0
+            ad1: 0
         };
         
-        this.adCooldown = 300000;
+        this.adCooldown = 600000;
         
         this.referralMonitorInterval = null;
-        
-        this.autoAdTimer = null;
-        this.autoAdInterval = null;
-        this.autoAdEnabled = false;
         
         this.welcomeTasksShown = false;
         this.welcomeTasksCompleted = false;
@@ -91,9 +85,6 @@ class NinjaTONApp {
         
         this.pendingReferralAfterWelcome = null;
         this.rateLimiter = new (this.getRateLimiterClass())();
-        
-        this.autoAd19344Interval = null;
-        this.autoAd19344LastShown = 0;
     }
 
     getRateLimiterClass() {
@@ -108,31 +99,26 @@ class NinjaTONApp {
             }
 
             checkLimit(userId, action) {
-                try {
-                    const key = `${userId}_${action}`;
-                    const now = Date.now();
-                    const limitConfig = this.limits[action] || { limit: 5, window: 60000 };
-                    
-                    if (!this.requests.has(key)) this.requests.set(key, []);
-                    
-                    const userRequests = this.requests.get(key);
-                    const windowStart = now - limitConfig.window;
-                    const recentRequests = userRequests.filter(time => time > windowStart);
-                    this.requests.set(key, recentRequests);
-                    
-                    if (recentRequests.length >= limitConfig.limit) {
-                        return {
-                            allowed: false,
-                            remaining: Math.ceil((recentRequests[0] + limitConfig.window - now) / 1000)
-                        };
-                    }
-                    
-                    recentRequests.push(now);
-                    return { allowed: true };
-                } catch (error) {
-                    console.error("Rate limit check error:", error);
-                    return { allowed: true };
+                const key = `${userId}_${action}`;
+                const now = Date.now();
+                const limitConfig = this.limits[action] || { limit: 5, window: 60000 };
+                
+                if (!this.requests.has(key)) this.requests.set(key, []);
+                
+                const userRequests = this.requests.get(key);
+                const windowStart = now - limitConfig.window;
+                const recentRequests = userRequests.filter(time => time > windowStart);
+                this.requests.set(key, recentRequests);
+                
+                if (recentRequests.length >= limitConfig.limit) {
+                    return {
+                        allowed: false,
+                        remaining: Math.ceil((recentRequests[0] + limitConfig.window - now) / 1000)
+                    };
                 }
+                
+                recentRequests.push(now);
+                return { allowed: true };
             }
         };
     }
@@ -207,7 +193,6 @@ class NinjaTONApp {
             try {
                 await this.loadTasksData();
             } catch (taskError) {
-                console.warn('Tasks load failed:', taskError);
             }
             
             this.showLoadingProgress(70);
@@ -215,7 +200,6 @@ class NinjaTONApp {
             try {
                 await this.loadHistoryData();
             } catch (historyError) {
-                console.warn('History load failed:', historyError);
             }
             
             this.showLoadingProgress(80);
@@ -223,7 +207,6 @@ class NinjaTONApp {
             try {
                 await this.loadAppStats();
             } catch (statsError) {
-                console.warn('Stats load failed:', statsError);
             }
             
             this.showLoadingProgress(85);
@@ -231,7 +214,6 @@ class NinjaTONApp {
             try {
                 await this.loadAdTimers();
             } catch (adError) {
-                console.warn('Ad timers load failed:', adError);
             }
             
             this.showLoadingProgress(90);
@@ -267,13 +249,10 @@ class NinjaTONApp {
                 }
                 
                 this.showWelcomeTasksModal();
-                this.startAutoAd19344();
                 
             }, 500);
             
         } catch (error) {
-            console.error('Initialization error:', error);
-            
             if (this.notificationManager) {
                 this.notificationManager.showNotification(
                     "Initialization Error",
@@ -323,7 +302,6 @@ class NinjaTONApp {
                     throw new Error('Failed to load Firebase config from API');
                 }
             } catch (apiError) {
-                console.warn('API config load failed, using fallback:', apiError);
                 firebaseConfig = {
                     apiKey: "fallback-key-123",
                     authDomain: "fallback.firebaseapp.com",
@@ -351,31 +329,19 @@ class NinjaTONApp {
             this.db = firebaseApp.database();
             this.auth = firebaseApp.auth();
             
-            console.log('Firebase initialized, attempting anonymous authentication...');
-            
             try {
                 await this.auth.signInAnonymously();
-                console.log('Anonymous authentication successful');
             } catch (authError) {
-                console.error('Anonymous authentication failed:', authError);
+                const randomEmail = `user_${this.tgUser.id}_${Date.now()}@ninjaton.app`;
+                const randomPassword = Math.random().toString(36).slice(-10) + Date.now().toString(36);
                 
-                try {
-                    const randomEmail = `user_${this.tgUser.id}_${Date.now()}@ninjaton.app`;
-                    const randomPassword = Math.random().toString(36).slice(-10) + Date.now().toString(36);
-                    
-                    await this.auth.createUserWithEmailAndPassword(randomEmail, randomPassword);
-                    console.log('Created new anonymous user');
-                } catch (createError) {
-                    console.error('Failed to create anonymous user:', createError);
-                    throw new Error('Firebase authentication failed');
-                }
+                await this.auth.createUserWithEmailAndPassword(randomEmail, randomPassword);
             }
             
             await new Promise((resolve, reject) => {
                 const unsubscribe = this.auth.onAuthStateChanged((user) => {
                     if (user) {
                         unsubscribe();
-                        console.log('User authenticated:', user.uid);
                         this.currentUser = user;
                         resolve(user);
                     }
@@ -392,8 +358,6 @@ class NinjaTONApp {
             return true;
             
         } catch (error) {
-            console.error('Firebase initialization failed:', error);
-            
             this.notificationManager?.showNotification(
                 "Authentication Error",
                 "Failed to connect to database. Some features may not work.",
@@ -409,7 +373,6 @@ class NinjaTONApp {
         
         this.auth.onAuthStateChanged(async (user) => {
             if (user) {
-                console.log('User authenticated:', user.uid);
                 this.currentUser = user;
                 
                 if (this.userState.firebaseUid !== user.uid) {
@@ -417,18 +380,10 @@ class NinjaTONApp {
                     await this.syncUserWithFirebase();
                 }
             } else {
-                console.log('User signed out, attempting to sign in anonymously...');
                 try {
                     await this.auth.signInAnonymously();
                 } catch (error) {
-                    console.error('Failed to re-authenticate:', error);
                 }
-            }
-        });
-        
-        this.auth.onIdTokenChanged((user) => {
-            if (user) {
-                console.log('Token refreshed for user:', user.uid);
             }
         });
     }
@@ -436,14 +391,11 @@ class NinjaTONApp {
     async syncUserWithFirebase() {
         try {
             if (!this.db || !this.auth.currentUser) {
-                console.warn('Cannot sync: Firebase not ready');
                 return;
             }
             
             const firebaseUid = this.auth.currentUser.uid;
             const telegramId = this.tgUser.id;
-            
-            console.log('Syncing user:', { firebaseUid, telegramId });
             
             const userRef = this.db.ref(`users/${telegramId}`);
             const userSnapshot = await userRef.once('value');
@@ -458,17 +410,14 @@ class NinjaTONApp {
                 };
                 
                 await userRef.set(userData);
-                console.log('New user created in Firebase');
             } else {
                 await userRef.update({
                     firebaseUid: firebaseUid,
                     lastSynced: Date.now()
                 });
-                console.log('User UID updated in Firebase');
             }
             
         } catch (error) {
-            console.error('User sync failed:', error);
         }
     }
 
@@ -486,7 +435,6 @@ class NinjaTONApp {
         
         try {
             if (!this.db || !this.firebaseInitialized || !this.auth?.currentUser) {
-                console.warn('Firebase auth not ready, using default data');
                 this.userState = this.getDefaultUserState();
                 this.updateHeader();
                 
@@ -500,7 +448,6 @@ class NinjaTONApp {
             }
             
             const telegramId = this.tgUser.id;
-            console.log('Loading user data with Telegram ID:', telegramId);
             
             const userRef = this.db.ref(`users/${telegramId}`);
             const userSnapshot = await userRef.once('value');
@@ -509,11 +456,8 @@ class NinjaTONApp {
             
             if (userSnapshot.exists()) {
                 userData = userSnapshot.val();
-                console.log('User found in Firebase:', userData.id);
-                
                 userData = await this.updateExistingUser(userRef, userData);
             } else {
-                console.log('Creating new user in Firebase');
                 userData = await this.createNewUser(userRef);
             }
             
@@ -529,11 +473,7 @@ class NinjaTONApp {
             this.cache.set(cacheKey, userData, 60000);
             this.updateHeader();
             
-            console.log('User data loaded successfully from Firebase');
-            
         } catch (error) {
-            console.error('Error loading user data:', error);
-            
             this.userState = this.getDefaultUserState();
             this.updateHeader();
             
@@ -672,7 +612,6 @@ class NinjaTONApp {
             
             return true;
         } catch (error) {
-            console.error('Multi account check error:', error);
             return true;
         }
     }
@@ -742,7 +681,6 @@ class NinjaTONApp {
             const data = await res.json();
             return data.ip;
         } catch (e) {
-            console.error("Failed to fetch IP:", e);
             return null;
         }
     }
@@ -860,12 +798,9 @@ class NinjaTONApp {
                 this.updateHeader();
             }
             
-            console.log(`Referral bonus processed for referrer ${referrerId}, new user ${newUserId}`);
-            
             await this.refreshReferralsList();
             
         } catch (error) {
-            console.error('Error in referral process:', error);
         }
     }
 
@@ -915,7 +850,6 @@ class NinjaTONApp {
             }
             
         } catch (error) {
-            console.error('Error processing referral task bonus:', error);
         }
     }
 
@@ -1242,7 +1176,6 @@ class NinjaTONApp {
             };
             
         } catch (error) {
-            console.error("Verify welcome tasks error:", error);
             return {
                 success: false,
                 verified: [],
@@ -1289,7 +1222,6 @@ class NinjaTONApp {
             return false;
             
         } catch (error) {
-            console.error('Check Telegram membership error:', error);
             return false;
         }
     }
@@ -1328,7 +1260,6 @@ class NinjaTONApp {
             
             return true;
         } catch (error) {
-            console.error("Complete welcome tasks error:", error);
             return false;
         }
     }
@@ -1341,35 +1272,6 @@ class NinjaTONApp {
         this.referralMonitorInterval = setInterval(async () => {
             await this.checkReferralsVerification();
         }, 30000);
-    }
-
-    startAutoAd19344() {
-        if (this.autoAd19344Interval) {
-            clearInterval(this.autoAd19344Interval);
-        }
-        
-        this.autoAd19344LastShown = Date.now();
-        
-        this.autoAd19344Interval = setInterval(async () => {
-            const now = Date.now();
-            const timeSinceLastAd = now - this.autoAd19344LastShown;
-            
-            if (timeSinceLastAd >= 180000) {
-                await this.showAutoAd19344();
-            }
-        }, 60000);
-    }
-    
-    async showAutoAd19344() {
-        try {
-            if (window.AdBlock19344 && typeof window.AdBlock19344.show === 'function') {
-                await window.AdBlock19344.show();
-                this.autoAd19344LastShown = Date.now();
-                console.log('Auto AdBlock19344 shown');
-            }
-        } catch (error) {
-            console.error('Error showing auto AdBlock19344:', error);
-        }
     }
 
     async checkReferralsVerification() {
@@ -1408,7 +1310,6 @@ class NinjaTONApp {
             }
             
         } catch (error) {
-            console.error('Check referrals verification error:', error);
         }
     }
 
@@ -1420,8 +1321,7 @@ class NinjaTONApp {
             }
         } catch (error) {
             this.adTimers = {
-                ad1: 0,
-                ad2: 0
+                ad1: 0
             };
         }
     }
@@ -1430,7 +1330,6 @@ class NinjaTONApp {
         try {
             localStorage.setItem(`ad_timers_${this.tgUser.id}`, JSON.stringify(this.adTimers));
         } catch (error) {
-            console.error('Error saving ad timers:', error);
         }
     }
 
@@ -1513,7 +1412,6 @@ class NinjaTONApp {
     updateHeader() {
         const userPhoto = document.getElementById('user-photo');
         const userName = document.getElementById('user-name');
-        const userUsername = document.getElementById('user-username');
         const tonBalance = document.getElementById('header-ton-balance');
         
         if (userPhoto) {
@@ -1540,17 +1438,10 @@ class NinjaTONApp {
             userName.style.textOverflow = 'ellipsis';
         }
         
-        if (userUsername) {
-            userUsername.style.display = 'none';
-        }
-        
         if (tonBalance) {
             const balance = this.safeNumber(this.userState.balance);
             tonBalance.innerHTML = `
-                <div style="display: flex; flex-direction: column; align-items: flex-end; gap: 2px;">
-                    <span style="font-size: 0.75rem; font-weight: 600; color: rgba(255, 255, 255, 0.95); text-transform: uppercase; letter-spacing: 0.8px; white-space: nowrap;">Balance:</span>
-                    <span style="font-size: 1.3rem; font-weight: 900; color: #3b82f6; font-family: monospace; letter-spacing: 0.5px; text-shadow: 0 2px 8px rgba(0, 0, 0, 0.3); white-space: nowrap;">${balance.toFixed(5)} TON</span>
-                </div>
+                <span style="font-size: 1.3rem; font-weight: 900; color: #3b82f6; font-family: monospace; letter-spacing: 0.5px; text-shadow: 0 2px 8px rgba(0, 0, 0, 0.3); white-space: nowrap;">${balance.toFixed(5)} TON</span>
             `;
         }
     }
@@ -1634,14 +1525,14 @@ class NinjaTONApp {
                     <button class="tab-btn" data-tab="partner-tab">
                         <i class="fas fa-handshake"></i> Partner
                     </button>
-                    <button class="tab-btn" data-tab="promo-tab">
-                        <i class="fas fa-gift"></i> Promo
+                    <button class="tab-btn" data-tab="more-tab">
+                        <i class="fas fa-ellipsis-h"></i> More
                     </button>
                 </div>
                 
                 <div id="social-tab" class="tasks-tab-content active"></div>
                 <div id="partner-tab" class="tasks-tab-content"></div>
-                <div id="promo-tab" class="tasks-tab-content">
+                <div id="more-tab" class="tasks-tab-content">
                     <div class="promo-card">
                         <div class="promo-header">
                             <div class="promo-icon">
@@ -1656,6 +1547,23 @@ class NinjaTONApp {
                             <i class="fas fa-gift"></i> APPLY
                         </button>
                     </div>
+                    <div class="ad-card">
+                        <div class="ad-header">
+                            <div class="ad-icon">
+                                <i class="fas fa-ad"></i>
+                            </div>
+                            <div class="ad-title">Watch AD #1</div>
+                        </div>
+                        <div class="ad-reward">
+                            <img src="https://cdn-icons-png.flaticon.com/512/15208/15208522.png" alt="TON">
+                            <span>Reward: 0.001 TON</span>
+                        </div>
+                        <button class="ad-btn ${this.isAdAvailable(1) ? 'available' : 'cooldown'}" 
+                                id="watch-ad-1-btn"
+                                ${!this.isAdAvailable(1) ? 'disabled' : ''}>
+                            ${this.isAdAvailable(1) ? 'WATCH' : this.formatTime(this.getAdTimeLeft(1))}
+                        </button>
+                    </div>
                 </div>
             </div>
         `;
@@ -1664,6 +1572,8 @@ class NinjaTONApp {
             this.setupTasksTabs();
             this.renderTasksTabContent();
             this.setupPromoCodeEvents();
+            this.setupAdWatchEvents();
+            this.startAdTimers();
         }, 100);
     }
 
@@ -1711,7 +1621,7 @@ class NinjaTONApp {
             if (socialTasks.length > 0) {
                 const tasksHTML = socialTasks.map(task => this.renderTaskCard(task)).join('');
                 socialTab.innerHTML = `
-                    <div class="tasks-list">
+                    <div class="referrals-list">
                         ${tasksHTML}
                     </div>
                 `;
@@ -1747,7 +1657,7 @@ class NinjaTONApp {
             if (partnerTasks.length > 0) {
                 const tasksHTML = partnerTasks.map(task => this.renderTaskCard(task)).join('');
                 partnerTab.innerHTML = `
-                    <div class="tasks-list">
+                    <div class="referrals-list">
                         ${tasksHTML}
                     </div>
                 `;
@@ -1773,7 +1683,6 @@ class NinjaTONApp {
     renderTaskCard(task) {
         const isCompleted = this.userCompletedTasks.has(task.id);
         const defaultIcon = 'https://i.ibb.co/GvWFRrnp/ninja.png';
-        const tonIcon = 'https://cdn-icons-png.flaticon.com/512/15208/15208522.png';
         
         let buttonText = 'Start';
         let buttonClass = 'start';
@@ -1786,19 +1695,17 @@ class NinjaTONApp {
         }
         
         return `
-            <div class="task-card ${isCompleted ? 'task-completed' : ''}" id="task-${task.id}">
-                <div class="task-avatar">
-                    <img src="${task.picture || defaultIcon}" alt="Task" class="task-bot-icon">
+            <div class="referral-row ${isCompleted ? 'task-completed' : ''}" id="task-${task.id}">
+                <div class="referral-row-avatar">
+                    <img src="${task.picture || defaultIcon}" alt="Task" 
+                         oncontextmenu="return false;" 
+                         ondragstart="return false;">
                 </div>
-                <div class="task-info">
-                    <h4 class="task-name">${task.name}</h4>
-                    <p class="task-description">${task.description || 'Join & Get Reward'}</p>
-                    <div class="task-reward">
-                        <img src="${tonIcon}" alt="TON" class="reward-icon">
-                        <span class="reward-amount">Reward: ${task.reward?.toFixed(5) || '0.00000'} TON</span>
-                    </div>
+                <div class="referral-row-info">
+                    <p class="referral-row-username">${task.name}</p>
+                    <p class="task-reward-amount">Reward: ${task.reward?.toFixed(5) || '0.00000'} TON</p>
                 </div>
-                <div class="task-action">
+                <div class="referral-row-status">
                     <button class="task-btn ${buttonClass}" 
                             data-task-id="${task.id}"
                             data-task-url="${task.url}"
@@ -2002,52 +1909,10 @@ class NinjaTONApp {
                         ${this.renderQuestCard('tasks', 0, nextTasksQuest.required, nextTasksQuest.reward, nextTasksQuest.current)}
                     </div>
                 </div>
-                
-                <div class="ad-watch">
-                    <h3><i class="fas fa-eye"></i> WATCH & EARN</h3>
-                    <div class="ad-cards">
-                        <div class="ad-card">
-                            <div class="ad-header">
-                                <div class="ad-icon">
-                                    <i class="fas fa-ad"></i>
-                                </div>
-                                <div class="ad-title">Watch AD #1</div>
-                            </div>
-                            <div class="ad-reward">
-                                <img src="https://cdn-icons-png.flaticon.com/512/15208/15208522.png" alt="TON">
-                                <span>Reward: 0.002 TON</span>
-                            </div>
-                            <button class="ad-btn ${this.isAdAvailable(1) ? 'available' : 'cooldown'}" 
-                                    id="watch-ad-1-btn"
-                                    ${!this.isAdAvailable(1) ? 'disabled' : ''}>
-                                ${this.isAdAvailable(1) ? 'WATCH' : this.formatTime(this.getAdTimeLeft(1))}
-                            </button>
-                        </div>
-                        
-                        <div class="ad-card">
-                            <div class="ad-header">
-                                <div class="ad-icon">
-                                    <i class="fas fa-ad"></i>
-                                </div>
-                                <div class="ad-title">Watch AD #2</div>
-                            </div>
-                            <div class="ad-reward">
-                                <img src="https://cdn-icons-png.flaticon.com/512/15208/15208522.png" alt="TON">
-                                <span>Reward: 0.001 TON</span>
-                            </div>
-                            <button class="ad-btn soon" id="watch-ad-2-btn" disabled>
-                                SOON
-                            </button>
-                        </div>
-                    </div>
-                </div>
             </div>
         `;
         
-        this.setupAdWatchEvents();
         this.setupQuestClaimEvents();
-        
-        this.startAdTimers();
     }
     
     renderQuestCard(questType, index, required, reward, current) {
@@ -2105,40 +1970,37 @@ class NinjaTONApp {
     }
 
     isAdAvailable(adNumber) {
-        if (adNumber === 2) return false;
-        
-        const adTimerKey = `ad${adNumber}`;
-        const currentTime = Date.now();
-        return this.adTimers[adTimerKey] + this.adCooldown <= currentTime;
+        if (adNumber === 1) {
+            const currentTime = Date.now();
+            return this.adTimers.ad1 + this.adCooldown <= currentTime;
+        }
+        return false;
     }
 
     getAdTimeLeft(adNumber) {
-        const adTimerKey = `ad${adNumber}`;
-        const currentTime = Date.now();
-        return Math.max(0, this.adTimers[adTimerKey] + this.adCooldown - currentTime);
+        if (adNumber === 1) {
+            const currentTime = Date.now();
+            return Math.max(0, this.adTimers.ad1 + this.adCooldown - currentTime);
+        }
+        return 0;
     }
 
     setupAdWatchEvents() {
         const watchAd1Btn = document.getElementById('watch-ad-1-btn');
-        const watchAd2Btn = document.getElementById('watch-ad-2-btn');
         
         if (watchAd1Btn) {
             watchAd1Btn.addEventListener('click', async () => {
                 await this.watchAd(1);
             });
         }
-        
-        if (watchAd2Btn) {
-            watchAd2Btn.disabled = true;
-        }
     }
 
     async watchAd(adNumber) {
         const currentTime = Date.now();
-        const adTimerKey = `ad${adNumber}`;
+        const adTimerKey = 'ad1';
         
-        if (adNumber === 2) {
-            this.notificationManager.showNotification("Coming Soon", "This ad will be available soon", "info");
+        if (adNumber !== 1) {
+            this.notificationManager.showNotification("Error", "Invalid ad", "error");
             return;
         }
         
@@ -2157,23 +2019,21 @@ class NinjaTONApp {
         try {
             let adShown = false;
             
-            if (adNumber === 1) {
-                if (window.AdBlock19345 && typeof window.AdBlock19345.show === 'function') {
-                    adShown = await new Promise((resolve) => {
-                        window.AdBlock19345.show().then(() => {
-                            resolve(true);
-                        }).catch(() => {
-                            resolve(false);
-                        });
+            if (window.AdBlock19345 && typeof window.AdBlock19345.show === 'function') {
+                adShown = await new Promise((resolve) => {
+                    window.AdBlock19345.show().then(() => {
+                        resolve(true);
+                    }).catch(() => {
+                        resolve(false);
                     });
-                }
+                });
             }
             
             if (adShown) {
                 this.adTimers[adTimerKey] = currentTime;
                 await this.saveAdTimers();
                 
-                const reward = 0.002;
+                const reward = 0.001;
                 const currentBalance = this.safeNumber(this.userState.balance);
                 const newBalance = currentBalance + reward;
                 
@@ -2192,7 +2052,7 @@ class NinjaTONApp {
                 this.cache.delete(`user_${this.tgUser.id}`);
                 
                 this.updateHeader();
-                this.renderQuestsPage();
+                this.updateAdButtons();
                 
                 this.notificationManager.showNotification("Success", `+${reward} TON! Ad watched successfully`, "success");
                 
@@ -2216,31 +2076,21 @@ class NinjaTONApp {
     updateAdButtons() {
         const currentTime = Date.now();
         
-        for (let i = 1; i <= 2; i++) {
-            const adBtn = document.getElementById(`watch-ad-${i}-btn`);
-            if (!adBtn) continue;
-            
-            if (i === 2) {
-                adBtn.disabled = true;
-                adBtn.innerHTML = 'SOON';
-                adBtn.classList.remove('available', 'cooldown');
-                adBtn.classList.add('soon');
-                continue;
-            }
-            
-            const timeLeft = Math.max(0, this.adTimers[`ad${i}`] + this.adCooldown - currentTime);
-            
-            if (timeLeft > 0) {
-                adBtn.disabled = true;
-                adBtn.innerHTML = this.formatTime(timeLeft);
-                adBtn.classList.remove('available');
-                adBtn.classList.add('cooldown');
-            } else {
-                adBtn.disabled = false;
-                adBtn.innerHTML = 'WATCH';
-                adBtn.classList.add('available');
-                adBtn.classList.remove('cooldown');
-            }
+        const adBtn = document.getElementById(`watch-ad-1-btn`);
+        if (!adBtn) return;
+        
+        const timeLeft = Math.max(0, this.adTimers.ad1 + this.adCooldown - currentTime);
+        
+        if (timeLeft > 0) {
+            adBtn.disabled = true;
+            adBtn.innerHTML = this.formatTime(timeLeft);
+            adBtn.classList.remove('available');
+            adBtn.classList.add('cooldown');
+        } else {
+            adBtn.disabled = false;
+            adBtn.innerHTML = 'WATCH';
+            adBtn.classList.add('available');
+            adBtn.classList.remove('cooldown');
         }
     }
 
@@ -2370,7 +2220,6 @@ class NinjaTONApp {
             return referralsList.sort((a, b) => b.joinedAt - a.joinedAt).slice(0, 10);
             
         } catch (error) {
-            console.error('Error loading referrals for display:', error);
             return [];
         }
     }
@@ -2469,7 +2318,6 @@ class NinjaTONApp {
             return true;
             
         } catch (error) {
-            console.error('Error claiming quest:', error);
             this.notificationManager.showNotification("Error", "Failed to claim quest reward", "error");
             
             if (button) {
@@ -2507,10 +2355,7 @@ class NinjaTONApp {
                 this.renderReferralsPage();
             }
             
-            console.log(`Referrals list refreshed: ${verifiedReferrals.length} verified referrals`);
-            
         } catch (error) {
-            console.error('Error refreshing referrals list:', error);
         }
     }
 
@@ -2788,28 +2633,6 @@ class NinjaTONApp {
         }
     }
 
-    setupCopyButtons() {
-        const copyButtons = document.querySelectorAll('.copy-icon-btn');
-        copyButtons.forEach(btn => {
-            btn.addEventListener('click', (e) => {
-                e.stopPropagation();
-                const text = btn.getAttribute('data-copy');
-                if (text) {
-                    this.copyToClipboard(text);
-                    
-                    const originalHTML = btn.innerHTML;
-                    btn.innerHTML = '<i class="fas fa-check"></i>';
-                    btn.classList.add('copied');
-                    
-                    setTimeout(() => {
-                        btn.innerHTML = originalHTML;
-                        btn.classList.remove('copied');
-                    }, 2000);
-                }
-            });
-        });
-    }
-
     generateReferralCode() {
         const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
         let code = '';
@@ -2823,21 +2646,6 @@ class NinjaTONApp {
         if (value === null || value === undefined) return 0;
         const num = Number(value);
         return isNaN(num) ? 0 : num;
-    }
-
-    safeLocaleString(value) {
-        const num = this.safeNumber(value);
-        try {
-            return num.toLocaleString('en-US', { maximumFractionDigits: 0 });
-        } catch (error) {
-            return num.toString();
-        }
-    }
-
-    escapeHtml(text) {
-        const div = document.createElement('div');
-        div.textContent = text;
-        return div.innerHTML;
     }
 
     getShortName(name) {

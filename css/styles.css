@@ -2617,3 +2617,27 @@ body {
         font-size: 13px;
     }
 }
+
+.referral-row-status.verified {
+    background: #222222;
+    color: #34d399;
+    border: 1px solid #333333;
+    padding: 6px 12px;
+    border-radius: 8px;
+    font-size: 0.7rem;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+    white-space: nowrap;
+}
+
+.task-btn.completed {
+    background: #222222;
+    color: #34d399;
+    cursor: not-allowed;
+    border: 1.5px solid #333333;
+    padding: 8px 12px;
+    border-radius: 8px;
+    font-size: 0.8rem;
+    font-weight: 700;
+} 

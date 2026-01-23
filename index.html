@@ -25,8 +25,14 @@
     
     <script>
         document.addEventListener('DOMContentLoaded', function() {
+            // تهيئة كتل الإعلانات
             window.AdBlock19344 = window.Adsgram.init({ blockId: "int-21617" });
             window.AdBlock19345 = window.Adsgram.init({ blockId: "21618" });
+            
+            // التحقق من تحميل مكتبة الإعلانات
+            if (!window.Adsgram) {
+                console.error("Adsgram library not loaded!");
+            }
         });
     </script>
 </head>

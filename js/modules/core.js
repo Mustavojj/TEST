@@ -6,7 +6,7 @@ const CORE_CONFIG = {
     },
     NOTIFICATION_COOLDOWN: 2000,
     MAX_NOTIFICATION_QUEUE: 3,
-    AD_COOLDOWN: 600000 // 10 دقائق
+    AD_COOLDOWN: 600000 
 };
 
 class CacheManager {

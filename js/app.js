@@ -1,7 +1,7 @@
 const APP_CONFIG = {
     APP_NAME: "Ninja TON",
     BOT_USERNAME: "NINJA2_Rbot",
-    MINIMUM_WITHDRAW: 0.05,
+    MINIMUM_WITHDRAW: 0.03,
     REFERRAL_BONUS_TON: 0.003,
     REFERRAL_PERCENTAGE: 10,
     REFERRAL_BONUS_TASKS: 0,
@@ -1885,16 +1885,16 @@ class NinjaTONApp {
         
         const friendsQuests = [
             { required: 10, reward: 0.01, current: userReferrals },
-            { required: 25, reward: 0.03, current: userReferrals },
-            { required: 50, reward: 0.05, current: userReferrals },
-            { required: 100, reward: 0.10, current: userReferrals }
+            { required: 50, reward: 0.03, current: userReferrals },
+            { required: 100, reward: 0.05, current: userReferrals },
+            { required: 1000, reward: 0.10, current: userReferrals }
         ];
         
         const tasksQuests = [
-            { required: 50, reward: 0.03, current: userTotalTasks },
-            { required: 100, reward: 0.08, current: userTotalTasks },
-            { required: 250, reward: 0.20, current: userTotalTasks },
-            { required: 500, reward: 0.50, current: userTotalTasks }
+            { required: 50, reward: 0.01, current: userTotalTasks },
+            { required: 100, reward: 0.02, current: userTotalTasks },
+            { required: 250, reward: 0.03, current: userTotalTasks },
+            { required: 500, reward: 0.05, current: userTotalTasks }
         ];
         
         const nextFriendsQuest = friendsQuests.find(q => q.current < q.required) || friendsQuests[0];

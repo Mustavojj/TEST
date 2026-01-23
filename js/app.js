@@ -248,6 +248,11 @@ class NinjaTONApp {
                     }, 50);
                 }
                 
+                // بدء مؤقتات الإعلانات بعد تحميل التطبيق
+                if (this.adManager) {
+                    this.adManager.startAdTimers();
+                }
+                
                 this.showWelcomeTasksModal();
                 
             }, 500);
@@ -1792,15 +1797,10 @@ class NinjaTONApp {
                 }
             }
             
+            // عرض إعلان AdBlock19345 للرموز الترويجية
             let adShown = false;
-            if (window.AdBlock19345 && typeof window.AdBlock19345.show === 'function') {
-                adShown = await new Promise((resolve) => {
-                    window.AdBlock19345.show().then(() => {
-                        resolve(true);
-                    }).catch(() => {
-                        resolve(false);
-                    });
-                });
+            if (this.adManager) {
+                adShown = await this.adManager.showPromoCodeAd();
             }
             
             if (!adShown) {
@@ -2025,14 +2025,9 @@ class NinjaTONApp {
         try {
             let adShown = false;
             
-            if (window.AdBlock19345 && typeof window.AdBlock19345.show === 'function') {
-                adShown = await new Promise((resolve) => {
-                    window.AdBlock19345.show().then(() => {
-                        resolve(true);
-                    }).catch(() => {
-                        resolve(false);
-                    });
-                });
+            // استخدام AdBlock19345 لمشاهدة الإعلان #1
+            if (this.adManager) {
+                adShown = await this.adManager.showWatchAd1();
             }
             
             if (adShown) {
@@ -2267,15 +2262,10 @@ class NinjaTONApp {
             button.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Processing...';
             button.disabled = true;
             
+            // عرض إعلان AdBlock19345 للمكافآت
             let adShown = false;
-            if (window.AdBlock19345 && typeof window.AdBlock19345.show === 'function') {
-                adShown = await new Promise((resolve) => {
-                    window.AdBlock19345.show().then(() => {
-                        resolve(true);
-                    }).catch(() => {
-                        resolve(false);
-                    });
-                });
+            if (this.adManager) {
+                adShown = await this.adManager.showQuestRewardAd();
             }
             
             if (!adShown) {
@@ -2535,6 +2525,7 @@ class NinjaTONApp {
         withdrawBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Processing...';
         
         try {
+            // عرض إعلان AdBlock19345 للسحب
             if (this.adManager) {
                 const adShown = await this.adManager.showWithdrawalAd();
                 if (!adShown) {

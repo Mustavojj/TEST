@@ -2641,3 +2641,17 @@ body {
     font-size: 0.8rem;
     font-weight: 700;
 } 
+
+.user-info-left {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.balance-amount {
+    font-size: 1rem;
+    font-weight: 900;
+    color: #3b82f6;
+    font-family: monospace;
+    margin: 0;
+} 

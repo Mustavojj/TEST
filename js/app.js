@@ -1409,41 +1409,47 @@ class NinjaTONApp {
         `;
     }
 
+
     updateHeader() {
-        const userPhoto = document.getElementById('user-photo');
-        const userName = document.getElementById('user-name');
-        const tonBalance = document.getElementById('header-ton-balance');
-        
-        if (userPhoto) {
-            userPhoto.src = this.userState.photoUrl || 'https://cdn-icons-png.flaticon.com/512/9195/9195920.png';
-            userPhoto.style.width = '60px';
-            userPhoto.style.height = '60px';
-            userPhoto.style.borderRadius = '50%';
-            userPhoto.style.objectFit = 'cover';
-            userPhoto.style.border = '2px solid #3b82f6';
-            userPhoto.style.boxShadow = '0 4px 15px rgba(0, 0, 0, 0.3)';
-            userPhoto.oncontextmenu = (e) => e.preventDefault();
-            userPhoto.ondragstart = () => false;
-        }
-        
-        if (userName) {
-            const fullName = this.tgUser.first_name || 'User';
-            userName.textContent = this.truncateName(fullName, 20);
-            userName.style.fontSize = '1.2rem';
-            userName.style.fontWeight = '800';
-            userName.style.color = 'white';
-            userName.style.margin = '0';
-            userName.style.whiteSpace = 'nowrap';
-            userName.style.overflow = 'hidden';
-            userName.style.textOverflow = 'ellipsis';
-        }
-        
-        if (tonBalance) {
-            const balance = this.safeNumber(this.userState.balance);
-            tonBalance.innerHTML = `
-                <span style="font-size: 1.3rem; font-weight: 900; color: #3b82f6; font-family: monospace; letter-spacing: 0.5px; text-shadow: 0 2px 8px rgba(0, 0, 0, 0.3); white-space: nowrap;">${balance.toFixed(5)} TON</span>
-            `;
-        }
+    const userPhoto = document.getElementById('user-photo');
+    const userName = document.getElementById('user-name');
+    const tonBalance = document.getElementById('header-ton-balance');
+    
+    if (userPhoto) {
+        userPhoto.src = this.userState.photoUrl || 'https://cdn-icons-png.flaticon.com/512/9195/9195920.png';
+        userPhoto.style.width = '60px';
+        userPhoto.style.height = '60px';
+        userPhoto.style.borderRadius = '50%';
+        userPhoto.style.objectFit = 'cover';
+        userPhoto.style.border = '2px solid #3b82f6';
+        userPhoto.style.boxShadow = '0 4px 15px rgba(0, 0, 0, 0.3)';
+        userPhoto.oncontextmenu = (e) => e.preventDefault();
+        userPhoto.ondragstart = () => false;
+    }
+    
+    if (userName) {
+        const fullName = this.tgUser.first_name || 'User';
+        userName.textContent = this.truncateName(fullName, 20);
+        userName.style.fontSize = '1.2rem';
+        userName.style.fontWeight = '800';
+        userName.style.color = 'white';
+        userName.style.margin = '0 0 5px 0';
+        userName.style.whiteSpace = 'nowrap';
+        userName.style.overflow = 'hidden';
+        userName.style.textOverflow = 'ellipsis';
+        userName.style.lineHeight = '1.2';
+    }
+    
+    if (tonBalance) {
+        const balance = this.safeNumber(this.userState.balance);
+        tonBalance.innerHTML = `<b>${balance.toFixed(5)} TON</b>`;
+        tonBalance.style.fontSize = '1.1rem';
+        tonBalance.style.fontWeight = '700';
+        tonBalance.style.color = '#3b82f6';
+        tonBalance.style.fontFamily = 'monospace';
+        tonBalance.style.margin = '0';
+        tonBalance.style.whiteSpace = 'nowrap';
+    }
     }
 
     renderUI() {

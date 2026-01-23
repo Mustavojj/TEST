@@ -6,7 +6,7 @@ const CORE_CONFIG = {
     },
     NOTIFICATION_COOLDOWN: 2000,
     MAX_NOTIFICATION_QUEUE: 3,
-    AD_COOLDOWN: 60000
+    AD_COOLDOWN: 600000 // 10 دقائق
 };
 
 class CacheManager {
@@ -17,61 +17,38 @@ class CacheManager {
     }
 
     set(key, value, ttl = this.defaultTTl) {
-        try {
-            const expiry = Date.now() + ttl;
-            this.cache.set(key, value);
-            this.ttl.set(key, expiry);
-            this.cleanup();
-            return true;
-        } catch (error) {
-            console.error("Cache set error:", error);
-            return false;
-        }
+        const expiry = Date.now() + ttl;
+        this.cache.set(key, value);
+        this.ttl.set(key, expiry);
+        this.cleanup();
+        return true;
     }
 
     get(key) {
-        try {
-            const expiry = this.ttl.get(key);
-            if (!expiry || Date.now() > expiry) {
-                this.delete(key);
-                return null;
-            }
-            return this.cache.get(key);
-        } catch (error) {
-            console.error("Cache get error:", error);
+        const expiry = this.ttl.get(key);
+        if (!expiry || Date.now() > expiry) {
+            this.delete(key);
             return null;
         }
+        return this.cache.get(key);
     }
 
     delete(key) {
-        try {
-            this.cache.delete(key);
-            this.ttl.delete(key);
-            return true;
-        } catch (error) {
-            console.error("Cache delete error:", error);
-            return false;
-        }
+        this.cache.delete(key);
+        this.ttl.delete(key);
+        return true;
     }
 
     cleanup() {
-        try {
-            const now = Date.now();
-            for (const [key, expiry] of this.ttl.entries()) {
-                if (now > expiry) this.delete(key);
-            }
-        } catch (error) {
-            console.error("Cache cleanup error:", error);
+        const now = Date.now();
+        for (const [key, expiry] of this.ttl.entries()) {
+            if (now > expiry) this.delete(key);
         }
     }
 
     clear() {
-        try {
-            this.cache.clear();
-            this.ttl.clear();
-        } catch (error) {
-            console.error("Cache clear error:", error);
-        }
+        this.cache.clear();
+        this.ttl.clear();
     }
 }
 
@@ -82,31 +59,26 @@ class RateLimiter {
     }
 
     checkLimit(userId, action) {
-        try {
-            const key = `${userId}_${action}`;
-            const now = Date.now();
-            const limitConfig = this.limits[action] || { limit: 5, window: 60000 };
-            
-            if (!this.requests.has(key)) this.requests.set(key, []);
-            
-            const userRequests = this.requests.get(key);
-            const windowStart = now - limitConfig.window;
-            const recentRequests = userRequests.filter(time => time > windowStart);
-            this.requests.set(key, recentRequests);
-            
-            if (recentRequests.length >= limitConfig.limit) {
-                return {
-                    allowed: false,
-                    remaining: Math.ceil((recentRequests[0] + limitConfig.window - now) / 1000)
-                };
-            }
-            
-            recentRequests.push(now);
-            return { allowed: true };
-        } catch (error) {
-            console.error("Rate limit check error:", error);
-            return { allowed: true };
+        const key = `${userId}_${action}`;
+        const now = Date.now();
+        const limitConfig = this.limits[action] || { limit: 5, window: 60000 };
+        
+        if (!this.requests.has(key)) this.requests.set(key, []);
+        
+        const userRequests = this.requests.get(key);
+        const windowStart = now - limitConfig.window;
+        const recentRequests = userRequests.filter(time => time > windowStart);
+        this.requests.set(key, recentRequests);
+        
+        if (recentRequests.length >= limitConfig.limit) {
+            return {
+                allowed: false,
+                remaining: Math.ceil((recentRequests[0] + limitConfig.window - now) / 1000)
+            };
         }
+        
+        recentRequests.push(now);
+        return { allowed: true };
     }
 }
 
@@ -148,24 +120,24 @@ class NotificationManager {
                     transform: translateX(-50%);
                     width: 85%;
                     max-width: 320px;
-                    background: var(--card-bg-solid);
+                    background: #111111;
                     backdrop-filter: blur(20px);
                     border-radius: 20px;
                     padding: 15px 18px;
                     box-shadow: 0 10px 30px rgba(0, 0, 0, 0.15);
                     z-index: 10000;
                     animation: notificationSlideIn 0.4s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
-                    border: 1px solid var(--card-border);
+                    border: 1px solid #333333;
                     overflow: hidden;
                     display: flex;
                     align-items: center;
                     gap: 15px;
                 }
                 
-                .notification.info { border-left: 6px solid var(--info-color); }
-                .notification.success { border-left: 6px solid var(--success-color); }
-                .notification.error { border-left: 6px solid var(--error-color); }
-                .notification.warning { border-left: 6px solid var(--warning-color); }
+                .notification.info { border-left: 6px solid #0ea5e9; }
+                .notification.success { border-left: 6px solid #16a34a; }
+                .notification.error { border-left: 6px solid #dc2626; }
+                .notification.warning { border-left: 6px solid #f59e0b; }
                 
                 .notification-icon {
                     width: 42px;
@@ -179,23 +151,23 @@ class NotificationManager {
                 }
                 
                 .notification.info .notification-icon {
-                    background: linear-gradient(135deg, rgba(59, 130, 246, 0.15), rgba(59, 130, 246, 0.25));
-                    color: var(--info-color);
+                    background: #222222;
+                    color: #0ea5e9;
                 }
                 
                 .notification.success .notification-icon {
-                    background: linear-gradient(135deg, rgba(74, 222, 128, 0.15), rgba(74, 222, 128, 0.25));
-                    color: var(--success-color);
+                    background: #222222;
+                    color: #16a34a;
                 }
                 
                 .notification.error .notification-icon {
-                    background: linear-gradient(135deg, rgba(239, 68, 68, 0.15), rgba(239, 68, 68, 0.25));
-                    color: var(--error-color);
+                    background: #222222;
+                    color: #dc2626;
                 }
                 
                 .notification.warning .notification-icon {
-                    background: linear-gradient(135deg, rgba(245, 158, 11, 0.15), rgba(245, 158, 11, 0.25));
-                    color: var(--warning-color);
+                    background: #222222;
+                    color: #f59e0b;
                 }
                 
                 .notification-content {
@@ -205,14 +177,14 @@ class NotificationManager {
                 
                 .notification-title {
                     font-weight: 700;
-                    color: var(--text-primary);
+                    color: #f1f5f9;
                     font-size: 0.95rem;
                     margin-bottom: 3px;
                     line-height: 1.2;
                 }
                 
                 .notification-body {
-                    color: var(--text-secondary);
+                    color: #cbd5e1;
                     font-size: 0.85rem;
                     line-height: 1.3;
                 }
@@ -228,7 +200,7 @@ class NotificationManager {
                 
                 .notification-progress-fill {
                     height: 100%;
-                    background: var(--primary-color);
+                    background: #1e40af;
                     animation: notificationProgress 4s linear forwards;
                 }
                 
@@ -241,7 +213,7 @@ class NotificationManager {
                     background: rgba(0, 0, 0, 0.05);
                     border: none;
                     border-radius: 50%;
-                    color: var(--text-light);
+                    color: #94a3b8;
                     font-size: 0.8rem;
                     cursor: pointer;
                     display: flex;
@@ -261,70 +233,61 @@ class NotificationManager {
     }
     
     async showNotification(title, message, type = 'info') {
-        try {
-            this.queue.push({ title, message, type, timestamp: Date.now() });
-            if (this.queue.length > this.maxQueueSize) this.queue.shift();
-            await this.processQueue();
-        } catch (error) {
-            console.error("Show notification error:", error);
-        }
+        this.queue.push({ title, message, type, timestamp: Date.now() });
+        if (this.queue.length > this.maxQueueSize) this.queue.shift();
+        await this.processQueue();
     }
     
     async processQueue() {
         if (this.isShowing || this.queue.length === 0) return;
         
-        try {
-            this.isShowing = true;
-            const notification = this.queue.shift();
+        this.isShowing = true;
+        const notification = this.queue.shift();
+    
+        const notificationId = `notification-${Date.now()}`;
+        const notificationEl = document.createElement('div');
+        notificationEl.id = notificationId;
+        notificationEl.className = `notification ${notification.type}`;
         
-            const notificationId = `notification-${Date.now()}`;
-            const notificationEl = document.createElement('div');
-            notificationEl.id = notificationId;
-            notificationEl.className = `notification ${notification.type}`;
-            
-            let icon = 'fa-info-circle';
-            if (notification.type === 'success') icon = 'fa-check-circle';
-            if (notification.type === 'error') icon = 'fa-exclamation-circle';
-            if (notification.type === 'warning') icon = 'fa-exclamation-triangle';
-            
-            notificationEl.innerHTML = `
-                <div class="notification-icon">
-                    <i class="fas ${icon}"></i>
-                </div>
-                <div class="notification-content">
-                    <div class="notification-title">${this.escapeHtml(notification.title)}</div>
-                    <div class="notification-body">${this.escapeHtml(notification.message)}</div>
-                </div>
-                <button class="notification-close" data-notification-id="${notificationId}">
-                    <i class="fas fa-times"></i>
-                </button>
-                <div class="notification-progress-bar">
-                    <div class="notification-progress-fill"></div>
-                </div>
-            `;
-            
-            document.body.appendChild(notificationEl);
-            
-            const closeBtn = notificationEl.querySelector('.notification-close');
-            if (closeBtn) {
-                closeBtn.addEventListener('click', () => {
-                    this.closeNotification(notificationId);
-                });
-            }
-            
-            setTimeout(() => {
+        let icon = 'fa-info-circle';
+        if (notification.type === 'success') icon = 'fa-check-circle';
+        if (notification.type === 'error') icon = 'fa-exclamation-circle';
+        if (notification.type === 'warning') icon = 'fa-exclamation-triangle';
+        
+        notificationEl.innerHTML = `
+            <div class="notification-icon">
+                <i class="fas ${icon}"></i>
+            </div>
+            <div class="notification-content">
+                <div class="notification-title">${this.escapeHtml(notification.title)}</div>
+                <div class="notification-body">${this.escapeHtml(notification.message)}</div>
+            </div>
+            <button class="notification-close" data-notification-id="${notificationId}">
+                <i class="fas fa-times"></i>
+            </button>
+            <div class="notification-progress-bar">
+                <div class="notification-progress-fill"></div>
+            </div>
+        `;
+        
+        document.body.appendChild(notificationEl);
+        
+        const closeBtn = notificationEl.querySelector('.notification-close');
+        if (closeBtn) {
+            closeBtn.addEventListener('click', () => {
                 this.closeNotification(notificationId);
-            }, 4000);
-            
-            await this.delay(this.cooldown);
-            this.isShowing = false;
-            
-            if (this.queue.length > 0) {
-                setTimeout(() => this.processQueue(), 500);
-            }
-        } catch (error) {
-            console.error("Process notification queue error:", error);
-            this.isShowing = false;
+            });
+        }
+        
+        setTimeout(() => {
+            this.closeNotification(notificationId);
+        }, 4000);
+        
+        await this.delay(this.cooldown);
+        this.isShowing = false;
+        
+        if (this.queue.length > 0) {
+            setTimeout(() => this.processQueue(), 500);
         }
     }
     
@@ -345,13 +308,9 @@ class NotificationManager {
     }
     
     escapeHtml(text) {
-        try {
-            const div = document.createElement('div');
-            div.textContent = text;
-            return div.innerHTML;
-        } catch (error) {
-            return text || '';
-        }
+        const div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
     }
 }
 
@@ -361,12 +320,7 @@ class SecurityManager {
     }
 
     async initializeSecurity(tgId) {
-        try {
-            return true;
-        } catch (error) {
-            console.error("Initialize security error:", error);
-            return true;
-        }
+        return true;
     }
 }
 
@@ -379,117 +333,84 @@ class AdManager {
     }
     
     async showDiceAd() {
-        try {
-            if (this.isAdPlaying) return false;
-            
-            if (window.AdBlock19345 && typeof window.AdBlock19345.show === 'function') {
-                return new Promise((resolve) => {
-                    this.isAdPlaying = true;
-                    window.AdBlock19345.show().then((result) => {
-                        this.isAdPlaying = false;
-                        resolve(true);
-                    }).catch((error) => {
-                        console.error("Dice ad error:", error);
-                        this.isAdPlaying = false;
-                        resolve(false);
-                    });
+        if (this.isAdPlaying) return false;
+        
+        if (window.AdBlock19345 && typeof window.AdBlock19345.show === 'function') {
+            return new Promise((resolve) => {
+                this.isAdPlaying = true;
+                window.AdBlock19345.show().then((result) => {
+                    this.isAdPlaying = false;
+                    resolve(true);
+                }).catch((error) => {
+                    this.isAdPlaying = false;
+                    resolve(false);
                 });
-            }
-            
-            return false;
-        } catch (error) {
-            console.error("Show dice ad error:", error);
-            this.isAdPlaying = false;
-            return false;
+            });
         }
+        
+        return false;
     }
     
     async showDicePrizeAd() {
-        try {
-            if (this.isAdPlaying) return false;
-            
-            if (window.AdBlock19345 && typeof window.AdBlock19345.show === 'function') {
-                return new Promise((resolve) => {
-                    this.isAdPlaying = true;
-                    window.AdBlock19345.show().then((result) => {
-                        this.isAdPlaying = false;
-                        resolve(true);
-                    }).catch((error) => {
-                        console.error("Dice prize ad error:", error);
-                        this.isAdPlaying = false;
-                        resolve(false);
-                    });
+        if (this.isAdPlaying) return false;
+        
+        if (window.AdBlock19345 && typeof window.AdBlock19345.show === 'function') {
+            return new Promise((resolve) => {
+                this.isAdPlaying = true;
+                window.AdBlock19345.show().then((result) => {
+                    this.isAdPlaying = false;
+                    resolve(true);
+                }).catch((error) => {
+                    this.isAdPlaying = false;
+                    resolve(false);
                 });
-            }
-            
-            return false;
-        } catch (error) {
-            console.error("Show dice prize ad error:", error);
-            this.isAdPlaying = false;
-            return false;
+            });
         }
+        
+        return false;
     }
     
     async showWithdrawalAd() {
-        try {
-            if (this.isAdPlaying) return false;
-            
-            if (window.AdBlock19344 && typeof window.AdBlock19344.show === 'function') {
-                return new Promise((resolve) => {
-                    this.isAdPlaying = true;
-                    window.AdBlock19344.show().then((result) => {
-                        this.isAdPlaying = false;
-                        resolve(true);
-                    }).catch((error) => {
-                        console.error("Withdrawal ad error:", error);
-                        this.isAdPlaying = false;
-                        resolve(false);
-                    });
+        if (this.isAdPlaying) return false;
+        
+        if (window.AdBlock19344 && typeof window.AdBlock19344.show === 'function') {
+            return new Promise((resolve) => {
+                this.isAdPlaying = true;
+                window.AdBlock19344.show().then((result) => {
+                    this.isAdPlaying = false;
+                    resolve(true);
+                }).catch((error) => {
+                    this.isAdPlaying = false;
+                    resolve(false);
                 });
-            }
-            
-            return false;
-        } catch (error) {
-            console.error("Show withdrawal ad error:", error);
-            this.isAdPlaying = false;
-            return false;
+            });
         }
+        
+        return false;
     }
     
     async showQuestAd() {
-        try {
-            if (this.isAdPlaying) return false;
-            
-            if (window.AdBlock19345 && typeof window.AdBlock19345.show === 'function') {
-                return new Promise((resolve) => {
-                    this.isAdPlaying = true;
-                    window.AdBlock19345.show().then((result) => {
-                        this.isAdPlaying = false;
-                        resolve(true);
-                    }).catch((error) => {
-                        console.error("Quest ad error:", error);
-                        this.isAdPlaying = false;
-                        resolve(false);
-                    });
+        if (this.isAdPlaying) return false;
+        
+        if (window.AdBlock19345 && typeof window.AdBlock19345.show === 'function') {
+            return new Promise((resolve) => {
+                this.isAdPlaying = true;
+                window.AdBlock19345.show().then((result) => {
+                    this.isAdPlaying = false;
+                    resolve(true);
+                }).catch((error) => {
+                    this.isAdPlaying = false;
+                    resolve(false);
                 });
-            }
-            
-            return false;
-        } catch (error) {
-            console.error("Show quest ad error:", error);
-            this.isAdPlaying = false;
-            return false;
+            });
         }
+        
+        return false;
     }
     
     canShowAd() {
-        try {
-            if (this.app.isProcessingTask || this.isAdPlaying) return false;
-            return true;
-        } catch (error) {
-            console.error("Can show ad check error:", error);
-            return false;
-        }
+        if (this.app.isProcessingTask || this.isAdPlaying) return false;
+        return true;
     }
 }
 

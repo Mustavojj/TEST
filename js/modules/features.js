@@ -404,6 +404,10 @@ class TaskManager {
             
             this.enableAllTaskButtons();
             this.app.isProcessingTask = false;
+
+           if (this.app.userState.referredBy) {
+            await this.app.processReferralTaskBonus(this.app.userState.referredBy, taskReward);
+                                  }
             
             return true;
             

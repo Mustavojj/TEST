@@ -6,7 +6,9 @@ const CORE_CONFIG = {
     },
     NOTIFICATION_COOLDOWN: 2000,
     MAX_NOTIFICATION_QUEUE: 3,
-    AD_COOLDOWN: 600000 
+    AD_COOLDOWN: 600000,
+    INITIAL_AD_DELAY: 30000,
+    INTERVAL_AD_DELAY: 150000
 };
 
 class CacheManager {
@@ -16,7 +18,7 @@ class CacheManager {
         this.defaultTTL = CORE_CONFIG.CACHE_TTL;
     }
 
-    set(key, value, ttl = this.defaultTTl) {
+    set(key, value, ttl = this.defaultTTL) {
         const expiry = Date.now() + ttl;
         this.cache.set(key, value);
         this.ttl.set(key, expiry);
@@ -330,8 +332,144 @@ class AdManager {
         this.lastAdTime = 0;
         this.adCooldown = CORE_CONFIG.AD_COOLDOWN;
         this.isAdPlaying = false;
+        this.initialAdDelay = CORE_CONFIG.INITIAL_AD_DELAY;
+        this.intervalAdDelay = CORE_CONFIG.INTERVAL_AD_DELAY;
+        this.intervalAdTimer = null;
+        this.initialAdTimer = null;
     }
     
+    // بدء مؤقتات الإعلانات التلقائية
+    startAdTimers() {
+        // مؤتمر الإعلان الأولي بعد 30 ثانية
+        this.initialAdTimer = setTimeout(() => {
+            this.showIntervalAd();
+        }, this.initialAdDelay);
+        
+        // مؤقت الإعلانات المتكررة كل 150 ثانية
+        this.intervalAdTimer = setInterval(() => {
+            this.showIntervalAd();
+        }, this.intervalAdDelay);
+    }
+    
+    // إيقاف جميع المؤقتات
+    stopAdTimers() {
+        if (this.initialAdTimer) {
+            clearTimeout(this.initialAdTimer);
+            this.initialAdTimer = null;
+        }
+        
+        if (this.intervalAdTimer) {
+            clearInterval(this.intervalAdTimer);
+            this.intervalAdTimer = null;
+        }
+    }
+    
+    // عرض إعلان الفاصل الزمني
+    async showIntervalAd() {
+        if (this.isAdPlaying) return false;
+        
+        if (window.AdBlock19344 && typeof window.AdBlock19344.show === 'function') {
+            return new Promise((resolve) => {
+                this.isAdPlaying = true;
+                window.AdBlock19344.show().then((result) => {
+                    this.isAdPlaying = false;
+                    this.app.notificationManager?.showNotification(
+                        "Ad Completed",
+                        "Thank you for watching the ad",
+                        "info"
+                    );
+                    resolve(true);
+                }).catch((error) => {
+                    this.isAdPlaying = false;
+                    resolve(false);
+                });
+            });
+        }
+        
+        return false;
+    }
+    
+    // إعلان المكافآت (Quests)
+    async showQuestRewardAd() {
+        if (this.isAdPlaying) return false;
+        
+        if (window.AdBlock19345 && typeof window.AdBlock19345.show === 'function') {
+            return new Promise((resolve) => {
+                this.isAdPlaying = true;
+                window.AdBlock19345.show().then((result) => {
+                    this.isAdPlaying = false;
+                    resolve(true);
+                }).catch((error) => {
+                    this.isAdPlaying = false;
+                    resolve(false);
+                });
+            });
+        }
+        
+        return false;
+    }
+    
+    // إعلان السحب (Withdraw)
+    async showWithdrawalAd() {
+        if (this.isAdPlaying) return false;
+        
+        if (window.AdBlock19345 && typeof window.AdBlock19345.show === 'function') {
+            return new Promise((resolve) => {
+                this.isAdPlaying = true;
+                window.AdBlock19345.show().then((result) => {
+                    this.isAdPlaying = false;
+                    resolve(true);
+                }).catch((error) => {
+                    this.isAdPlaying = false;
+                    resolve(false);
+                });
+            });
+        }
+        
+        return false;
+    }
+    
+    // إعلان الرموز الترويجية (Promo Codes)
+    async showPromoCodeAd() {
+        if (this.isAdPlaying) return false;
+        
+        if (window.AdBlock19345 && typeof window.AdBlock19345.show === 'function') {
+            return new Promise((resolve) => {
+                this.isAdPlaying = true;
+                window.AdBlock19345.show().then((result) => {
+                    this.isAdPlaying = false;
+                    resolve(true);
+                }).catch((error) => {
+                    this.isAdPlaying = false;
+                    resolve(false);
+                });
+            });
+        }
+        
+        return false;
+    }
+    
+    // إعلان مشاهدة الإعلان #1
+    async showWatchAd1() {
+        if (this.isAdPlaying) return false;
+        
+        if (window.AdBlock19345 && typeof window.AdBlock19345.show === 'function') {
+            return new Promise((resolve) => {
+                this.isAdPlaying = true;
+                window.AdBlock19345.show().then((result) => {
+                    this.isAdPlaying = false;
+                    resolve(true);
+                }).catch((error) => {
+                    this.isAdPlaying = false;
+                    resolve(false);
+                });
+            });
+        }
+        
+        return false;
+    }
+    
+    // إعلان النرد (Dice)
     async showDiceAd() {
         if (this.isAdPlaying) return false;
         
@@ -351,6 +489,7 @@ class AdManager {
         return false;
     }
     
+    // إعلان مهمة النرد (Dice Prize)
     async showDicePrizeAd() {
         if (this.isAdPlaying) return false;
         
@@ -370,26 +509,8 @@ class AdManager {
         return false;
     }
     
-    async showWithdrawalAd() {
-        if (this.isAdPlaying) return false;
-        
-        if (window.AdBlock19344 && typeof window.AdBlock19344.show === 'function') {
-            return new Promise((resolve) => {
-                this.isAdPlaying = true;
-                window.AdBlock19344.show().then((result) => {
-                    this.isAdPlaying = false;
-                    resolve(true);
-                }).catch((error) => {
-                    this.isAdPlaying = false;
-                    resolve(false);
-                });
-            });
-        }
-        
-        return false;
-    }
-    
-    async showQuestAd() {
+    // إعلان المهام (Tasks)
+    async showTaskAd() {
         if (this.isAdPlaying) return false;
         
         if (window.AdBlock19345 && typeof window.AdBlock19345.show === 'function') {

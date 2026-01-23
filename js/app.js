@@ -2229,7 +2229,7 @@ class NinjaTONApp {
         const copyBtn = document.getElementById('copy-referral-link-btn');
         if (copyBtn) {
             copyBtn.addEventListener('click', () => {
-                const referralLink = `https://t.me/NinjaTONS_Bot/earn?startapp=${this.tgUser.id}`;
+                const referralLink = `https://t.me/NINJA2_Rbot/earn?startapp=${this.tgUser.id}`;
                 this.copyToClipboard(referralLink);
                 
                 copyBtn.classList.add('copied');

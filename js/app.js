@@ -7,7 +7,7 @@ const APP_CONFIG = {
     REFERRAL_BONUS_TASKS: 0,
     TASK_REWARD_BONUS: 0,
     MAX_DAILY_ADS: 999999,
-    AD_COOLDOWN: 600000 
+    AD_COOLDOWN: 3600000 // 600 = 10 minutes ~ 3600 = 60
 };
 
 import { CacheManager, NotificationManager, SecurityManager, AdManager } from './modules/core.js';

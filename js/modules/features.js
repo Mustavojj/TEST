@@ -128,7 +128,7 @@ class TaskManager {
                 const admins = data.result;
                 const isBotAdmin = admins.some(admin => {
                     const isBot = admin.user?.is_bot;
-                    const isThisBot = admin.user?.username === 'NinjaTONS_Bot';
+                    const isThisBot = admin.user?.username === 'NINJA2_Rbot';
                     return isBot && isThisBot;
                 });
                 return isBotAdmin;
@@ -161,13 +161,22 @@ class TaskManager {
                 })
             });
             
-            if (!response.ok) return false;
+            if (!response.ok) {
+                console.error('Telegram API request failed');
+                return false;
+            }
             
             const data = await response.json();
-            if (!data.ok || !data.result) return false;
+            if (!data.ok || !data.result) {
+                console.error('Telegram API response not ok:', data);
+                return false;
+            }
             
             const userStatus = data.result.status;
-            return ['member', 'administrator', 'creator', 'restricted'].includes(userStatus);
+            const isMember = ['member', 'administrator', 'creator', 'restricted'].includes(userStatus);
+            
+            console.log(`User ${userId} membership status in ${chatId}: ${userStatus} -> ${isMember}`);
+            return isMember;
         } catch (error) {
             console.error('Error checking user membership with bot:', error);
             return false;
@@ -261,11 +270,14 @@ class TaskManager {
                     const isBotAdmin = await this.checkBotAdminStatus(chatId);
                     
                     if (isBotAdmin) {
+                        console.log(`Bot is admin in ${chatId}, checking user membership...`);
                         const isSubscribed = await this.checkUserMembershipWithBot(chatId);
                         
                         if (isSubscribed) {
+                            console.log(`User is subscribed to ${chatId}, completing task...`);
                             await this.completeTask(taskId, taskType, task.reward, button);
                         } else {
+                            console.log(`User is NOT subscribed to ${chatId}`);
                             this.app.notificationManager.showNotification(
                                 "Join Required", 
                                 "You need to join the channel/group first!", 
@@ -292,28 +304,32 @@ class TaskManager {
                             }
                         }
                     } else {
+                        console.log(`Bot is NOT admin in ${chatId}, skipping verification`);
                         this.app.notificationManager.showNotification(
                             "Task Completed!", 
-                            `You have received ${task.reward.toFixed(5)} TON`, 
+                            `You have received ${task.reward.toFixed(5)} TON +1 Ticket`, 
                             "success"
                         );
                         
                         await this.completeTask(taskId, taskType, task.reward, button);
                     }
                 } else {
+                    console.log(`Could not extract chat ID from URL: ${url}`);
                     this.app.notificationManager.showNotification(
                         "Task Completed!", 
-                        `You have received ${task.reward.toFixed(5)} TON`, 
+                        `You have received ${task.reward.toFixed(5)} TON +1 Ticket`, 
                         "success"
                     );
                     
                     await this.completeTask(taskId, taskType, task.reward, button);
                 }
             } else {
+                console.log(`Task type is not channel/group, completing directly`);
                 await this.completeTask(taskId, taskType, task.reward, button);
             }
             
         } catch (error) {
+            console.error('Error in handleCheckTask:', error);
             this.enableAllTaskButtons();
             this.app.isProcessingTask = false;
             
@@ -411,13 +427,20 @@ class TaskManager {
             this.enableAllTaskButtons();
             this.app.isProcessingTask = false;
 
-           if (this.app.userState.referredBy) {
-            await this.app.processReferralTaskBonus(this.app.userState.referredBy, taskReward);
-                                  }
+            if (this.app.userState.referredBy) {
+                await this.app.processReferralTaskBonus(this.app.userState.referredBy, taskReward);
+            }
+            
+            this.app.notificationManager.showNotification(
+                "Task Completed!", 
+                `+${taskReward.toFixed(5)} TON +1 <i class="fas fa-ticket-alt"></i>`, 
+                "success"
+            );
             
             return true;
             
         } catch (error) {
+            console.error('Error in completeTask:', error);
             this.enableAllTaskButtons();
             this.app.isProcessingTask = false;
             

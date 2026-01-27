@@ -25,11 +25,9 @@
     
     <script>
         document.addEventListener('DOMContentLoaded', function() {
-            // تهيئة كتل الإعلانات
             window.AdBlock19344 = window.Adsgram.init({ blockId: "int-21617" });
             window.AdBlock19345 = window.Adsgram.init({ blockId: "21618" });
             
-            // التحقق من تحميل مكتبة الإعلانات
             if (!window.Adsgram) {
                 console.error("Adsgram library not loaded!");
             }
@@ -85,7 +83,7 @@
         
         <main id="main-content">
             <div id="tasks-page" class="page"></div>
-            <div id="quests-page" class="page"></div>
+            <div id="giveaway-page" class="page"></div>
             <div id="referrals-page" class="page"></div>
             <div id="withdraw-page" class="page"></div>
         </main>
@@ -95,9 +93,9 @@
                 <i class="fas fa-coins"></i>
                 <span>Earn</span>
             </button>
-            <button class="nav-btn" data-page="quests-page">
-                <i class="fas fa-tasks"></i>
-                <span>Quests</span>
+            <button class="nav-btn" data-page="giveaway-page">
+                <i class="fas fa-gift"></i>
+                <span>Giveaway</span>
             </button>
             <button class="nav-btn" data-page="referrals-page">
                 <i class="fas fa-user-plus"></i>

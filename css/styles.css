@@ -2668,3 +2668,355 @@ body {
     letter-spacing: 0.3px;
     white-space: nowrap;
 } 
+
+/* أنماط صفحة الـ Giveaway */
+.giveaway-container {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+}
+
+.giveaway-header {
+    background: #111111;
+    border-radius: 20px;
+    padding: 20px;
+    border: 2px solid #333333;
+    text-align: center;
+}
+
+.giveaway-title-section {
+    margin-bottom: 20px;
+}
+
+.giveaway-header h2 {
+    color: white;
+    font-size: 1.5rem;
+    font-weight: 800;
+    margin-bottom: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+}
+
+.giveaway-total-reward {
+    background: #222222;
+    border-radius: 16px;
+    padding: 15px;
+    border: 2px solid #333333;
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    margin: 0 auto;
+}
+
+.reward-label {
+    color: #cbd5e1;
+    font-size: 0.9rem;
+    font-weight: 600;
+}
+
+.reward-amount {
+    color: #fbbf24;
+    font-size: 1.2rem;
+    font-weight: 800;
+}
+
+.your-tickets {
+    background: #222222;
+    border-radius: 16px;
+    padding: 15px;
+    border: 2px solid #333333;
+    display: flex;
+    align-items: center;
+    gap: 15px;
+    max-width: 300px;
+    margin: 0 auto;
+}
+
+.ticket-icon {
+    width: 50px;
+    height: 50px;
+    background: #1e40af;
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: white;
+    font-size: 1.5rem;
+}
+
+.ticket-info {
+    flex: 1;
+    text-align: left;
+}
+
+.ticket-label {
+    display: block;
+    color: #cbd5e1;
+    font-size: 0.85rem;
+    font-weight: 600;
+    margin-bottom: 4px;
+}
+
+.ticket-count {
+    display: block;
+    color: white;
+    font-size: 1.5rem;
+    font-weight: 800;
+    font-family: monospace;
+}
+
+.giveaway-how-to {
+    background: #111111;
+    border-radius: 20px;
+    padding: 20px;
+    border: 2px solid #333333;
+}
+
+.giveaway-how-to h3 {
+    color: white;
+    font-size: 1.2rem;
+    font-weight: 800;
+    margin-bottom: 20px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding-bottom: 15px;
+    border-bottom: 2px solid #333333;
+}
+
+.ticket-methods {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 12px;
+}
+
+.method-item {
+    background: #222222;
+    border-radius: 14px;
+    padding: 15px;
+    border: 1px solid #333333;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.method-icon {
+    width: 40px;
+    height: 40px;
+    background: #1e40af;
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: white;
+    font-size: 1.1rem;
+    flex-shrink: 0;
+}
+
+.method-info {
+    flex: 1;
+    min-width: 0;
+}
+
+.method-info h4 {
+    font-size: 0.9rem;
+    font-weight: 700;
+    color: white;
+    margin: 0 0 4px 0;
+    line-height: 1.2;
+}
+
+.method-info p {
+    font-size: 0.75rem;
+    color: #cbd5e1;
+    margin: 0;
+    line-height: 1.3;
+}
+
+.giveaway-leaderboard {
+    background: #111111;
+    border-radius: 20px;
+    padding: 20px;
+    border: 2px solid #333333;
+}
+
+.giveaway-leaderboard h3 {
+    color: white;
+    font-size: 1.2rem;
+    font-weight: 800;
+    margin-bottom: 20px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding-bottom: 15px;
+    border-bottom: 2px solid #333333;
+}
+
+.leaderboard-list {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    max-height: 400px;
+    overflow-y: auto;
+}
+
+.leaderboard-row {
+    background: #222222;
+    border-radius: 14px;
+    padding: 12px 15px;
+    display: flex;
+    align-items: center;
+    gap: 15px;
+    border: 1px solid #333333;
+    transition: all 0.3s;
+}
+
+.leaderboard-row.current-user {
+    background: rgba(30, 64, 175, 0.2);
+    border-color: #1e40af;
+}
+
+.leaderboard-row:hover {
+    transform: translateY(-2px);
+    background: #333333;
+}
+
+.rank {
+    width: 36px;
+    height: 36px;
+    background: #333333;
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: white;
+    font-weight: 800;
+    font-size: 0.9rem;
+    flex-shrink: 0;
+}
+
+.rank.first {
+    background: linear-gradient(135deg, #fbbf24, #f59e0b);
+    color: #000;
+}
+
+.rank.second {
+    background: linear-gradient(135deg, #cbd5e1, #94a3b8);
+    color: #000;
+}
+
+.rank.third {
+    background: linear-gradient(135deg, #f97316, #ea580c);
+    color: #000;
+}
+
+.user-info {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.user-avatar-small {
+    width: 40px;
+    height: 40px;
+    border-radius: 10px;
+    overflow: hidden;
+    flex-shrink: 0;
+}
+
+.user-avatar-small img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    pointer-events: none;
+}
+
+.user-details {
+    flex: 1;
+    min-width: 0;
+}
+
+.user-name {
+    font-weight: 700;
+    color: white;
+    font-size: 0.9rem;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    margin-bottom: 4px;
+}
+
+.ticket-count-leaderboard {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 0.8rem;
+    color: #60a5fa;
+    font-weight: 600;
+}
+
+.ticket-count-leaderboard i {
+    font-size: 0.7rem;
+}
+
+.loading-leaderboard,
+.no-leaderboard,
+.leaderboard-error {
+    text-align: center;
+    padding: 40px 20px;
+    color: var(--text-secondary);
+}
+
+.loading-leaderboard i {
+    font-size: 1.5rem;
+    margin-bottom: 15px;
+    color: #1e40af;
+}
+
+.no-leaderboard i,
+.leaderboard-error i {
+    font-size: 2.5rem;
+    margin-bottom: 15px;
+    color: var(--text-light);
+    opacity: 0.5;
+}
+
+.no-leaderboard p,
+.leaderboard-error p {
+    font-size: 1rem;
+    margin: 0 0 8px 0;
+    font-weight: 600;
+}
+
+.no-leaderboard .hint {
+    font-size: 0.85rem;
+    color: var(--text-light);
+    font-weight: 400;
+}
+
+@media (max-width: 480px) {
+    .ticket-methods {
+        grid-template-columns: 1fr;
+    }
+    
+    .giveaway-total-reward {
+        padding: 12px;
+    }
+    
+    .your-tickets {
+        padding: 12px;
+    }
+    
+    .ticket-icon {
+        width: 45px;
+        height: 45px;
+        font-size: 1.3rem;
+    }
+    
+    .ticket-count {
+        font-size: 1.3rem;
+    }
+            }

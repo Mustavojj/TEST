@@ -2,12 +2,34 @@ const APP_CONFIG = {
     APP_NAME: "Ninja TON",
     BOT_USERNAME: "NINJA2_Rbot",
     MINIMUM_WITHDRAW: 0.10,
-    REFERRAL_BONUS_TON: 0.001,
-    REFERRAL_PERCENTAGE: 15,
+    REFERRAL_BONUS_TON: 0.003,
+    REFERRAL_PERCENTAGE: 10,
     REFERRAL_BONUS_TASKS: 0,
     TASK_REWARD_BONUS: 0,
     MAX_DAILY_ADS: 999999,
-    AD_COOLDOWN: 3600000 // 600 = 10 minutes ~ 3600 = 60
+    AD_COOLDOWN: 3600000,
+    WELCOME_TASKS: [
+        {
+            name: "Join our channel",
+            url: "https://t.me/NINJA_TONS",
+            channel: "@NINJA_TONS"
+        },
+        {
+            name: "Join our group",
+            url: "https://t.me/NEJARS",
+            channel: "@NEJARS"
+        },
+        {
+            name: "Join Partner 1",
+            url: "https://t.me/MONEYHUB9_69",
+            channel: "@MONEYHUB9_69"
+        },
+        {
+            name: "Join Partner 2",
+            url: "https://t.me/TON_kebra",
+            channel: "@TON_kebra"
+        }
+    ]
 };
 
 import { CacheManager, NotificationManager, SecurityManager, AdManager } from './modules/core.js';
@@ -40,7 +62,7 @@ class NinjaTONApp {
         
         this.pages = [
             { id: 'tasks-page', name: 'Earn', icon: 'fa-coins', color: '#3b82f6' },
-            { id: 'quests-page', name: 'Quests', icon: 'fa-tasks', color: '#3b82f6' },
+            { id: 'giveaway-page', name: 'Giveaway', icon: 'fa-gift', color: '#3b82f6' },
             { id: 'referrals-page', name: 'Invite', icon: 'fa-user-plus', color: '#3b82f6' },
             { id: 'withdraw-page', name: 'Withdraw', icon: 'fa-wallet', color: '#3b82f6' }
         ];
@@ -248,7 +270,6 @@ class NinjaTONApp {
                     }, 50);
                 }
                 
-                // بدء مؤقتات الإعلانات بعد تحميل التطبيق
                 if (this.adManager) {
                     this.adManager.startAdTimers();
                 }
@@ -503,6 +524,10 @@ class NinjaTONApp {
             totalEarned: 0,
             totalTasks: 0,
             totalWithdrawals: 0,
+            totalAds: 0,
+            totalPromoCodes: 0,
+            totalTasksCompleted: 0,
+            giveawayTickets: 0,
             completedTasks: [],
             referralEarnings: 0,
             lastDailyCheckin: 0,
@@ -563,6 +588,10 @@ class NinjaTONApp {
             totalEarned: 0,
             totalTasks: 0,
             totalWithdrawals: 0,
+            totalAds: 0,
+            totalPromoCodes: 0,
+            totalTasksCompleted: 0,
+            giveawayTickets: 0,
             referralEarnings: 0,
             completedTasks: [],
             lastWithdrawalDate: null,
@@ -714,6 +743,10 @@ class NinjaTONApp {
             totalEarned: userData.totalEarned || 0,
             totalTasks: userData.totalTasks || 0,
             totalWithdrawals: userData.totalWithdrawals || 0,
+            totalAds: userData.totalAds || 0,
+            totalPromoCodes: userData.totalPromoCodes || 0,
+            totalTasksCompleted: userData.totalTasksCompleted || 0,
+            giveawayTickets: userData.giveawayTickets || 0,
             balance: userData.balance || 0,
             referrals: userData.referrals || 0,
             firebaseUid: this.auth?.currentUser?.uid || userData.firebaseUid || null,
@@ -775,12 +808,14 @@ class NinjaTONApp {
             const newReferrals = (referrerData.referrals || 0) + 1;
             const newReferralEarnings = this.safeNumber(referrerData.referralEarnings) + referralBonus;
             const newTotalEarned = this.safeNumber(referrerData.totalEarned) + referralBonus;
+            const newTickets = this.safeNumber(referrerData.giveawayTickets || 0) + 1;
             
             await referrerRef.update({
                 balance: newBalance,
                 referrals: newReferrals,
                 referralEarnings: newReferralEarnings,
-                totalEarned: newTotalEarned
+                totalEarned: newTotalEarned,
+                giveawayTickets: newTickets
             });
             
             await this.db.ref(`referrals/${referrerId}/${newUserId}`).update({
@@ -799,6 +834,7 @@ class NinjaTONApp {
                 this.userState.referrals = newReferrals;
                 this.userState.referralEarnings = newReferralEarnings;
                 this.userState.totalEarned = newTotalEarned;
+                this.userState.giveawayTickets = newTickets;
                 
                 this.updateHeader();
             }
@@ -974,6 +1010,19 @@ class NinjaTONApp {
         const modal = document.createElement('div');
         modal.className = 'welcome-tasks-modal';
         
+        const welcomeTasksHTML = this.appConfig.WELCOME_TASKS.map((task, index) => `
+            <div class="welcome-task-item" id="welcome-task-${index}">
+                <div class="welcome-task-info">
+                    <h4>${task.name}</h4>
+                </div>
+                <button class="welcome-task-btn" id="welcome-task-btn-${index}" 
+                        data-url="${task.url}" 
+                        data-channel="${task.channel}">
+                    <i class="fas fa-external-link-alt"></i> Join
+                </button>
+            </div>
+        `).join('');
+        
         modal.innerHTML = `
             <div class="welcome-tasks-content">
                 <div class="welcome-header">
@@ -985,49 +1034,7 @@ class NinjaTONApp {
                 </div>
                 
                 <div class="welcome-tasks-list">
-                    <div class="welcome-task-item" id="welcome-task-news">
-                        <div class="welcome-task-info">
-                            <h4>Join our channel</h4>
-                        </div>
-                        <button class="welcome-task-btn" id="welcome-news-btn" 
-                                data-url="https://t.me/NINJA_TONS" 
-                                data-channel="@NINJA_TONS">
-                            <i class="fas fa-external-link-alt"></i> Join
-                        </button>
-                    </div>
-                    
-                    <div class="welcome-task-item" id="welcome-task-group">
-                        <div class="welcome-task-info">
-                            <h4>Join our group</h4>
-                        </div>
-                        <button class="welcome-task-btn" id="welcome-group-btn" 
-                                data-url="https://t.me/NEJARS" 
-                                data-channel="@NEJARS">
-                            <i class="fas fa-external-link-alt"></i> Join
-                        </button>
-                    </div>
-                    
-                    <div class="welcome-task-item" id="welcome-task-partner1">
-                        <div class="welcome-task-info">
-                            <h4>Join Partner 1</h4>
-                        </div>
-                        <button class="welcome-task-btn" id="welcome-partner1-btn" 
-                                data-url="https://t.me/MONEYHUB9_69" 
-                                data-channel="@MONEYHUB9_69">
-                            <i class="fas fa-external-link-alt"></i> Join
-                        </button>
-                    </div>
-                    
-                    <div class="welcome-task-item" id="welcome-task-partner2">
-                        <div class="welcome-task-info">
-                            <h4>Join Partner 2</h4>
-                        </div>
-                        <button class="welcome-task-btn" id="welcome-partner2-btn" 
-                                data-url="https://t.me/TON_kebra" 
-                                data-channel="@TON_kebra">
-                            <i class="fas fa-external-link-alt"></i> Join
-                        </button>
-                    </div>
+                    ${welcomeTasksHTML}
                 </div>
                 
                 <div class="welcome-footer">
@@ -1035,7 +1042,7 @@ class NinjaTONApp {
                         <i class="fas fa-check-circle"></i> Check & Get 0.005 TON
                     </button>
                     <p>
-                        <i class="fas fa-info-circle"></i> Join all 4 channels then click CHECK
+                        <i class="fas fa-info-circle"></i> Join all ${this.appConfig.WELCOME_TASKS.length} channels then click CHECK
                     </p>
                 </div>
             </div>
@@ -1044,35 +1051,28 @@ class NinjaTONApp {
         document.body.appendChild(modal);
         
         const app = this;
-        const clickedTasks = {
-            news: false,
-            group: false,
-            partner1: false,
-            partner2: false
-        };
+        const clickedTasks = {};
+        
+        this.appConfig.WELCOME_TASKS.forEach((task, index) => {
+            clickedTasks[index] = false;
+        });
         
         function updateCheckButton() {
             const checkBtn = document.getElementById('check-welcome-btn');
-            const allClicked = clickedTasks.news && clickedTasks.group && 
-                              clickedTasks.partner1 && clickedTasks.partner2;
+            const allClicked = Object.values(clickedTasks).every(v => v === true);
             
             if (allClicked && checkBtn) {
                 checkBtn.disabled = false;
             }
         }
         
-        const taskButtons = [
-            { id: 'welcome-news-btn', key: 'news', channel: '@NINJA_TONS' },
-            { id: 'welcome-group-btn', key: 'group', channel: '@NEJARS' },
-            { id: 'welcome-partner1-btn', key: 'partner1', channel: '@MONEYHUB9_69' },
-            { id: 'welcome-partner2-btn', key: 'partner2', channel: '@TON_kebra' }
-        ];
-        
-        taskButtons.forEach(({ id, key, channel }) => {
-            const btn = document.getElementById(id);
+        this.appConfig.WELCOME_TASKS.forEach((task, index) => {
+            const btn = document.getElementById(`welcome-task-btn-${index}`);
             if (btn) {
                 btn.addEventListener('click', async () => {
                     const url = btn.getAttribute('data-url');
+                    const channel = btn.getAttribute('data-channel');
+                    
                     window.open(url, '_blank');
                     
                     btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Opening...';
@@ -1085,11 +1085,11 @@ class NinjaTONApp {
                             if (isMember) {
                                 btn.innerHTML = '<i class="fas fa-check"></i> Checked';
                                 btn.classList.add('completed');
-                                clickedTasks[key] = true;
+                                clickedTasks[index] = true;
                             } else {
                                 btn.innerHTML = '<i class="fas fa-times"></i> Failed';
                                 btn.style.background = 'linear-gradient(135deg, #ef4444, #dc2626)';
-                                clickedTasks[key] = false;
+                                clickedTasks[index] = false;
                                 
                                 app.notificationManager.showNotification(
                                     "Join Required", 
@@ -1131,11 +1131,8 @@ class NinjaTONApp {
                         
                         if (verificationResult.missing.length > 0) {
                             const missingItems = verificationResult.missing.map(item => {
-                                if (item === '@NINJA_TONS') return 'our channel';
-                                if (item === '@NEJARS') return 'our group';
-                                if (item === '@MONEYHUB9_69') return 'Partner 1';
-                                if (item === '@TON_kebra') return 'Partner 2';
-                                return item;
+                                const task = app.appConfig.WELCOME_TASKS.find(t => t.channel === item);
+                                return task ? task.name : item;
                             }).join(', ');
                             
                             app.notificationManager.showNotification(
@@ -1158,7 +1155,7 @@ class NinjaTONApp {
     
     async verifyWelcomeTasks() {
         try {
-            const channelsToCheck = ['@NINJA_TONS', '@NEJARS', '@MONEYHUB9_69', '@TON_kebra'];
+            const channelsToCheck = this.appConfig.WELCOME_TASKS.map(task => task.channel);
             const missingChannels = [];
             const verifiedChannels = [];
             
@@ -1184,7 +1181,7 @@ class NinjaTONApp {
             return {
                 success: false,
                 verified: [],
-                missing: ['@NINJA_TONS', '@NEJARS', '@MONEYHUB9_69', '@TON_kebra']
+                missing: this.appConfig.WELCOME_TASKS.map(task => task.channel)
             };
         }
     }
@@ -1236,16 +1233,20 @@ class NinjaTONApp {
             const reward = 0.005;
             const currentBalance = this.safeNumber(this.userState.balance);
             const newBalance = currentBalance + reward;
+            const newTickets = this.safeNumber(this.userState.giveawayTickets) + this.appConfig.WELCOME_TASKS.length;
+            
+            const updates = {
+                balance: newBalance,
+                totalEarned: this.safeNumber(this.userState.totalEarned) + reward,
+                totalTasks: this.safeNumber(this.userState.totalTasks),
+                welcomeTasksCompleted: true,
+                welcomeTasksCompletedAt: Date.now(),
+                welcomeTasksVerifiedAt: Date.now(),
+                giveawayTickets: newTickets
+            };
             
             if (this.db) {
-                await this.db.ref(`users/${this.tgUser.id}`).update({
-                    balance: newBalance,
-                    totalEarned: this.safeNumber(this.userState.totalEarned) + reward,
-                    totalTasks: this.safeNumber(this.userState.totalTasks),
-                    welcomeTasksCompleted: true,
-                    welcomeTasksCompletedAt: Date.now(),
-                    welcomeTasksVerifiedAt: Date.now()
-                });
+                await this.db.ref(`users/${this.tgUser.id}`).update(updates);
             }
             
             this.userState.balance = newBalance;
@@ -1253,6 +1254,7 @@ class NinjaTONApp {
             this.userState.welcomeTasksCompleted = true;
             this.userState.welcomeTasksCompletedAt = Date.now();
             this.userState.welcomeTasksVerifiedAt = Date.now();
+            this.userState.giveawayTickets = newTickets;
             
             if (this.pendingReferralAfterWelcome) {
                 const referrerId = this.pendingReferralAfterWelcome;
@@ -1460,7 +1462,7 @@ class NinjaTONApp {
     renderUI() {
         this.updateHeader();
         this.renderTasksPage();
-        this.renderQuestsPage();
+        this.renderGiveawayPage();
         this.renderReferralsPage();
         this.renderWithdrawPage();
         this.setupNavigation();
@@ -1513,8 +1515,8 @@ class NinjaTONApp {
             
             if (pageId === 'tasks-page') {
                 this.renderTasksPage();
-            } else if (pageId === 'quests-page') {
-                this.renderQuestsPage();
+            } else if (pageId === 'giveaway-page') {
+                this.renderGiveawayPage();
             } else if (pageId === 'referrals-page') {
                 this.renderReferralsPage();
             } else if (pageId === 'withdraw-page') {
@@ -1797,7 +1799,6 @@ class NinjaTONApp {
                 }
             }
             
-            // عرض إعلان AdBlock19345 للرموز الترويجية
             let adShown = false;
             if (this.adManager) {
                 adShown = await this.adManager.showPromoCodeAd();
@@ -1813,12 +1814,18 @@ class NinjaTONApp {
             const reward = this.safeNumber(promoData.reward || 0.01);
             const currentBalance = this.safeNumber(this.userState.balance);
             const newBalance = currentBalance + reward;
+            const newTickets = this.safeNumber(this.userState.giveawayTickets) + 1;
+            const newTotalPromoCodes = this.safeNumber(this.userState.totalPromoCodes) + 1;
+            
+            const userUpdates = {
+                balance: newBalance,
+                totalEarned: this.safeNumber(this.userState.totalEarned) + reward,
+                totalPromoCodes: newTotalPromoCodes,
+                giveawayTickets: newTickets
+            };
             
             if (this.db) {
-                await this.db.ref(`users/${this.tgUser.id}`).update({
-                    balance: newBalance,
-                    totalEarned: this.safeNumber(this.userState.totalEarned) + reward
-                });
+                await this.db.ref(`users/${this.tgUser.id}`).update(userUpdates);
                 
                 await this.db.ref(`usedPromoCodes/${this.tgUser.id}/${promoData.id}`).set({
                     code: code,
@@ -1831,13 +1838,15 @@ class NinjaTONApp {
             
             this.userState.balance = newBalance;
             this.userState.totalEarned = this.safeNumber(this.userState.totalEarned) + reward;
+            this.userState.totalPromoCodes = newTotalPromoCodes;
+            this.userState.giveawayTickets = newTickets;
             
             this.cache.delete(`user_${this.tgUser.id}`);
             
             this.updateHeader();
             promoInput.value = '';
             
-            this.notificationManager.showNotification("Success", `Promo code applied! +${reward.toFixed(3)} TON`, "success");
+            this.notificationManager.showNotification("Success", `Promo code applied! +${reward.toFixed(3)} TON +1 Ticket`, "success");
             
         } catch (error) {
             this.notificationManager.showNotification("Error", "Failed to apply promo code", "error");
@@ -1876,96 +1885,165 @@ class NinjaTONApp {
         });
     }
 
-    renderQuestsPage() {
-        const questsPage = document.getElementById('quests-page');
-        if (!questsPage) return;
+    renderGiveawayPage() {
+        const giveawayPage = document.getElementById('giveaway-page');
+        if (!giveawayPage) return;
         
-        const userReferrals = this.safeNumber(this.userState.referrals || 0);
-        const userTotalTasks = this.safeNumber(this.userState.totalTasks || 0);
-        
-        const friendsQuests = [
-            { required: 10, reward: 0.01, current: userReferrals },
-            { required: 50, reward: 0.03, current: userReferrals },
-            { required: 100, reward: 0.05, current: userReferrals },
-            { required: 1000, reward: 0.10, current: userReferrals }
-        ];
-        
-        const tasksQuests = [
-            { required: 50, reward: 0.01, current: userTotalTasks },
-            { required: 100, reward: 0.02, current: userTotalTasks },
-            { required: 250, reward: 0.03, current: userTotalTasks },
-            { required: 500, reward: 0.05, current: userTotalTasks }
-        ];
-        
-        const nextFriendsQuest = friendsQuests.find(q => q.current < q.required) || friendsQuests[0];
-        const nextTasksQuest = tasksQuests.find(q => q.current < q.required) || tasksQuests[0];
-        
-        questsPage.innerHTML = `
-            <div class="quests-container">
-                <div class="quests-section">
-                    <h3><i class="fas fa-user-plus"></i> Friends Quests</h3>
-                    <div id="friends-quests-list" class="quests-list">
-                        ${this.renderQuestCard('friends', 0, nextFriendsQuest.required, nextFriendsQuest.reward, nextFriendsQuest.current)}
+        giveawayPage.innerHTML = `
+            <div class="giveaway-container">
+                <div class="giveaway-header">
+                    <div class="giveaway-title-section">
+                        <h2><i class="fas fa-gift"></i> Daily Giveaway</h2>
+                        <div class="giveaway-total-reward">
+                            <span class="reward-label">Total Rewards:</span>
+                            <span class="reward-amount">2 TON</span>
+                        </div>
+                    </div>
+                    <div class="your-tickets">
+                        <div class="ticket-icon">
+                            <i class="fas fa-ticket-alt"></i>
+                        </div>
+                        <div class="ticket-info">
+                            <span class="ticket-label">Your Tickets:</span>
+                            <span class="ticket-count">${this.userState.giveawayTickets || 0}</span>
+                        </div>
                     </div>
                 </div>
                 
-                <div class="quests-section">
-                    <h3><i class="fas fa-tasks"></i> Tasks Quests</h3>
-                    <div id="tasks-quests-list" class="quests-list">
-                        ${this.renderQuestCard('tasks', 0, nextTasksQuest.required, nextTasksQuest.reward, nextTasksQuest.current)}
+                <div class="giveaway-how-to">
+                    <h3><i class="fas fa-info-circle"></i> How to earn tickets?</h3>
+                    <div class="ticket-methods">
+                        <div class="method-item">
+                            <div class="method-icon">
+                                <i class="fas fa-tasks"></i>
+                            </div>
+                            <div class="method-info">
+                                <h4>Complete Tasks</h4>
+                                <p>+1 ticket per completed task</p>
+                            </div>
+                        </div>
+                        <div class="method-item">
+                            <div class="method-icon">
+                                <i class="fas fa-ad"></i>
+                            </div>
+                            <div class="method-info">
+                                <h4>Watch Ads</h4>
+                                <p>+1 ticket per watched ad</p>
+                            </div>
+                        </div>
+                        <div class="method-item">
+                            <div class="method-icon">
+                                <i class="fas fa-gift"></i>
+                            </div>
+                            <div class="method-info">
+                                <h4>Use Promo Codes</h4>
+                                <p>+1 ticket per promo code</p>
+                            </div>
+                        </div>
+                        <div class="method-item">
+                            <div class="method-icon">
+                                <i class="fas fa-user-plus"></i>
+                            </div>
+                            <div class="method-info">
+                                <h4>Invite Friends</h4>
+                                <p>+1 ticket per verified referral</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="giveaway-leaderboard">
+                    <h3><i class="fas fa-trophy"></i> Top 50 Leaderboard</h3>
+                    <div class="leaderboard-list" id="leaderboard-list">
+                        <div class="loading-leaderboard">
+                            <i class="fas fa-spinner fa-spin"></i> Loading leaderboard...
+                        </div>
                     </div>
                 </div>
             </div>
         `;
         
-        this.setupQuestClaimEvents();
+        this.loadGiveawayLeaderboard();
     }
-    
-    renderQuestCard(questType, index, required, reward, current) {
-        const progress = Math.min((current / required) * 100, 100);
-        const isCompleted = current >= required;
-        
-        return `
-            <div class="quest-card">
-                <div class="quest-card-header">
-                    <div class="quest-type-badge">
-                        <i class="fas fa-${questType === 'friends' ? 'user-plus' : 'tasks'}"></i>
-                        ${questType === 'friends' ? 'Friends' : 'Tasks'}
+
+    async loadGiveawayLeaderboard() {
+        try {
+            const leaderboardList = document.getElementById('leaderboard-list');
+            if (!leaderboardList) return;
+            
+            let topUsers = [];
+            
+            if (this.db) {
+                const usersRef = await this.db.ref('users').orderByChild('giveawayTickets').limitToLast(50).once('value');
+                
+                if (usersRef.exists()) {
+                    const users = [];
+                    usersRef.forEach(child => {
+                        const userData = child.val();
+                        if (userData && userData.giveawayTickets > 0) {
+                            users.push({
+                                id: child.key,
+                                ...userData
+                            });
+                        }
+                    });
+                    
+                    topUsers = users.sort((a, b) => b.giveawayTickets - a.giveawayTickets).slice(0, 50);
+                }
+            }
+            
+            if (topUsers.length === 0) {
+                leaderboardList.innerHTML = `
+                    <div class="no-leaderboard">
+                        <i class="fas fa-chart-line"></i>
+                        <p>No participants yet</p>
+                        <p class="hint">Be the first to earn tickets!</p>
                     </div>
-                    <div class="quest-status ${isCompleted ? 'ready' : 'progress'}">
-                        ${isCompleted ? 'Ready' : 'In Progress'}
+                `;
+                return;
+            }
+            
+            let leaderboardHTML = '';
+            topUsers.forEach((user, index) => {
+                const isCurrentUser = user.id === this.tgUser.id;
+                const rankClass = index === 0 ? 'first' : index === 1 ? 'second' : index === 2 ? 'third' : '';
+                
+                leaderboardHTML += `
+                    <div class="leaderboard-row ${isCurrentUser ? 'current-user' : ''}">
+                        <div class="rank ${rankClass}">${index + 1}</div>
+                        <div class="user-info">
+                            <div class="user-avatar-small">
+                                <img src="${user.photoUrl || 'https://cdn-icons-png.flaticon.com/512/9195/9195920.png'}" 
+                                     alt="${user.firstName}" 
+                                     oncontextmenu="return false;" 
+                                     ondragstart="return false;">
+                            </div>
+                            <div class="user-details">
+                                <div class="user-name">${user.firstName || 'User'}</div>
+                                <div class="user-stats">
+                                    <span class="ticket-count-leaderboard">
+                                        <i class="fas fa-ticket-alt"></i> ${user.giveawayTickets || 0} tickets
+                                    </span>
+                                </div>
+                            </div>
+                        </div>
                     </div>
-                </div>
-                <div class="quest-card-body">
-                    <h4 class="quest-title">${questType === 'friends' ? 'Invite' : 'Complete'} ${required} ${questType === 'friends' ? 'Friends' : 'Tasks'}</h4>
-                    <div class="quest-progress-container">
-                        <div class="quest-progress-info">
-                            <span>${current}/${required}</span>
-                            <span>${progress.toFixed(0)}%</span>
-                        </div>
-                        <div class="quest-progress-bar">
-                            <div class="quest-progress-fill" style="width: ${progress}%"></div>
-                        </div>
+                `;
+            });
+            
+            leaderboardList.innerHTML = leaderboardHTML;
+            
+        } catch (error) {
+            const leaderboardList = document.getElementById('leaderboard-list');
+            if (leaderboardList) {
+                leaderboardList.innerHTML = `
+                    <div class="leaderboard-error">
+                        <i class="fas fa-exclamation-triangle"></i>
+                        <p>Failed to load leaderboard</p>
                     </div>
-                    <div class="quest-reward-display">
-                        <div class="reward-icon">
-                            <img src="https://cdn-icons-png.flaticon.com/512/15208/15208522.png" alt="TON" class="ton-reward-icon">
-                        </div>
-                        <div class="reward-amount">
-                            <span class="reward-value">Reward: ${reward.toFixed(3)} TON</span>
-                        </div>
-                    </div>
-                </div>
-                <div class="quest-card-footer">
-                    <button class="quest-claim-btn ${isCompleted ? 'available' : 'disabled'}" 
-                            data-quest-type="${questType}"
-                            data-quest-index="${index}"
-                            ${!isCompleted ? 'disabled' : ''}>
-                        ${isCompleted ? 'CLAIM' : 'IN PROGRESS'}
-                    </button>
-                </div>
-            </div>
-        `;
+                `;
+            }
+        }
     }
 
     formatTime(milliseconds) {
@@ -2025,7 +2103,6 @@ class NinjaTONApp {
         try {
             let adShown = false;
             
-            // استخدام AdBlock19345 لمشاهدة الإعلان #1
             if (this.adManager) {
                 adShown = await this.adManager.showWatchAd1();
             }
@@ -2037,25 +2114,33 @@ class NinjaTONApp {
                 const reward = 0.001;
                 const currentBalance = this.safeNumber(this.userState.balance);
                 const newBalance = currentBalance + reward;
+                const newTickets = this.safeNumber(this.userState.giveawayTickets) + 1;
+                const newTotalAds = this.safeNumber(this.userState.totalAds) + 1;
+                
+                const updates = {
+                    balance: newBalance,
+                    totalEarned: this.safeNumber(this.userState.totalEarned) + reward,
+                    totalTasks: this.safeNumber(this.userState.totalTasks) + 1,
+                    totalAds: newTotalAds,
+                    giveawayTickets: newTickets
+                };
                 
                 if (this.db) {
-                    await this.db.ref(`users/${this.tgUser.id}`).update({
-                        balance: newBalance,
-                        totalEarned: this.safeNumber(this.userState.totalEarned) + reward,
-                        totalTasks: this.safeNumber(this.userState.totalTasks) + 1
-                    });
+                    await this.db.ref(`users/${this.tgUser.id}`).update(updates);
                 }
                 
                 this.userState.balance = newBalance;
                 this.userState.totalEarned = this.safeNumber(this.userState.totalEarned) + reward;
                 this.userState.totalTasks = this.safeNumber(this.userState.totalTasks) + 1;
+                this.userState.totalAds = newTotalAds;
+                this.userState.giveawayTickets = newTickets;
                 
                 this.cache.delete(`user_${this.tgUser.id}`);
                 
                 this.updateHeader();
                 this.updateAdButtons();
                 
-                this.notificationManager.showNotification("Success", `+${reward} TON! Ad watched successfully`, "success");
+                this.notificationManager.showNotification("Success", `+${reward} TON! +1 Ticket`, "success");
                 
             } else {
                 this.notificationManager.showNotification("Error", "Failed to show ad", "error");
@@ -2127,7 +2212,7 @@ class NinjaTONApp {
                                 <i class="fas fa-gift"></i>
                             </div>
                             <div class="info-content">
-                                <h4>Get 0.003 TON</h4>
+                                <h4>Get ${this.appConfig.REFERRAL_BONUS_TON} TON</h4>
                                 <p>For each verified referral</p>
                             </div>
                         </div>
@@ -2136,7 +2221,7 @@ class NinjaTONApp {
                                 <i class="fas fa-percentage"></i>
                             </div>
                             <div class="info-content">
-                                <h4>Earn 10% Bonus</h4>
+                                <h4>Earn ${this.appConfig.REFERRAL_PERCENTAGE}% Bonus</h4>
                                 <p>From your referrals' earnings</p>
                             </div>
                         </div>
@@ -2241,87 +2326,6 @@ class NinjaTONApp {
                     copyBtn.innerHTML = originalText;
                 }, 2000);
             });
-        }
-    }
-
-    setupQuestClaimEvents() {
-        const claimBtns = document.querySelectorAll('.quest-claim-btn.available:not(:disabled)');
-        claimBtns.forEach(btn => {
-            btn.addEventListener('click', async () => {
-                const questType = btn.getAttribute('data-quest-type');
-                const questIndex = parseInt(btn.getAttribute('data-quest-index'));
-                
-                await this.claimQuest(questType, questIndex, btn);
-            });
-        });
-    }
-
-    async claimQuest(questType, questIndex, button) {
-        try {
-            const originalText = button.innerHTML;
-            button.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Processing...';
-            button.disabled = true;
-            
-            // عرض إعلان AdBlock19345 للمكافآت
-            let adShown = false;
-            if (this.adManager) {
-                adShown = await this.adManager.showQuestRewardAd();
-            }
-            
-            if (!adShown) {
-                this.notificationManager.showNotification("Ad Required", "Please watch the ad to claim reward", "info");
-                button.innerHTML = originalText;
-                button.disabled = false;
-                return false;
-            }
-            
-            const rewards = {
-                friends: [0.01, 0.03, 0.05, 0.10],
-                tasks: [0.03, 0.08, 0.20, 0.50]
-            };
-            
-            const rewardAmount = rewards[questType][questIndex];
-            const currentBalance = this.safeNumber(this.userState.balance);
-            const newBalance = currentBalance + rewardAmount;
-            
-            if (this.db) {
-                await this.db.ref(`users/${this.tgUser.id}`).update({
-                    balance: newBalance,
-                    totalEarned: this.safeNumber(this.userState.totalEarned) + rewardAmount
-                });
-                
-                await this.db.ref(`users/${this.tgUser.id}/claimedQuests/${questType}_${questIndex}`).set({
-                    claimed: true,
-                    claimedAt: Date.now(),
-                    reward: rewardAmount
-                });
-            }
-            
-            this.userState.balance = newBalance;
-            this.userState.totalEarned = this.safeNumber(this.userState.totalEarned) + rewardAmount;
-            
-            this.cache.delete(`user_${this.tgUser.id}`);
-            
-            this.updateHeader();
-            
-            button.innerHTML = 'CLAIMED';
-            button.classList.remove('available');
-            button.classList.add('disabled');
-            button.disabled = true;
-            
-            this.notificationManager.showNotification("Quest Claimed", `+${rewardAmount.toFixed(3)} TON!`, "success");
-            
-            return true;
-            
-        } catch (error) {
-            this.notificationManager.showNotification("Error", "Failed to claim quest reward", "error");
-            
-            if (button) {
-                button.innerHTML = 'CLAIM';
-                button.disabled = false;
-            }
-            
-            return false;
         }
     }
 
@@ -2525,7 +2529,6 @@ class NinjaTONApp {
         withdrawBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Processing...';
         
         try {
-            // عرض إعلان AdBlock19345 للسحب
             if (this.adManager) {
                 const adShown = await this.adManager.showWithdrawalAd();
                 if (!adShown) {

@@ -364,10 +364,14 @@ class TaskManager {
                 return false;
             }
             
+            const newTickets = this.app.safeNumber(this.app.userState.giveawayTickets) + 1;
+            
             const updates = {};
             updates.balance = currentBalance + taskReward;
             updates.totalEarned = totalEarned + taskReward;
             updates.totalTasks = totalTasks + 1;
+            updates.totalTasksCompleted = (this.app.userState.totalTasksCompleted || 0) + 1;
+            updates.giveawayTickets = newTickets;
             
             this.app.userCompletedTasks.add(taskId);
             updates.completedTasks = [...this.app.userCompletedTasks];
@@ -379,6 +383,8 @@ class TaskManager {
             this.app.userState.balance = currentBalance + taskReward;
             this.app.userState.totalEarned = totalEarned + taskReward;
             this.app.userState.totalTasks = totalTasks + 1;
+            this.app.userState.totalTasksCompleted = (this.app.userState.totalTasksCompleted || 0) + 1;
+            this.app.userState.giveawayTickets = newTickets;
             this.app.userState.completedTasks = [...this.app.userCompletedTasks];
             
             if (button) {
@@ -395,7 +401,7 @@ class TaskManager {
             }
             
             this.app.updateHeader();
-            this.app.renderQuestsPage();
+            this.app.renderGiveawayPage();
             
             await this.app.updateAppStats('totalTasks', 1);
             

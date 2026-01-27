@@ -1570,6 +1570,7 @@ class NinjaTONApp {
                         <div class="ad-reward">
                             <img src="https://cdn-icons-png.flaticon.com/512/15208/15208522.png" alt="TON">
                             <span>Reward: 0.001 TON</span>
+                            <span class="ticket-badge">+1 <i class="fas fa-ticket-alt"></i></span>
                         </div>
                         <button class="ad-btn ${this.isAdAvailable(1) ? 'available' : 'cooldown'}" 
                                 id="watch-ad-1-btn"
@@ -1716,7 +1717,10 @@ class NinjaTONApp {
                 </div>
                 <div class="referral-row-info">
                     <p class="referral-row-username">${task.name}</p>
-                    <p class="task-reward-amount">Reward: ${task.reward?.toFixed(5) || '0.00000'} TON</p>
+                    <p class="task-reward-amount">
+                        Reward: ${task.reward?.toFixed(5) || '0.00000'} TON 
+                        <span class="ticket-badge">+1 <i class="fas fa-ticket-alt"></i></span>
+                    </p>
                 </div>
                 <div class="referral-row-status">
                     <button class="task-btn ${buttonClass}" 
@@ -1889,16 +1893,36 @@ class NinjaTONApp {
         const giveawayPage = document.getElementById('giveaway-page');
         if (!giveawayPage) return;
         
+        const now = new Date();
+        const utcMidnight = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() + 1));
+        const timeLeft = utcMidnight - now;
+        
+        const hours = Math.floor((timeLeft % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+        const minutes = Math.floor((timeLeft % (1000 * 60 * 60)) / (1000 * 60));
+        
+        const formattedTime = `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}`;
+        
         giveawayPage.innerHTML = `
             <div class="giveaway-container">
                 <div class="giveaway-header">
                     <div class="giveaway-title-section">
                         <h2><i class="fas fa-gift"></i> Daily Giveaway</h2>
-                        <div class="giveaway-total-reward">
-                            <span class="reward-label">Total Rewards:</span>
-                            <span class="reward-amount">2 TON</span>
+                        <div class="giveaway-timer">
+                            <i class="fas fa-clock"></i>
+                            <span class="time-remaining">${formattedTime}</span>
                         </div>
                     </div>
+                    
+                    <div class="giveaway-reward-card">
+                        <div class="reward-card-icon">
+                            <i class="fas fa-gem"></i>
+                        </div>
+                        <div class="reward-card-content">
+                            <h3>Total Rewards</h3>
+                            <div class="reward-amount-display">2.00 TON</div>
+                        </div>
+                    </div>
+                    
                     <div class="your-tickets">
                         <div class="ticket-icon">
                             <i class="fas fa-ticket-alt"></i>
@@ -1910,71 +1934,155 @@ class NinjaTONApp {
                     </div>
                 </div>
                 
-                <div class="giveaway-how-to">
-                    <h3><i class="fas fa-info-circle"></i> How to earn tickets?</h3>
-                    <div class="ticket-methods">
-                        <div class="method-item">
-                            <div class="method-icon">
-                                <i class="fas fa-tasks"></i>
+                <div class="giveaway-content">
+                    <div class="giveaway-how-to">
+                        <h3><i class="fas fa-info-circle"></i> How to earn tickets?</h3>
+                        <div class="ticket-methods">
+                            <div class="method-item">
+                                <div class="method-icon">
+                                    <i class="fas fa-tasks"></i>
+                                </div>
+                                <div class="method-info">
+                                    <h4>Complete Tasks</h4>
+                                    <p>+1 <i class="fas fa-ticket-alt"></i> per completed task</p>
+                                </div>
                             </div>
-                            <div class="method-info">
-                                <h4>Complete Tasks</h4>
-                                <p>+1 ticket per completed task</p>
+                            <div class="method-item">
+                                <div class="method-icon">
+                                    <i class="fas fa-ad"></i>
+                                </div>
+                                <div class="method-info">
+                                    <h4>Watch Ads</h4>
+                                    <p>+1 <i class="fas fa-ticket-alt"></i> per watched ad</p>
+                                </div>
                             </div>
-                        </div>
-                        <div class="method-item">
-                            <div class="method-icon">
-                                <i class="fas fa-ad"></i>
+                            <div class="method-item">
+                                <div class="method-icon">
+                                    <i class="fas fa-gift"></i>
+                                </div>
+                                <div class="method-info">
+                                    <h4>Use Promo Codes</h4>
+                                    <p>+1 <i class="fas fa-ticket-alt"></i> per promo code</p>
+                                </div>
                             </div>
-                            <div class="method-info">
-                                <h4>Watch Ads</h4>
-                                <p>+1 ticket per watched ad</p>
-                            </div>
-                        </div>
-                        <div class="method-item">
-                            <div class="method-icon">
-                                <i class="fas fa-gift"></i>
-                            </div>
-                            <div class="method-info">
-                                <h4>Use Promo Codes</h4>
-                                <p>+1 ticket per promo code</p>
-                            </div>
-                        </div>
-                        <div class="method-item">
-                            <div class="method-icon">
-                                <i class="fas fa-user-plus"></i>
-                            </div>
-                            <div class="method-info">
-                                <h4>Invite Friends</h4>
-                                <p>+1 ticket per verified referral</p>
+                            <div class="method-item">
+                                <div class="method-icon">
+                                    <i class="fas fa-user-plus"></i>
+                                </div>
+                                <div class="method-info">
+                                    <h4>Invite Friends</h4>
+                                    <p>+1 <i class="fas fa-ticket-alt"></i> per verified referral</p>
+                                </div>
                             </div>
                         </div>
                     </div>
-                </div>
-                
-                <div class="giveaway-leaderboard">
-                    <h3><i class="fas fa-trophy"></i> Top 50 Leaderboard</h3>
-                    <div class="leaderboard-list" id="leaderboard-list">
-                        <div class="loading-leaderboard">
-                            <i class="fas fa-spinner fa-spin"></i> Loading leaderboard...
+                    
+                    <div class="top-users-section">
+                        <div class="top-users-header">
+                            <h3><i class="fas fa-trophy"></i> Top 10 Users</h3>
+                            <div class="your-rank">
+                                <i class="fas fa-user"></i>
+                                <span>Your Rank: <strong>#${this.getUserRank()}</strong></span>
+                            </div>
+                        </div>
+                        
+                        <div class="top-users-grid">
+                            <div class="top-users-list" id="top-users-list">
+                                <div class="loading-leaderboard">
+                                    <i class="fas fa-spinner fa-spin"></i> Loading top users...
+                                </div>
+                            </div>
+                            
+                            <div class="top-users-prizes">
+                                <h4><i class="fas fa-award"></i> Prizes</h4>
+                                <div class="prizes-list">
+                                    <div class="prize-item">
+                                        <span class="prize-rank">1st</span>
+                                        <span class="prize-amount">0.50 ꘜ</span>
+                                    </div>
+                                    <div class="prize-item">
+                                        <span class="prize-rank">2nd</span>
+                                        <span class="prize-amount">0.25 ꘜ</span>
+                                    </div>
+                                    <div class="prize-item">
+                                        <span class="prize-rank">3rd</span>
+                                        <span class="prize-amount">0.21 ꘜ</span>
+                                    </div>
+                                    <div class="prize-item">
+                                        <span class="prize-rank">4th</span>
+                                        <span class="prize-amount">0.18 ꘜ</span>
+                                    </div>
+                                    <div class="prize-item">
+                                        <span class="prize-rank">5th</span>
+                                        <span class="prize-amount">0.16 ꘜ</span>
+                                    </div>
+                                    <div class="prize-item">
+                                        <span class="prize-rank">6th</span>
+                                        <span class="prize-amount">0.14 ꘜ</span>
+                                    </div>
+                                    <div class="prize-item">
+                                        <span class="prize-rank">7th</span>
+                                        <span class="prize-amount">0.13 ꘜ</span>
+                                    </div>
+                                    <div class="prize-item">
+                                        <span class="prize-rank">8th</span>
+                                        <span class="prize-amount">0.12 ꘜ</span>
+                                    </div>
+                                    <div class="prize-item">
+                                        <span class="prize-rank">9th</span>
+                                        <span class="prize-amount">0.11 ꘜ</span>
+                                    </div>
+                                    <div class="prize-item">
+                                        <span class="prize-rank">10th</span>
+                                        <span class="prize-amount">0.10 ꘜ</span>
+                                    </div>
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </div>
             </div>
         `;
         
-        this.loadGiveawayLeaderboard();
+        this.loadTopUsers();
+        this.startGiveawayTimer();
     }
 
-    async loadGiveawayLeaderboard() {
+    getUserRank() {
+        return '--';
+    }
+
+    startGiveawayTimer() {
+        const updateTimer = () => {
+            const now = new Date();
+            const utcMidnight = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() + 1));
+            const timeLeft = utcMidnight - now;
+            
+            if (timeLeft <= 0) {
+                document.querySelector('.time-remaining').textContent = '00:00';
+                return;
+            }
+            
+            const hours = Math.floor((timeLeft % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+            const minutes = Math.floor((timeLeft % (1000 * 60 * 60)) / (1000 * 60));
+            
+            document.querySelector('.time-remaining').textContent = 
+                `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}`;
+        };
+        
+        updateTimer();
+        setInterval(updateTimer, 60000);
+    }
+
+    async loadTopUsers() {
         try {
-            const leaderboardList = document.getElementById('leaderboard-list');
-            if (!leaderboardList) return;
+            const topUsersList = document.getElementById('top-users-list');
+            if (!topUsersList) return;
             
             let topUsers = [];
             
             if (this.db) {
-                const usersRef = await this.db.ref('users').orderByChild('giveawayTickets').limitToLast(50).once('value');
+                const usersRef = await this.db.ref('users').orderByChild('giveawayTickets').limitToLast(10).once('value');
                 
                 if (usersRef.exists()) {
                     const users = [];
@@ -1988,13 +2096,13 @@ class NinjaTONApp {
                         }
                     });
                     
-                    topUsers = users.sort((a, b) => b.giveawayTickets - a.giveawayTickets).slice(0, 50);
+                    topUsers = users.sort((a, b) => b.giveawayTickets - a.giveawayTickets).slice(0, 10);
                 }
             }
             
             if (topUsers.length === 0) {
-                leaderboardList.innerHTML = `
-                    <div class="no-leaderboard">
+                topUsersList.innerHTML = `
+                    <div class="no-top-users">
                         <i class="fas fa-chart-line"></i>
                         <p>No participants yet</p>
                         <p class="hint">Be the first to earn tickets!</p>
@@ -2003,43 +2111,40 @@ class NinjaTONApp {
                 return;
             }
             
-            let leaderboardHTML = '';
+            let topUsersHTML = '';
             topUsers.forEach((user, index) => {
                 const isCurrentUser = user.id === this.tgUser.id;
                 const rankClass = index === 0 ? 'first' : index === 1 ? 'second' : index === 2 ? 'third' : '';
                 
-                leaderboardHTML += `
-                    <div class="leaderboard-row ${isCurrentUser ? 'current-user' : ''}">
-                        <div class="rank ${rankClass}">${index + 1}</div>
-                        <div class="user-info">
-                            <div class="user-avatar-small">
-                                <img src="${user.photoUrl || 'https://cdn-icons-png.flaticon.com/512/9195/9195920.png'}" 
-                                     alt="${user.firstName}" 
-                                     oncontextmenu="return false;" 
-                                     ondragstart="return false;">
-                            </div>
-                            <div class="user-details">
-                                <div class="user-name">${user.firstName || 'User'}</div>
-                                <div class="user-stats">
-                                    <span class="ticket-count-leaderboard">
-                                        <i class="fas fa-ticket-alt"></i> ${user.giveawayTickets || 0} tickets
-                                    </span>
-                                </div>
+                topUsersHTML += `
+                    <div class="top-user-row ${isCurrentUser ? 'current-user' : ''}">
+                        <div class="user-rank ${rankClass}">${index + 1}</div>
+                        <div class="user-avatar-small">
+                            <img src="${user.photoUrl || 'https://cdn-icons-png.flaticon.com/512/9195/9195920.png'}" 
+                                 alt="${user.firstName}" 
+                                 oncontextmenu="return false;" 
+                                 ondragstart="return false;">
+                        </div>
+                        <div class="user-info-compact">
+                            <div class="user-name-compact">${user.firstName || 'User'}</div>
+                            <div class="user-tickets">
+                                <i class="fas fa-ticket-alt"></i>
+                                <span>${user.giveawayTickets || 0}</span>
                             </div>
                         </div>
                     </div>
                 `;
             });
             
-            leaderboardList.innerHTML = leaderboardHTML;
+            topUsersList.innerHTML = topUsersHTML;
             
         } catch (error) {
-            const leaderboardList = document.getElementById('leaderboard-list');
-            if (leaderboardList) {
-                leaderboardList.innerHTML = `
-                    <div class="leaderboard-error">
+            const topUsersList = document.getElementById('top-users-list');
+            if (topUsersList) {
+                topUsersList.innerHTML = `
+                    <div class="top-users-error">
                         <i class="fas fa-exclamation-triangle"></i>
-                        <p>Failed to load leaderboard</p>
+                        <p>Failed to load top users</p>
                     </div>
                 `;
             }
@@ -2213,7 +2318,7 @@ class NinjaTONApp {
                             </div>
                             <div class="info-content">
                                 <h4>Get ${this.appConfig.REFERRAL_BONUS_TON} TON</h4>
-                                <p>For each verified referral</p>
+                                <p>For each verified referral +1 <i class="fas fa-ticket-alt"></i></p>
                             </div>
                         </div>
                         <div class="info-card">
@@ -2279,7 +2384,7 @@ class NinjaTONApp {
                     <p class="referral-row-username">${referral.username}</p>
                 </div>
                 <div class="referral-row-status ${referral.state}">
-                    ${referral.state === 'verified' ? 'COMPLETED' : 'PENDING'}
+                    ${referral.state === 'verified' ? 'COMPLETED +1 <i class="fas fa-ticket-alt"></i>' : 'PENDING'}
                 </div>
             </div>
         `;

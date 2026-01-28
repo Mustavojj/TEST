@@ -307,7 +307,7 @@ class TaskManager {
                         console.log(`Bot is NOT admin in ${chatId}, skipping verification`);
                         this.app.notificationManager.showNotification(
                             "Task Completed!", 
-                            `You have received ${task.reward.toFixed(5)} TON +1 Ticket`, 
+                            `You have received ${task.reward.toFixed(5)} TON`, 
                             "success"
                         );
                         
@@ -317,7 +317,7 @@ class TaskManager {
                     console.log(`Could not extract chat ID from URL: ${url}`);
                     this.app.notificationManager.showNotification(
                         "Task Completed!", 
-                        `You have received ${task.reward.toFixed(5)} TON +1 Ticket`, 
+                        `You have received ${task.reward.toFixed(5)} TON`, 
                         "success"
                     );
                     
@@ -380,7 +380,15 @@ class TaskManager {
                 return false;
             }
             
-            const newTickets = this.app.safeNumber(this.app.userState.giveawayTickets) + 1;
+            // إضافة تذكرة واحدة فقط للمهام التي تم إكمالها اليوم
+            const today = new Date();
+            const todayKey = `${today.getFullYear()}-${today.getMonth() + 1}-${today.getDate()}`;
+            const lastTaskDate = this.app.userState.lastTaskDate || '';
+            
+            let newTickets = this.app.safeNumber(this.app.userState.giveawayTickets);
+            if (lastTaskDate !== todayKey) {
+                newTickets += 1;
+            }
             
             const updates = {};
             updates.balance = currentBalance + taskReward;
@@ -388,6 +396,7 @@ class TaskManager {
             updates.totalTasks = totalTasks + 1;
             updates.totalTasksCompleted = (this.app.userState.totalTasksCompleted || 0) + 1;
             updates.giveawayTickets = newTickets;
+            updates.lastTaskDate = todayKey;
             
             this.app.userCompletedTasks.add(taskId);
             updates.completedTasks = [...this.app.userCompletedTasks];
@@ -401,6 +410,7 @@ class TaskManager {
             this.app.userState.totalTasks = totalTasks + 1;
             this.app.userState.totalTasksCompleted = (this.app.userState.totalTasksCompleted || 0) + 1;
             this.app.userState.giveawayTickets = newTickets;
+            this.app.userState.lastTaskDate = todayKey;
             this.app.userState.completedTasks = [...this.app.userCompletedTasks];
             
             if (button) {
@@ -433,7 +443,7 @@ class TaskManager {
             
             this.app.notificationManager.showNotification(
                 "Task Completed!", 
-                `+${taskReward.toFixed(5)} TON +1 <i class="fas fa-ticket-alt"></i>`, 
+                `+${taskReward.toFixed(5)} TON +1 Ticket`, 
                 "success"
             );
             

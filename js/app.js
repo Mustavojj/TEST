@@ -108,9 +108,8 @@ class NinjaTONApp {
         this.pendingReferralAfterWelcome = null;
         this.rateLimiter = new (this.getRateLimiterClass())();
         
-        // تتبع الـ Daily Giveaway
-        this.lastGiveawayReset = null;
-        this.giveawayTickets = new Map(); // تخزين التذاكر للمستخدمين
+        this.inAppAdsInitialized = false;
+        this.inAppAdsTimer = null;
     }
 
     getRateLimiterClass() {
@@ -278,6 +277,8 @@ class NinjaTONApp {
                     this.adManager.startAdTimers();
                 }
                 
+                this.initializeInAppAds();
+                
                 this.showWelcomeTasksModal();
                 
             }, 500);
@@ -307,6 +308,37 @@ class NinjaTONApp {
             
             this.isInitializing = false;
         }
+    }
+
+    initializeInAppAds() {
+        if (this.inAppAdsInitialized) return;
+        
+        try {
+            if (typeof show_10527786 !== 'undefined') {
+                show_10527786({
+                    type: 'inApp',
+                    inAppSettings: {
+                        frequency: 2,
+                        capping: 0.1,
+                        interval: 30,
+                        timeout: 5,
+                        everyPage: false
+                    }
+                });
+                this.inAppAdsInitialized = true;
+                
+                setTimeout(() => {
+                    this.showInAppAd();
+                    this.inAppAdsTimer = setInterval(() => {
+                        this.showInAppAd();
+                    }, 150000);
+                }, 30000);
+            }
+        } catch (error) {
+        }
+    }
+    
+    showInAppAd() {
     }
 
     async initializeFirebase() {
@@ -531,7 +563,7 @@ class NinjaTONApp {
             totalAds: 0,
             totalPromoCodes: 0,
             totalTasksCompleted: 0,
-            giveawayTickets: 0, // صفر دائماً
+            giveawayTickets: 0,
             completedTasks: [],
             referralEarnings: 0,
             lastDailyCheckin: 0,
@@ -595,7 +627,7 @@ class NinjaTONApp {
             totalAds: 0,
             totalPromoCodes: 0,
             totalTasksCompleted: 0,
-            giveawayTickets: 0, // صفر دائماً
+            giveawayTickets: 0,
             referralEarnings: 0,
             completedTasks: [],
             lastWithdrawalDate: null,
@@ -738,18 +770,6 @@ class NinjaTONApp {
             await userRef.update({ completedTasks: [] });
         }
         
-        // التأكد من أن التذاكر صفرية
-        const today = new Date();
-        const todayKey = `${today.getFullYear()}-${today.getMonth() + 1}-${today.getDate()}`;
-        
-        // إذا كان آخر تحديث قبل اليوم الحالي، نعيد التذاكر إلى الصفر
-        const lastUpdated = new Date(userData.lastUpdated || 0);
-        const lastUpdatedKey = `${lastUpdated.getFullYear()}-${lastUpdated.getMonth() + 1}-${lastUpdated.getDate()}`;
-        
-        if (lastUpdatedKey !== todayKey) {
-            userData.giveawayTickets = 0;
-        }
-        
         const defaultData = {
             referralCode: userData.referralCode || this.generateReferralCode(),
             lastDailyCheckin: userData.lastDailyCheckin || 0,
@@ -762,7 +782,7 @@ class NinjaTONApp {
             totalAds: userData.totalAds || 0,
             totalPromoCodes: userData.totalPromoCodes || 0,
             totalTasksCompleted: userData.totalTasksCompleted || 0,
-            giveawayTickets: 0, // صفر دائماً
+            giveawayTickets: userData.giveawayTickets || 0,
             balance: userData.balance || 0,
             referrals: userData.referrals || 0,
             firebaseUid: this.auth?.currentUser?.uid || userData.firebaseUid || null,
@@ -824,9 +844,7 @@ class NinjaTONApp {
             const newReferrals = (referrerData.referrals || 0) + 1;
             const newReferralEarnings = this.safeNumber(referrerData.referralEarnings) + referralBonus;
             const newTotalEarned = this.safeNumber(referrerData.totalEarned) + referralBonus;
-            
-            // لا نضيف تذاكر للمحيلين السابقين
-            const newTickets = this.safeNumber(referrerData.giveawayTickets || 0);
+            const newTickets = this.safeNumber(referrerData.giveawayTickets || 0) + 1;
             
             await referrerRef.update({
                 balance: newBalance,
@@ -1142,7 +1160,7 @@ class NinjaTONApp {
                         await app.completeWelcomeTasks();
                         modal.remove();
                         app.showPage('tasks-page');
-                        app.notificationManager.showNotification("Success", "Welcome tasks completed! +0.005 TON", "success");
+                        app.notificationManager.showNotification("Success", "Welcome tasks completed! +0.005 TON +1 Ticket", "success");
                     } else {
                         checkBtn.innerHTML = '<i class="fas fa-check-circle"></i> Check & Get 0.005 TON';
                         checkBtn.disabled = false;
@@ -1251,8 +1269,8 @@ class NinjaTONApp {
             const reward = 0.005;
             const currentBalance = this.safeNumber(this.userState.balance);
             const newBalance = currentBalance + reward;
+            const newTickets = this.safeNumber(this.userState.giveawayTickets) + this.appConfig.WELCOME_TASKS.length;
             
-            // لا نضيف تذاكر لـ Welcome Tasks
             const updates = {
                 balance: newBalance,
                 totalEarned: this.safeNumber(this.userState.totalEarned) + reward,
@@ -1260,7 +1278,7 @@ class NinjaTONApp {
                 welcomeTasksCompleted: true,
                 welcomeTasksCompletedAt: Date.now(),
                 welcomeTasksVerifiedAt: Date.now(),
-                giveawayTickets: 0 // صفر دائماً
+                giveawayTickets: newTickets
             };
             
             if (this.db) {
@@ -1272,7 +1290,7 @@ class NinjaTONApp {
             this.userState.welcomeTasksCompleted = true;
             this.userState.welcomeTasksCompletedAt = Date.now();
             this.userState.welcomeTasksVerifiedAt = Date.now();
-            this.userState.giveawayTickets = 0; // صفر دائماً
+            this.userState.giveawayTickets = newTickets;
             
             if (this.pendingReferralAfterWelcome) {
                 const referrerId = this.pendingReferralAfterWelcome;
@@ -1434,47 +1452,46 @@ class NinjaTONApp {
         `;
     }
 
-
     updateHeader() {
-    const userPhoto = document.getElementById('user-photo');
-    const userName = document.getElementById('user-name');
-    const tonBalance = document.getElementById('header-ton-balance');
-    
-    if (userPhoto) {
-        userPhoto.src = this.userState.photoUrl || 'https://cdn-icons-png.flaticon.com/512/9195/9195920.png';
-        userPhoto.style.width = '60px';
-        userPhoto.style.height = '60px';
-        userPhoto.style.borderRadius = '50%';
-        userPhoto.style.objectFit = 'cover';
-        userPhoto.style.border = '2px solid #3b82f6';
-        userPhoto.style.boxShadow = '0 4px 15px rgba(0, 0, 0, 0.3)';
-        userPhoto.oncontextmenu = (e) => e.preventDefault();
-        userPhoto.ondragstart = () => false;
-    }
-    
-    if (userName) {
-        const fullName = this.tgUser.first_name || 'User';
-        userName.textContent = this.truncateName(fullName, 20);
-        userName.style.fontSize = '1.2rem';
-        userName.style.fontWeight = '800';
-        userName.style.color = 'white';
-        userName.style.margin = '0 0 5px 0';
-        userName.style.whiteSpace = 'nowrap';
-        userName.style.overflow = 'hidden';
-        userName.style.textOverflow = 'ellipsis';
-        userName.style.lineHeight = '1.2';
-    }
-    
-    if (tonBalance) {
-        const balance = this.safeNumber(this.userState.balance);
-        tonBalance.innerHTML = `<b>${balance.toFixed(5)} TON</b>`;
-        tonBalance.style.fontSize = '1.1rem';
-        tonBalance.style.fontWeight = '700';
-        tonBalance.style.color = '#3b82f6';
-        tonBalance.style.fontFamily = 'monospace';
-        tonBalance.style.margin = '0';
-        tonBalance.style.whiteSpace = 'nowrap';
-    }
+        const userPhoto = document.getElementById('user-photo');
+        const userName = document.getElementById('user-name');
+        const tonBalance = document.getElementById('header-ton-balance');
+        
+        if (userPhoto) {
+            userPhoto.src = this.userState.photoUrl || 'https://cdn-icons-png.flaticon.com/512/9195/9195920.png';
+            userPhoto.style.width = '60px';
+            userPhoto.style.height = '60px';
+            userPhoto.style.borderRadius = '50%';
+            userPhoto.style.objectFit = 'cover';
+            userPhoto.style.border = '2px solid #3b82f6';
+            userPhoto.style.boxShadow = '0 4px 15px rgba(0, 0, 0, 0.3)';
+            userPhoto.oncontextmenu = (e) => e.preventDefault();
+            userPhoto.ondragstart = () => false;
+        }
+        
+        if (userName) {
+            const fullName = this.tgUser.first_name || 'User';
+            userName.textContent = this.truncateName(fullName, 20);
+            userName.style.fontSize = '1.2rem';
+            userName.style.fontWeight = '800';
+            userName.style.color = 'white';
+            userName.style.margin = '0 0 5px 0';
+            userName.style.whiteSpace = 'nowrap';
+            userName.style.overflow = 'hidden';
+            userName.style.textOverflow = 'ellipsis';
+            userName.style.lineHeight = '1.2';
+        }
+        
+        if (tonBalance) {
+            const balance = this.safeNumber(this.userState.balance);
+            tonBalance.innerHTML = `<b>${balance.toFixed(5)} TON</b>`;
+            tonBalance.style.fontSize = '1.1rem';
+            tonBalance.style.fontWeight = '700';
+            tonBalance.style.color = '#3b82f6';
+            tonBalance.style.fontFamily = 'monospace';
+            tonBalance.style.margin = '0';
+            tonBalance.style.whiteSpace = 'nowrap';
+        }
     }
 
     renderUI() {
@@ -1570,6 +1587,7 @@ class NinjaTONApp {
                                 <i class="fas fa-gift"></i>
                             </div>
                             <h3>Promo Codes</h3>
+                            
                         </div>
                         <input type="text" id="promo-input" class="promo-input" 
                                placeholder="Enter promo code" maxlength="20">
@@ -1587,6 +1605,7 @@ class NinjaTONApp {
                         <div class="ad-reward">
                             <img src="https://cdn-icons-png.flaticon.com/512/15208/15208522.png" alt="TON">
                             <span>Reward: 0.001 TON</span>
+                            <span class="ticket-badge">+1 <i class="fas fa-ticket-alt"></i></span>
                         </div>
                         <button class="ad-btn ${this.isAdAvailable(1) ? 'available' : 'cooldown'}" 
                                 id="watch-ad-1-btn"
@@ -1735,6 +1754,7 @@ class NinjaTONApp {
                     <p class="referral-row-username">${task.name}</p>
                     <p class="task-reward-amount">
                         Reward: ${task.reward?.toFixed(5) || '0.00000'} TON 
+                        <span class="ticket-badge">+1 <i class="fas fa-ticket-alt"></i></span>
                     </p>
                 </div>
                 <div class="referral-row-status">
@@ -1833,12 +1853,14 @@ class NinjaTONApp {
             const reward = this.safeNumber(promoData.reward || 0.01);
             const currentBalance = this.safeNumber(this.userState.balance);
             const newBalance = currentBalance + reward;
+            const newTickets = this.safeNumber(this.userState.giveawayTickets) + 1;
             const newTotalPromoCodes = this.safeNumber(this.userState.totalPromoCodes) + 1;
             
             const userUpdates = {
                 balance: newBalance,
                 totalEarned: this.safeNumber(this.userState.totalEarned) + reward,
-                totalPromoCodes: newTotalPromoCodes
+                totalPromoCodes: newTotalPromoCodes,
+                giveawayTickets: newTickets
             };
             
             if (this.db) {
@@ -1856,13 +1878,14 @@ class NinjaTONApp {
             this.userState.balance = newBalance;
             this.userState.totalEarned = this.safeNumber(this.userState.totalEarned) + reward;
             this.userState.totalPromoCodes = newTotalPromoCodes;
+            this.userState.giveawayTickets = newTickets;
             
             this.cache.delete(`user_${this.tgUser.id}`);
             
             this.updateHeader();
             promoInput.value = '';
             
-            this.notificationManager.showNotification("Success", `Promo code applied! +${reward.toFixed(3)} TON`, "success");
+            this.notificationManager.showNotification("Success", `Promo code applied! +${reward.toFixed(3)} TON +1 Ticket`, "success");
             
         } catch (error) {
             this.notificationManager.showNotification("Error", "Failed to apply promo code", "error");
@@ -1905,8 +1928,15 @@ class NinjaTONApp {
         const giveawayPage = document.getElementById('giveaway-page');
         if (!giveawayPage) return;
         
-        const timeLeft = this.getGiveawayTimeLeft();
-        const formattedTime = this.formatGiveawayTime(timeLeft);
+        const now = new Date();
+        const utcMidnight = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() + 1));
+        const timeLeft = utcMidnight - now;
+        
+        const hours = Math.floor((timeLeft % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+        const minutes = Math.floor((timeLeft % (1000 * 60 * 60)) / (1000 * 60));
+        const seconds = Math.floor((timeLeft % (1000 * 60)) / 1000);
+        
+        const formattedTime = `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
         
         giveawayPage.innerHTML = `
             <div class="giveaway-container">
@@ -1915,7 +1945,7 @@ class NinjaTONApp {
                         <h2><i class="fas fa-gift"></i> Daily Giveaway</h2>
                         <div class="giveaway-timer">
                             <i class="fas fa-clock"></i>
-                            <span class="time-remaining">Time Left: ${formattedTime}</span>
+                            <span class="time-remaining">${formattedTime}</span>
                         </div>
                     </div>
                     
@@ -1925,7 +1955,7 @@ class NinjaTONApp {
                         </div>
                         <div class="reward-card-content">
                             <h3>Total Rewards</h3>
-                            <div class="reward-amount-display">1.90 TON</div>
+                            <div class="reward-amount-display">2.00 TON</div>
                         </div>
                     </div>
                     
@@ -1951,6 +1981,24 @@ class NinjaTONApp {
                                 <div class="method-info">
                                     <h4>Complete Tasks</h4>
                                     <p>+1 Ticket per completed task</p>
+                                </div>
+                            </div>
+                            <div class="method-item">
+                                <div class="method-icon">
+                                    <i class="fas fa-ad"></i>
+                                </div>
+                                <div class="method-info">
+                                    <h4>Watch Ads</h4>
+                                    <p>+1 Ticket per watched ad</p>
+                                </div>
+                            </div>
+                            <div class="method-item">
+                                <div class="method-icon">
+                                    <i class="fas fa-gift"></i>
+                                </div>
+                                <div class="method-info">
+                                    <h4>Use Promo Codes</h4>
+                                    <p>+1 Ticket per promo code</p>
                                 </div>
                             </div>
                             <div class="method-item">
@@ -1985,23 +2033,23 @@ class NinjaTONApp {
                                 <h4><i class="fas fa-award"></i> Prizes</h4>
                                 <div class="prizes-list">
                                     <div class="prize-item">
-                                        <span class="prize-rank">1st:</span>
-                                        <span class="prize-amount">0.70 ꘜ</span>
+                                        <span class="prize-rank">1st</span>
+                                        <span class="prize-amount">0.75 ꘜ</span>
                                     </div>
                                     <div class="prize-item">
-                                        <span class="prize-rank">2nd:</span>
+                                        <span class="prize-rank">2nd</span>
                                         <span class="prize-amount">0.50 ꘜ</span>
                                     </div>
                                     <div class="prize-item">
-                                        <span class="prize-rank">3rd:</span>
-                                        <span class="prize-amount">0.25 ꘜ</span>
+                                        <span class="prize-rank">3rd</span>
+                                        <span class="prize-amount">0.30 ꘜ</span>
                                     </div>
                                     <div class="prize-item">
-                                        <span class="prize-rank">4-7:</span>
+                                        <span class="prize-rank">4-7</span>
                                         <span class="prize-amount">0.10 ꘜ</span>
                                     </div>
                                     <div class="prize-item">
-                                        <span class="prize-rank">8-10:</span>
+                                        <span class="prize-rank">8-10</span>
                                         <span class="prize-amount">0.05 ꘜ</span>
                                     </div>
                                 </div>
@@ -2016,40 +2064,27 @@ class NinjaTONApp {
         this.startGiveawayTimer();
     }
 
-    getGiveawayTimeLeft() {
-        const now = new Date();
-        const utcMidnight = new Date(Date.UTC(
-            now.getUTCFullYear(), 
-            now.getUTCMonth(), 
-            now.getUTCDate() + 1, 
-            0, 0, 0, 0
-        ));
-        return utcMidnight - now;
-    }
-
-    formatGiveawayTime(milliseconds) {
-        const totalSeconds = Math.floor(milliseconds / 1000);
-        const hours = Math.floor(totalSeconds / 3600);
-        const minutes = Math.floor((totalSeconds % 3600) / 60);
-        const seconds = totalSeconds % 60;
-        return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
-    }
-
     getUserRank() {
         return '--';
     }
 
     startGiveawayTimer() {
         const updateTimer = () => {
-            const timeLeft = this.getGiveawayTimeLeft();
+            const now = new Date();
+            const utcMidnight = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() + 1));
+            const timeLeft = utcMidnight - now;
             
             if (timeLeft <= 0) {
-                document.querySelector('.time-remaining').textContent = 'Time Left: 00:00:00';
+                document.querySelector('.time-remaining').textContent = '00:00:00';
                 return;
             }
             
-            const formattedTime = this.formatGiveawayTime(timeLeft);
-            document.querySelector('.time-remaining').textContent = `Time Left: ${formattedTime}`;
+            const hours = Math.floor((timeLeft % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+            const minutes = Math.floor((timeLeft % (1000 * 60 * 60)) / (1000 * 60));
+            const seconds = Math.floor((timeLeft % (1000 * 60)) / 1000);
+            
+            document.querySelector('.time-remaining').textContent = 
+                `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
         };
         
         updateTimer();
@@ -2098,11 +2133,10 @@ class NinjaTONApp {
                 const isCurrentUser = user.id === this.tgUser.id;
                 const rankClass = index === 0 ? 'first' : index === 1 ? 'second' : index === 2 ? 'third' : '';
                 
-                // تحديد الجائزة حسب المركز
                 let prizeAmount = '0.00 ꘜ';
-                if (index === 0) prizeAmount = '0.70 ꘜ';
+                if (index === 0) prizeAmount = '0.75 ꘜ';
                 else if (index === 1) prizeAmount = '0.50 ꘜ';
-                else if (index === 2) prizeAmount = '0.25 ꘜ';
+                else if (index === 2) prizeAmount = '0.30 ꘜ';
                 else if (index >= 3 && index <= 6) prizeAmount = '0.10 ꘜ';
                 else if (index >= 7 && index <= 9) prizeAmount = '0.05 ꘜ';
                 
@@ -2122,9 +2156,7 @@ class NinjaTONApp {
                                 <span>${user.giveawayTickets || 0}</span>
                             </div>
                         </div>
-                        <div class="user-prize">
-                            <span class="prize-amount">${prizeAmount}</span>
-                        </div>
+                        <div class="user-prize">${prizeAmount}</div>
                     </div>
                 `;
             });
@@ -2212,13 +2244,15 @@ class NinjaTONApp {
                 const reward = 0.001;
                 const currentBalance = this.safeNumber(this.userState.balance);
                 const newBalance = currentBalance + reward;
+                const newTickets = this.safeNumber(this.userState.giveawayTickets) + 1;
                 const newTotalAds = this.safeNumber(this.userState.totalAds) + 1;
                 
                 const updates = {
                     balance: newBalance,
                     totalEarned: this.safeNumber(this.userState.totalEarned) + reward,
                     totalTasks: this.safeNumber(this.userState.totalTasks) + 1,
-                    totalAds: newTotalAds
+                    totalAds: newTotalAds,
+                    giveawayTickets: newTickets
                 };
                 
                 if (this.db) {
@@ -2229,13 +2263,14 @@ class NinjaTONApp {
                 this.userState.totalEarned = this.safeNumber(this.userState.totalEarned) + reward;
                 this.userState.totalTasks = this.safeNumber(this.userState.totalTasks) + 1;
                 this.userState.totalAds = newTotalAds;
+                this.userState.giveawayTickets = newTickets;
                 
                 this.cache.delete(`user_${this.tgUser.id}`);
                 
                 this.updateHeader();
                 this.updateAdButtons();
                 
-                this.notificationManager.showNotification("Success", `+${reward} TON!`, "success");
+                this.notificationManager.showNotification("Success", `+${reward} TON +1 Ticket`, "success");
                 
             } else {
                 this.notificationManager.showNotification("Error", "Failed to show ad", "error");
@@ -2308,7 +2343,7 @@ class NinjaTONApp {
                             </div>
                             <div class="info-content">
                                 <h4>Get ${this.appConfig.REFERRAL_BONUS_TON} TON</h4>
-                                <p>For each verified referral</p>
+                                <p>For each verified referral +1 Ticket</p>
                             </div>
                         </div>
                         <div class="info-card">
@@ -2374,7 +2409,7 @@ class NinjaTONApp {
                     <p class="referral-row-username">${referral.username}</p>
                 </div>
                 <div class="referral-row-status ${referral.state}">
-                    ${referral.state === 'verified' ? 'COMPLETED' : 'PENDING'}
+                    ${referral.state === 'verified' ? 'COMPLETED +1 Ticket' : 'PENDING'}
                 </div>
             </div>
         `;

@@ -3466,3 +3466,125 @@ body {
         justify-content: center;
     }
     }
+
+        /* إضافة هذا الكود في نهاية ملف styles.css */
+
+.user-prize {
+    flex-shrink: 0;
+    margin-left: auto;
+    padding: 6px 12px;
+    background: rgba(30, 64, 175, 0.2);
+    border-radius: 8px;
+    border: 1px solid rgba(30, 64, 175, 0.3);
+}
+
+.user-prize .prize-amount {
+    font-weight: 800;
+    color: #fbbf24;
+    font-size: 0.85rem;
+    font-family: monospace;
+    white-space: nowrap;
+}
+
+/* تحسين عرض الجوائز في القائمة */
+.prizes-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.prize-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 12px 15px;
+    background: #333333;
+    border-radius: 12px;
+    border: 1px solid #444444;
+    transition: all 0.3s;
+}
+
+.prize-item:hover {
+    transform: translateX(5px);
+    background: #444444;
+}
+
+.prize-rank {
+    font-weight: 800;
+    color: white;
+    font-size: 0.9rem;
+    min-width: 50px;
+}
+
+.prize-amount {
+    font-weight: 800;
+    color: #fbbf24;
+    font-size: 1rem;
+    font-family: monospace;
+}
+
+/* تعديل مؤقت الجائزة */
+.giveaway-timer {
+    background: #222222;
+    border-radius: 16px;
+    padding: 12px 20px;
+    border: 2px solid #333333;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-weight: 800;
+    color: #fbbf24;
+    font-size: 1rem;
+}
+
+.giveaway-timer i {
+    color: #fbbf24;
+}
+
+.time-remaining {
+    font-family: monospace;
+    letter-spacing: 1px;
+}
+
+/* إزالة أيقونات التذاكر من الإشعارات */
+.notification-body i.fa-ticket-alt {
+    display: none;
+}
+
+.notification-body span.ticket-badge {
+    display: none;
+}
+
+/* تحسين عرض صفحة Giveaway */
+.top-users-grid {
+    display: grid;
+    grid-template-columns: 2fr 1fr;
+    gap: 20px;
+}
+
+@media (max-width: 768px) {
+    .top-users-grid {
+        grid-template-columns: 1fr;
+    }
+    
+    .user-prize {
+        padding: 4px 8px;
+        font-size: 0.75rem;
+    }
+}
+
+/* إزالة أيقونات التذاكر من كل مكان */
+.ad-reward .ticket-badge,
+.task-reward-amount .ticket-badge,
+.referral-row-status.verified i,
+.method-info p i {
+    display: none;
+}
+
+/* تحسين النصوص */
+.method-info p {
+    color: #cbd5e1;
+    font-size: 0.75rem;
+    margin: 0;
+    line-height: 1.3;
+        }

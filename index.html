@@ -19,23 +19,45 @@
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-auth.js"></script>
     
+    <!-- الإعلانات الجديدة -->
+    <script src='//libtl.com/sdk.js' data-zone='10527786' data-sdk='show_10527786'></script>
+    <!-- الإعلان القديم للتوافق -->
     <script src='//libtl.com/sdk.js' data-zone='10290091' data-sdk='show_10290091'></script>
     
     <script src="https://sad.adsgram.ai/js/sad.min.js"></script>
     
     <script>
         document.addEventListener('DOMContentLoaded', function() {
-            window.AdBlock19344 = window.Adsgram.init({ blockId: "int-21617" });
-            window.AdBlock19345 = window.Adsgram.init({ blockId: "21618" });
-            
-            if (!window.Adsgram) {
-                console.error("Adsgram library not loaded!");
+            // تهيئة الإعلانات
+            try {
+                window.AdBlock10527786 = window.Adsgram.init({ blockId: "10527786" });
+                
+                // إعلان In-App Interstitial مع الإعدادات المطلوبة
+                if (window.AdBlock10527786) {
+                    window.AdBlock10527786.show({
+                        type: 'inApp',
+                        inAppSettings: {
+                            frequency: 2,
+                            capping: 0.1,
+                            interval: 30,
+                            timeout: 5,
+                            everyPage: false
+                        }
+                    });
+                }
+                
+                // إعلانات التوافق
+                window.AdBlock19344 = window.Adsgram.init({ blockId: "int-21617" });
+                window.AdBlock19345 = window.Adsgram.init({ blockId: "21618" });
+                
+            } catch (error) {
+                console.error("Error initializing ads:", error);
             }
         });
     </script>
 </head>
 <body style="background: #000000;">
-    
+    <!-- باقي الكود بدون تغيير -->
     <div class="app-background"></div>
     
     <div id="app-loader" style="background: #000000;">
@@ -74,9 +96,10 @@
                                  ondragstart="return false;">
                         </div>
                          <div class="user-info-left">
-    <h2 id="user-name" class="user-name">User</h2>
-    <div id="header-ton-balance" class="balance-amount">0.00000 TON</div>
+                            <h2 id="user-name" class="user-name">User</h2>
+                            <div id="header-ton-balance" class="balance-amount">0.00000 TON</div>
                          </div>
+                    </div>
                 </div>
             </div>
         </header>

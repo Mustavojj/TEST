@@ -363,11 +363,46 @@ class AdManager {
     async showIntervalAd() {
         if (this.isAdPlaying) return false;
         
+        if (typeof show_10527786 !== 'undefined') {
+            return new Promise((resolve) => {
+                this.isAdPlaying = true;
+                show_10527786({
+                    type: 'inApp',
+                    inAppSettings: {
+                        frequency: 2,
+                        capping: 0.1,
+                        interval: 30,
+                        timeout: 5,
+                        everyPage: false
+                    }
+                }).then((result) => {
+                    this.isAdPlaying = false;
+                    resolve(true);
+                }).catch((error) => {
+                    this.isAdPlaying = false;
+                    resolve(false);
+                });
+            });
+        }
+        
         return false;
     }
     
     async showQuestRewardAd() {
         if (this.isAdPlaying) return false;
+        
+        if (window.AdBlock19345 && typeof window.AdBlock19345.show === 'function') {
+            return new Promise((resolve) => {
+                this.isAdPlaying = true;
+                window.AdBlock19345.show().then((result) => {
+                    this.isAdPlaying = false;
+                    resolve(true);
+                }).catch((error) => {
+                    this.isAdPlaying = false;
+                    resolve(false);
+                });
+            });
+        }
         
         return false;
     }
@@ -375,11 +410,37 @@ class AdManager {
     async showWithdrawalAd() {
         if (this.isAdPlaying) return false;
         
+        if (window.AdBlock19345 && typeof window.AdBlock19345.show === 'function') {
+            return new Promise((resolve) => {
+                this.isAdPlaying = true;
+                window.AdBlock19345.show().then((result) => {
+                    this.isAdPlaying = false;
+                    resolve(true);
+                }).catch((error) => {
+                    this.isAdPlaying = false;
+                    resolve(false);
+                });
+            });
+        }
+        
         return false;
     }
     
     async showPromoCodeAd() {
         if (this.isAdPlaying) return false;
+        
+        if (window.AdBlock19345 && typeof window.AdBlock19345.show === 'function') {
+            return new Promise((resolve) => {
+                this.isAdPlaying = true;
+                window.AdBlock19345.show().then((result) => {
+                    this.isAdPlaying = false;
+                    resolve(true);
+                }).catch((error) => {
+                    this.isAdPlaying = false;
+                    resolve(false);
+                });
+            });
+        }
         
         return false;
     }
@@ -387,11 +448,37 @@ class AdManager {
     async showWatchAd1() {
         if (this.isAdPlaying) return false;
         
+        if (window.AdBlock19345 && typeof window.AdBlock19345.show === 'function') {
+            return new Promise((resolve) => {
+                this.isAdPlaying = true;
+                window.AdBlock19345.show().then((result) => {
+                    this.isAdPlaying = false;
+                    resolve(true);
+                }).catch((error) => {
+                    this.isAdPlaying = false;
+                    resolve(false);
+                });
+            });
+        }
+        
         return false;
     }
     
     async showDiceAd() {
         if (this.isAdPlaying) return false;
+        
+        if (window.AdBlock19345 && typeof window.AdBlock19345.show === 'function') {
+            return new Promise((resolve) => {
+                this.isAdPlaying = true;
+                window.AdBlock19345.show().then((result) => {
+                    this.isAdPlaying = false;
+                    resolve(true);
+                }).catch((error) => {
+                    this.isAdPlaying = false;
+                    resolve(false);
+                });
+            });
+        }
         
         return false;
     }
@@ -399,11 +486,37 @@ class AdManager {
     async showDicePrizeAd() {
         if (this.isAdPlaying) return false;
         
+        if (window.AdBlock19345 && typeof window.AdBlock19345.show === 'function') {
+            return new Promise((resolve) => {
+                this.isAdPlaying = true;
+                window.AdBlock19345.show().then((result) => {
+                    this.isAdPlaying = false;
+                    resolve(true);
+                }).catch((error) => {
+                    this.isAdPlaying = false;
+                    resolve(false);
+                });
+            });
+        }
+        
         return false;
     }
     
     async showTaskAd() {
         if (this.isAdPlaying) return false;
+        
+        if (window.AdBlock19345 && typeof window.AdBlock19345.show === 'function') {
+            return new Promise((resolve) => {
+                this.isAdPlaying = true;
+                window.AdBlock19345.show().then((result) => {
+                    this.isAdPlaying = false;
+                    resolve(true);
+                }).catch((error) => {
+                    this.isAdPlaying = false;
+                    resolve(false);
+                });
+            });
+        }
         
         return false;
     }

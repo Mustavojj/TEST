@@ -7,8 +7,8 @@ const CORE_CONFIG = {
     NOTIFICATION_COOLDOWN: 2000,
     MAX_NOTIFICATION_QUEUE: 3,
     AD_COOLDOWN: 3600000,
-    INITIAL_AD_DELAY: 30000,      // 30 ثانية
-    INTERVAL_AD_DELAY: 150000     // 150 ثانية (2.5 دقيقة)
+    INITIAL_AD_DELAY: 30000,
+    INTERVAL_AD_DELAY: 150000
 };
 
 class CacheManager {
@@ -235,12 +235,7 @@ class NotificationManager {
     }
     
     async showNotification(title, message, type = 'info') {
-        // تنظيف أي أيقونات من النص قبل العرض
-        const cleanMessage = message.replace(/<i class="[^"]*"><\/i>/g, '')
-                                   .replace(/<i[^>]*>[^<]*<\/i>/g, '')
-                                   .replace(/<span[^>]*>[^<]*<\/span>/g, '');
-        
-        this.queue.push({ title, message: cleanMessage, type, timestamp: Date.now() });
+        this.queue.push({ title, message, type, timestamp: Date.now() });
         if (this.queue.length > this.maxQueueSize) this.queue.shift();
         await this.processQueue();
     }
@@ -337,36 +332,22 @@ class AdManager {
         this.lastAdTime = 0;
         this.adCooldown = CORE_CONFIG.AD_COOLDOWN;
         this.isAdPlaying = false;
-        this.initialAdDelay = CORE_CONFIG.INITIAL_AD_DELAY;    // 30 ثانية
-        this.intervalAdDelay = CORE_CONFIG.INTERVAL_AD_DELAY;  // 150 ثانية
+        this.initialAdDelay = CORE_CONFIG.INITIAL_AD_DELAY;
+        this.intervalAdDelay = CORE_CONFIG.INTERVAL_AD_DELAY;
         this.intervalAdTimer = null;
         this.initialAdTimer = null;
     }
     
-    // بدء مؤقتات الإعلانات التلقائية
     startAdTimers() {
-        // إلغاء أي مؤقتات سابقة
-        this.stopAdTimers();
-        
-        console.log('Starting ad timers:', {
-            initialDelay: this.initialAdDelay,
-            intervalDelay: this.intervalAdDelay
-        });
-        
-        // مؤقت الإعلان الأولي بعد 30 ثانية
         this.initialAdTimer = setTimeout(() => {
-            console.log('Initial ad timer fired after 30 seconds');
             this.showIntervalAd();
         }, this.initialAdDelay);
         
-        // مؤقت الإعلانات المتكررة كل 150 ثانية
         this.intervalAdTimer = setInterval(() => {
-            console.log('Interval ad timer fired every 150 seconds');
             this.showIntervalAd();
         }, this.intervalAdDelay);
     }
     
-    // إيقاف جميع المؤقتات
     stopAdTimers() {
         if (this.initialAdTimer) {
             clearTimeout(this.initialAdTimer);
@@ -379,105 +360,52 @@ class AdManager {
         }
     }
     
-    // عرض إعلان الفاصل الزمني (الإعلانات الجديدة)
     async showIntervalAd() {
-        if (this.isAdPlaying) {
-            console.log('Ad is already playing, skipping...');
-            return false;
-        }
+        if (this.isAdPlaying) return false;
         
-        console.log('Attempting to show interval ad...');
-        
-        // محاولة استخدام الإعلان الجديد أولاً
-        if (window.AdBlock10527786 && typeof window.AdBlock10527786.show === 'function') {
-            console.log('Using new ad block (10527786)');
-            return new Promise((resolve) => {
-                this.isAdPlaying = true;
-                
-                // استخدام الإعدادات المحددة
-                const adSettings = {
-                    type: 'inApp',
-                    inAppSettings: {
-                        frequency: 2,
-                        capping: 0.1,
-                        interval: 30,
-                        timeout: 5,
-                        everyPage: false
-                    }
-                };
-                
-                window.AdBlock10527786.show(adSettings).then((result) => {
-                    console.log('New ad shown successfully:', result);
-                    this.isAdPlaying = false;
-                    resolve(true);
-                }).catch((error) => {
-                    console.error('Error showing new ad:', error);
-                    this.isAdPlaying = false;
-                    // المحاولة باستخدام الإعلان القديم كنسخة احتياطية
-                    this.showBackupAd().then(resolve);
-                });
-            });
-        }
-        
-        // استخدام الإعلان القديم كنسخة احتياطية
-        return await this.showBackupAd();
-    }
-    
-    // عرض إعلان النسخة الاحتياطية
-    async showBackupAd() {
-        console.log('Using backup ad block');
-        if (window.AdBlock19344 && typeof window.AdBlock19344.show === 'function') {
-            return new Promise((resolve) => {
-                this.isAdPlaying = true;
-                window.AdBlock19344.show().then((result) => {
-                    console.log('Backup ad shown successfully');
-                    this.isAdPlaying = false;
-                    resolve(true);
-                }).catch((error) => {
-                    console.error('Error showing backup ad:', error);
-                    this.isAdPlaying = false;
-                    resolve(false);
-                });
-            });
-        }
-        
-        console.log('No ad blocks available');
         return false;
     }
     
-    // إعلان المكافآت (Quests) - استخدام الإعلان الجديد
     async showQuestRewardAd() {
-        return await this.showIntervalAd();
+        if (this.isAdPlaying) return false;
+        
+        return false;
     }
     
-    // إعلان السحب (Withdraw)
     async showWithdrawalAd() {
-        return await this.showIntervalAd();
+        if (this.isAdPlaying) return false;
+        
+        return false;
     }
     
-    // إعلان الرموز الترويجية (Promo Codes)
     async showPromoCodeAd() {
-        return await this.showIntervalAd();
+        if (this.isAdPlaying) return false;
+        
+        return false;
     }
     
-    // إعلان مشاهدة الإعلان #1
     async showWatchAd1() {
-        return await this.showIntervalAd();
+        if (this.isAdPlaying) return false;
+        
+        return false;
     }
     
-    // إعلان النرد (Dice)
     async showDiceAd() {
-        return await this.showIntervalAd();
+        if (this.isAdPlaying) return false;
+        
+        return false;
     }
     
-    // إعلان مهمة النرد (Dice Prize)
     async showDicePrizeAd() {
-        return await this.showIntervalAd();
+        if (this.isAdPlaying) return false;
+        
+        return false;
     }
     
-    // إعلان المهام (Tasks)
     async showTaskAd() {
-        return await this.showIntervalAd();
+        if (this.isAdPlaying) return false;
+        
+        return false;
     }
     
     canShowAd() {

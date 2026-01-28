@@ -10,14 +10,9 @@ const APP_CONFIG = {
     AD_COOLDOWN: 3600000,
     WELCOME_TASKS: [
         {
-            name: "Join our channel",
+            name: "Join Official Channel",
             url: "https://t.me/NINJA_TONS",
             channel: "@NINJA_TONS"
-        },
-        {
-            name: "Join our group",
-            url: "https://t.me/NEJARS",
-            channel: "@NEJARS"
         },
         {
             name: "Join Partner 1",
@@ -26,8 +21,8 @@ const APP_CONFIG = {
         },
         {
             name: "Join Partner 2",
-            url: "https://t.me/TON_kebra",
-            channel: "@TON_kebra"
+            url: "https://t.me/Crypto_al2",
+            channel: "@Crypto_al2"
         }
     ]
 };

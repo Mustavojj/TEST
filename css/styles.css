@@ -3588,3 +3588,113 @@ body {
     margin: 0;
     line-height: 1.3;
         }
+
+    /* أنماط التذاكر */
+.ticket-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    background: rgba(30, 64, 175, 0.2);
+    color: #60a5fa;
+    padding: 4px 8px;
+    border-radius: 8px;
+    font-size: 0.75rem;
+    font-weight: 700;
+    margin-left: 8px;
+    border: 1px solid rgba(30, 64, 175, 0.3);
+}
+
+.ticket-badge i {
+    font-size: 0.7rem;
+}
+
+/* إضافة أنماط للجوائز بجانب المستخدمين */
+.top-user-row {
+    background: #222222;
+    border-radius: 15px;
+    padding: 15px;
+    border: 1px solid #333333;
+    display: flex;
+    align-items: center;
+    gap: 15px;
+    transition: all 0.3s;
+}
+
+.user-prize {
+    font-weight: 800;
+    color: #fbbf24;
+    font-size: 0.9rem;
+    font-family: monospace;
+    white-space: nowrap;
+    margin-left: auto;
+}
+
+/* تحسين عرض الجوائز */
+.prizes-list {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.prize-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 12px 15px;
+    background: #333333;
+    border-radius: 12px;
+    border: 1px solid #444444;
+    transition: all 0.3s;
+}
+
+.prize-item:hover {
+    transform: translateX(5px);
+    background: #444444;
+}
+
+.prize-rank {
+    font-weight: 800;
+    color: white;
+    font-size: 0.9rem;
+}
+
+.prize-amount {
+    font-weight: 800;
+    color: #fbbf24;
+    font-size: 1rem;
+    font-family: monospace;
+}
+
+/* تعديل أنماط صفحة Giveaway لتعمل مع الساعات والدقائق والثواني */
+.giveaway-timer {
+    background: #222222;
+    border-radius: 16px;
+    padding: 12px 20px;
+    border: 2px solid #333333;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-weight: 800;
+    color: #fbbf24;
+    font-size: 1.1rem;
+    min-width: 110px;
+    justify-content: center;
+}
+
+.time-remaining {
+    font-family: monospace;
+    letter-spacing: 1px;
+}
+
+/* إصلاح عرض الجوائز في القائمة */
+.top-users-prizes .prize-item {
+    padding: 10px 12px;
+}
+
+.top-users-prizes .prize-rank {
+    font-size: 0.85rem;
+}
+
+.top-users-prizes .prize-amount {
+    font-size: 0.95rem;
+}

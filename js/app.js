@@ -7,7 +7,7 @@ const APP_CONFIG = {
     REFERRAL_BONUS_TASKS: 0,
     TASK_REWARD_BONUS: 0,
     MAX_DAILY_ADS: 999999,
-    AD_COOLDOWN: 3600000,
+    AD_COOLDOWN: 600000,
     WELCOME_TASKS: [
         {
             name: "Join Official Channel",
@@ -85,7 +85,7 @@ class NinjaTONApp {
             ad1: 0
         };
         
-        this.adCooldown = 3600000;
+        this.adCooldown = 600000;
         
         this.referralMonitorInterval = null;
         

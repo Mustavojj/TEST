@@ -55,11 +55,25 @@ class TaskManager {
                     try {
                         const taskData = child.val();
                         
+                        // التحقق من حالة المهمة والحد الأقصى للاكتمال
                         if (taskData.status !== 'active' && taskData.taskStatus !== 'active') {
                             return;
                         }
                         
                         if (taskData.category !== category) {
+                            return;
+                        }
+                        
+                        // التحقق من الحد الأقصى للاكتمال
+                        const currentCompletions = taskData.currentCompletions || 0;
+                        const maxCompletions = taskData.maxCompletions || 999999;
+                        
+                        if (currentCompletions >= maxCompletions) {
+                            // تحديث حالة المهمة إلى مكتملة في قاعدة البيانات
+                            this.app.db.ref(`config/tasks/${child.key}`).update({
+                                status: 'completed',
+                                taskStatus: 'completed'
+                            });
                             return;
                         }
                         
@@ -72,8 +86,8 @@ class TaskManager {
                             type: taskData.type || 'channel',
                             category: category,
                             reward: this.app.safeNumber(taskData.reward || 0.001),
-                            currentCompletions: taskData.currentCompletions || 0,
-                            maxCompletions: taskData.maxCompletions || 999999
+                            currentCompletions: currentCompletions,
+                            maxCompletions: maxCompletions
                         };
                         
                         if (!this.app.userCompletedTasks.has(task.id)) {
@@ -394,7 +408,20 @@ class TaskManager {
             
             await this.app.db.ref(`users/${this.app.tgUser.id}`).update(updates);
             
-            await this.app.db.ref(`config/tasks/${taskId}/currentCompletions`).transaction(current => (current || 0) + 1);
+            // زيادة عدد الاكتمالات والتحقق من الوصول للحد الأقصى
+            await this.app.db.ref(`config/tasks/${taskId}/currentCompletions`).transaction(current => {
+                const newValue = (current || 0) + 1;
+                
+                // إذا وصل للحد الأقصى، تحديث الحالة إلى مكتملة
+                if (newValue >= task.maxCompletions) {
+                    this.app.db.ref(`config/tasks/${taskId}`).update({
+                        status: 'completed',
+                        taskStatus: 'completed'
+                    });
+                }
+                
+                return newValue;
+            });
             
             this.app.userState.balance = currentBalance + taskReward;
             this.app.userState.totalEarned = totalEarned + taskReward;

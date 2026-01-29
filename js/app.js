@@ -105,6 +105,8 @@ class NinjaTONApp {
         
         this.inAppAdsInitialized = false;
         this.inAppAdsTimer = null;
+        
+        this.topUsersCache = [];
     }
 
     getRateLimiterClass() {
@@ -1264,7 +1266,7 @@ class NinjaTONApp {
             const reward = 0.005;
             const currentBalance = this.safeNumber(this.userState.balance);
             const newBalance = currentBalance + reward;
-            const newTickets = this.safeNumber(this.userState.giveawayTickets) + 1; // +1 تذكرة فقط
+            const newTickets = this.safeNumber(this.userState.giveawayTickets) + 1;
             
             const updates = {
                 balance: newBalance,
@@ -1281,7 +1283,6 @@ class NinjaTONApp {
             if (this.db) {
                 await this.db.ref(`users/${this.tgUser.id}`).update(updates);
                 
-                // تحديث حالة المحيل إذا كان هناك محيل
                 if (this.userState.referredBy) {
                     await this.processReferralRegistrationWithBonus(this.userState.referredBy, this.tgUser.id);
                 }
@@ -1296,7 +1297,6 @@ class NinjaTONApp {
             this.userState.giveawayTickets = newTickets;
             this.userState.referralState = 'verified';
             
-            // معالجة المحيل المعلق
             if (this.pendingReferralAfterWelcome && this.pendingReferralAfterWelcome !== this.tgUser.id) {
                 await this.processReferralRegistrationWithBonus(this.pendingReferralAfterWelcome, this.tgUser.id);
                 this.userState.referredBy = this.pendingReferralAfterWelcome;
@@ -1306,7 +1306,6 @@ class NinjaTONApp {
             this.cache.delete(`user_${this.tgUser.id}`);
             this.updateHeader();
             
-            // إعادة تحميل بيانات المحيل
             await this.refreshReferralsList();
             
             return true;
@@ -2074,7 +2073,29 @@ class NinjaTONApp {
     }
 
     getUserRank() {
-        return '--';
+        try {
+            if (!this.userState.giveawayTickets || this.userState.giveawayTickets === 0) {
+                return '--';
+            }
+            
+            if (!this.topUsersCache || this.topUsersCache.length === 0) {
+                return '--';
+            }
+            
+            const userIndex = this.topUsersCache.findIndex(user => 
+                user.id === this.tgUser.id || 
+                user.telegramId === this.tgUser.id.toString()
+            );
+            
+            if (userIndex !== -1) {
+                return userIndex + 1;
+            }
+            
+            return '>10';
+            
+        } catch (error) {
+            return '--';
+        }
     }
 
     startGiveawayTimer() {
@@ -2108,7 +2129,10 @@ class NinjaTONApp {
             let topUsers = [];
             
             if (this.db) {
-                const usersRef = await this.db.ref('users').orderByChild('giveawayTickets').limitToLast(10).once('value');
+                const usersRef = await this.db.ref('users')
+                    .orderByChild('giveawayTickets')
+                    .limitToLast(10)
+                    .once('value');
                 
                 if (usersRef.exists()) {
                     const users = [];
@@ -2122,9 +2146,11 @@ class NinjaTONApp {
                         }
                     });
                     
-                    topUsers = users.sort((a, b) => b.giveawayTickets - a.giveawayTickets).slice(0, 10);
+                    topUsers = users.sort((a, b) => b.giveawayTickets - a.giveawayTickets);
                 }
             }
+            
+            this.topUsersCache = topUsers;
             
             if (topUsers.length === 0) {
                 topUsersList.innerHTML = `
@@ -2148,27 +2174,26 @@ class NinjaTONApp {
                 else if (index === 2) prizeAmount = '0.30 ꘜ';
                 else if (index >= 3 && index <= 6) prizeAmount = '0.10 ꘜ';
                 else if (index >= 7 && index <= 9) prizeAmount = '0.05 ꘜ';
-
                 
                 topUsersHTML += `
-    <div class="top-user-row ${isCurrentUser ? 'current-user' : ''}">
-        <div class="user-rank ${rankClass}">${index + 1}</div>
-        <div class="user-avatar-small">
-            <img src="${user.photoUrl || 'https://cdn-icons-png.flaticon.com/512/9195/9195920.png'}" 
-                 alt="${user.firstName}" 
-                 oncontextmenu="return false;" 
-                 ondragstart="return false;">
-        </div>
-        <div class="user-info-compact">
-            <div class="user-name-compact">${(user.firstName || 'User').length > 10 ? (user.firstName || 'User').substring(0, 10) + '...' : (user.firstName || 'User')}</div>
-            <div class="user-tickets">
-                <i class="fas fa-ticket-alt"></i>
-                <span>${user.giveawayTickets || 0}</span>
-            </div>
-        </div>
-        <div class="user-prize">${prizeAmount}</div>
-    </div>
-`;
+                    <div class="top-user-row ${isCurrentUser ? 'current-user' : ''}">
+                        <div class="user-rank ${rankClass}">${index + 1}</div>
+                        <div class="user-avatar-small">
+                            <img src="${user.photoUrl || 'https://cdn-icons-png.flaticon.com/512/9195/9195920.png'}" 
+                                 alt="${user.firstName}" 
+                                 oncontextmenu="return false;" 
+                                 ondragstart="return false;">
+                        </div>
+                        <div class="user-info-compact">
+                            <div class="user-name-compact">${(user.firstName || 'User').length > 10 ? (user.firstName || 'User').substring(0, 10) + '...' : (user.firstName || 'User')}</div>
+                            <div class="user-tickets">
+                                <i class="fas fa-ticket-alt"></i>
+                                <span>${user.giveawayTickets || 0}</span>
+                            </div>
+                        </div>
+                        <div class="user-prize">${prizeAmount}</div>
+                    </div>
+                `;
             });
             
             topUsersList.innerHTML = topUsersHTML;

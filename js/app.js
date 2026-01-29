@@ -1264,40 +1264,54 @@ class NinjaTONApp {
             const reward = 0.005;
             const currentBalance = this.safeNumber(this.userState.balance);
             const newBalance = currentBalance + reward;
-            const newTickets = this.safeNumber(this.userState.giveawayTickets) + this.appConfig.WELCOME_TASKS.length;
+            const newTickets = this.safeNumber(this.userState.giveawayTickets) + 1; // +1 تذكرة فقط
             
             const updates = {
                 balance: newBalance,
                 totalEarned: this.safeNumber(this.userState.totalEarned) + reward,
-                totalTasks: this.safeNumber(this.userState.totalTasks),
+                totalTasks: this.safeNumber(this.userState.totalTasks) + 1,
                 welcomeTasksCompleted: true,
                 welcomeTasksCompletedAt: Date.now(),
                 welcomeTasksVerifiedAt: Date.now(),
-                giveawayTickets: newTickets
+                giveawayTickets: newTickets,
+                referralState: 'verified',
+                lastUpdated: Date.now()
             };
             
             if (this.db) {
                 await this.db.ref(`users/${this.tgUser.id}`).update(updates);
+                
+                // تحديث حالة المحيل إذا كان هناك محيل
+                if (this.userState.referredBy) {
+                    await this.processReferralRegistrationWithBonus(this.userState.referredBy, this.tgUser.id);
+                }
             }
             
             this.userState.balance = newBalance;
             this.userState.totalEarned = this.safeNumber(this.userState.totalEarned) + reward;
+            this.userState.totalTasks = this.safeNumber(this.userState.totalTasks) + 1;
             this.userState.welcomeTasksCompleted = true;
             this.userState.welcomeTasksCompletedAt = Date.now();
             this.userState.welcomeTasksVerifiedAt = Date.now();
             this.userState.giveawayTickets = newTickets;
+            this.userState.referralState = 'verified';
             
-            if (this.pendingReferralAfterWelcome) {
-                const referrerId = this.pendingReferralAfterWelcome;
-                await this.processReferralRegistrationWithBonus(referrerId, this.tgUser.id);
+            // معالجة المحيل المعلق
+            if (this.pendingReferralAfterWelcome && this.pendingReferralAfterWelcome !== this.tgUser.id) {
+                await this.processReferralRegistrationWithBonus(this.pendingReferralAfterWelcome, this.tgUser.id);
+                this.userState.referredBy = this.pendingReferralAfterWelcome;
                 this.pendingReferralAfterWelcome = null;
             }
             
             this.cache.delete(`user_${this.tgUser.id}`);
             this.updateHeader();
             
+            // إعادة تحميل بيانات المحيل
+            await this.refreshReferralsList();
+            
             return true;
         } catch (error) {
+            console.error('Error completing welcome tasks:', error);
             return false;
         }
     }

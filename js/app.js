@@ -2314,7 +2314,7 @@ class NinjaTONApp {
         const referralsPage = document.getElementById('referrals-page');
         if (!referralsPage) return;
         
-        const referralLink = `https://t.me/NINJA2_Rbot/earn?startapp=${this.tgUser.id}`;
+        const referralLink = `https://t.me/NINJA2_Rbot/ninja?startapp=${this.tgUser.id}`;
         const referrals = this.safeNumber(this.userState.referrals || 0);
         const referralEarnings = this.safeNumber(this.userState.referralEarnings || 0);
         
@@ -2439,7 +2439,7 @@ class NinjaTONApp {
         const copyBtn = document.getElementById('copy-referral-link-btn');
         if (copyBtn) {
             copyBtn.addEventListener('click', () => {
-                const referralLink = `https://t.me/NINJA2_Rbot/earn?startapp=${this.tgUser.id}`;
+                const referralLink = `https://t.me/NINJA2_Rbot/ninja?startapp=${this.tgUser.id}`;
                 this.copyToClipboard(referralLink);
                 
                 copyBtn.classList.add('copied');

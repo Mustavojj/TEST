@@ -1383,7 +1383,10 @@ class NinjaTONApp {
     async saveAdTimers() {
         try {
             if (this.db) {
-                await this.db.ref(`userAdTimers/${this.tgUser.id}`).set(this.adTimers);
+                await this.db.ref(`userAdTimers/${this.tgUser.id}`).set({
+                    ad1: this.adTimers.ad1,
+                    lastUpdated: Date.now()
+                });
             }
             
             localStorage.setItem(`ad_timers_${this.tgUser.id}`, JSON.stringify(this.adTimers));
@@ -2035,6 +2038,15 @@ class NinjaTONApp {
                                 <i class="fas fa-user"></i>
                                 <span>Your Rank: <strong>#${this.getUserRank()}</strong></span>
                             </div>
+                            <div class="update-timer-card">
+                                <div class="update-timer-icon">
+                                    <i class="fas fa-clock"></i>
+                                </div>
+                                <div class="update-timer-content">
+                                    <h4>Next Update</h4>
+                                    <div class="update-countdown" id="update-countdown">00:00</div>
+                                </div>
+                            </div>
                         </div>
                         
                         <div class="top-users-grid">
@@ -2077,6 +2089,7 @@ class NinjaTONApp {
         
         this.loadTopUsers();
         this.startGiveawayTimer();
+        this.startUpdateCountdown();
     }
 
     getUserRank() {
@@ -2247,6 +2260,34 @@ class NinjaTONApp {
         });
         
         topUsersList.innerHTML = topUsersHTML;
+    }
+
+    startUpdateCountdown() {
+        const updateCountdownElement = document.getElementById('update-countdown');
+        if (!updateCountdownElement) return;
+        
+        const updateCountdown = () => {
+            const now = Date.now();
+            const nextUpdateTime = this.lastTopUsersUpdate + this.topUsersUpdateInterval;
+            const timeLeft = nextUpdateTime - now;
+            
+            if (timeLeft <= 0) {
+                updateCountdownElement.textContent = 'Updating...';
+                setTimeout(() => {
+                    this.loadTopUsers();
+                }, 1000);
+                return;
+            }
+            
+            const minutes = Math.floor((timeLeft % (1000 * 60 * 60)) / (1000 * 60));
+            const seconds = Math.floor((timeLeft % (1000 * 60)) / 1000);
+            
+            updateCountdownElement.textContent = 
+                `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+        };
+        
+        updateCountdown();
+        setInterval(updateCountdown, 1000);
     }
 
     formatTime(milliseconds) {

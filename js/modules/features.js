@@ -215,6 +215,9 @@ class TaskManager {
             return;
         }
         
+        // إضافة طلب إلى Rate Limiter
+        this.app.rateLimiter.addRequest(this.app.tgUser.id, 'task_start');
+        
         window.open(url, '_blank');
         
         this.disableAllTaskButtons();

@@ -1828,8 +1828,7 @@ class NinjaTONApp {
                 </div>
                 <div class="referral-row-info">
                     <p class="referral-row-username">${task.name}</p>
-                    <p class="task-reward-amount">
-                        Reward: ${task.reward?.toFixed(5) || '0.00000'} TON 
+                    <p class="task-reward-amount"> ${task.reward?.toFixed(5) || '0.00000'} TON 
                         <span class="ticket-badge">+1 <i class="fas fa-ticket-alt"></i></span>
                     </p>
                 </div>

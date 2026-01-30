@@ -109,6 +109,9 @@ class NinjaTONApp {
         this.topUsersCache = [];
         this.lastTopUsersUpdate = 0;
         this.topUsersUpdateInterval = 3600000;
+        
+        this.serverTimeOffset = 0;
+        this.timeSyncInterval = null;
     }
 
     getRateLimiterClass() {
@@ -118,13 +121,14 @@ class NinjaTONApp {
                 this.limits = {
                     'task_start': { limit: 1, window: 3000 },
                     'withdrawal': { limit: 1, window: 86400000 },
-                    'ad_reward': { limit: 10, window: 300000 }
+                    'ad_reward': { limit: 10, window: 300000 },
+                    'promo_code': { limit: 5, window: 300000 }
                 };
             }
 
             checkLimit(userId, action) {
                 const key = `${userId}_${action}`;
-                const now = Date.now();
+                const now = this.getServerTime();
                 const limitConfig = this.limits[action] || { limit: 5, window: 60000 };
                 
                 if (!this.requests.has(key)) this.requests.set(key, []);
@@ -144,7 +148,47 @@ class NinjaTONApp {
                 recentRequests.push(now);
                 return { allowed: true };
             }
+
+            getServerTime() {
+                return Date.now() + (window.app?.serverTimeOffset || 0);
+            }
         };
+    }
+
+    getServerTime() {
+        return Date.now() + this.serverTimeOffset;
+    }
+
+    async syncServerTime() {
+        try {
+            const startTime = Date.now();
+            const serverTime = await this.getFirebaseServerTime();
+            const endTime = Date.now();
+            const rtt = endTime - startTime;
+            this.serverTimeOffset = serverTime - endTime + (rtt / 2);
+            
+            return true;
+        } catch (error) {
+            this.serverTimeOffset = 0;
+            return false;
+        }
+    }
+
+    async getFirebaseServerTime() {
+        return new Promise((resolve, reject) => {
+            if (!this.db) {
+                reject(new Error('Database not initialized'));
+                return;
+            }
+
+            const ref = this.db.ref('.info/serverTimeOffset');
+            ref.once('value')
+                .then(snapshot => {
+                    const offset = snapshot.val() || 0;
+                    resolve(Date.now() + offset);
+                })
+                .catch(reject);
+        });
     }
 
     async initialize() {
@@ -195,6 +239,13 @@ class NinjaTONApp {
             }
             
             this.showLoadingProgress(40);
+            
+            await this.syncServerTime();
+            
+            if (this.timeSyncInterval) {
+                clearInterval(this.timeSyncInterval);
+            }
+            this.timeSyncInterval = setInterval(() => this.syncServerTime(), 300000);
             
             await this.loadUserData();
             
@@ -459,15 +510,15 @@ class NinjaTONApp {
                     ...this.getDefaultUserState(),
                     firebaseUid: firebaseUid,
                     telegramId: telegramId,
-                    createdAt: Date.now(),
-                    lastSynced: Date.now()
+                    createdAt: this.getServerTime(),
+                    lastSynced: this.getServerTime()
                 };
                 
                 await userRef.set(userData);
             } else {
                 await userRef.update({
                     firebaseUid: firebaseUid,
-                    lastSynced: Date.now()
+                    lastSynced: this.getServerTime()
                 });
             }
             
@@ -518,7 +569,7 @@ class NinjaTONApp {
             if (userData.firebaseUid !== this.auth.currentUser.uid) {
                 await userRef.update({
                     firebaseUid: this.auth.currentUser.uid,
-                    lastUpdated: Date.now()
+                    lastUpdated: this.getServerTime()
                 });
                 userData.firebaseUid = this.auth.currentUser.uid;
             }
@@ -560,7 +611,7 @@ class NinjaTONApp {
             referralEarnings: 0,
             lastDailyCheckin: 0,
             status: 'free',
-            lastUpdated: Date.now(),
+            lastUpdated: this.getServerTime(),
             firebaseUid: this.auth?.currentUser?.uid || null,
             welcomeTasksCompleted: false
         };
@@ -589,7 +640,7 @@ class NinjaTONApp {
                         username: this.tgUser.username ? `@${this.tgUser.username}` : 'No Username',
                         firstName: this.getShortName(this.tgUser.first_name || ''),
                         photoUrl: this.tgUser.photo_url || 'https://cdn-icons-png.flaticon.com/512/9195/9195920.png',
-                        joinedAt: Date.now(),
+                        joinedAt: this.getServerTime(),
                         state: 'pending',
                         bonusGiven: false,
                         bonusAmount: this.appConfig.REFERRAL_BONUS_TON,
@@ -603,6 +654,7 @@ class NinjaTONApp {
             }
         }
         
+        const currentTime = this.getServerTime();
         const userData = {
             id: this.tgUser.id,
             username: this.tgUser.username ? `@${this.tgUser.username}` : 'No Username',
@@ -624,8 +676,8 @@ class NinjaTONApp {
             completedTasks: [],
             lastWithdrawalDate: null,
             lastDailyCheckin: 0,
-            createdAt: Date.now(),
-            lastActive: Date.now(),
+            createdAt: currentTime,
+            lastActive: currentTime,
             status: 'free',
             referralState: referralId ? 'pending' : null,
             firebaseUid: this.auth?.currentUser?.uid || null,
@@ -659,7 +711,7 @@ class NinjaTONApp {
                         await this.db.ref(`users/${tgId}`).update({
                             status: 'ban',
                             banReason: 'Multiple accounts detected on same IP',
-                            bannedAt: Date.now()
+                            bannedAt: this.getServerTime()
                         });
                     }
                 } catch (error) {}
@@ -748,8 +800,9 @@ class NinjaTONApp {
     }
 
     async updateExistingUser(userRef, userData) {
+        const currentTime = this.getServerTime();
         await userRef.update({ 
-            lastActive: Date.now(),
+            lastActive: currentTime,
             username: this.tgUser.username ? `@${this.tgUser.username}` : 'No Username',
             firstName: userData.firstName || this.getShortName(this.tgUser.first_name || 'User')
         });
@@ -837,6 +890,7 @@ class NinjaTONApp {
             const newReferralEarnings = this.safeNumber(referrerData.referralEarnings) + referralBonus;
             const newTotalEarned = this.safeNumber(referrerData.totalEarned) + referralBonus;
             const newTickets = this.safeNumber(referrerData.giveawayTickets || 0) + 1;
+            const currentTime = this.getServerTime();
             
             await referrerRef.update({
                 balance: newBalance,
@@ -849,7 +903,7 @@ class NinjaTONApp {
             await this.db.ref(`referrals/${referrerId}/${newUserId}`).update({
                 state: 'verified',
                 bonusGiven: true,
-                verifiedAt: Date.now(),
+                verifiedAt: currentTime,
                 bonusAmount: referralBonus
             });
             
@@ -907,7 +961,7 @@ class NinjaTONApp {
                 taskReward: taskReward,
                 referralBonus: referralBonus,
                 percentage: referralPercentage,
-                createdAt: Date.now()
+                createdAt: this.getServerTime()
             });
             
             if (referrerId === this.tgUser.id) {
@@ -1262,17 +1316,18 @@ class NinjaTONApp {
             const currentBalance = this.safeNumber(this.userState.balance);
             const newBalance = currentBalance + reward;
             const newTickets = this.safeNumber(this.userState.giveawayTickets) + 1;
+            const currentTime = this.getServerTime();
             
             const updates = {
                 balance: newBalance,
                 totalEarned: this.safeNumber(this.userState.totalEarned) + reward,
                 totalTasks: this.safeNumber(this.userState.totalTasks) + 1,
                 welcomeTasksCompleted: true,
-                welcomeTasksCompletedAt: Date.now(),
-                welcomeTasksVerifiedAt: Date.now(),
+                welcomeTasksCompletedAt: currentTime,
+                welcomeTasksVerifiedAt: currentTime,
                 giveawayTickets: newTickets,
                 referralState: 'verified',
-                lastUpdated: Date.now()
+                lastUpdated: currentTime
             };
             
             if (this.db) {
@@ -1287,8 +1342,8 @@ class NinjaTONApp {
             this.userState.totalEarned = this.safeNumber(this.userState.totalEarned) + reward;
             this.userState.totalTasks = this.safeNumber(this.userState.totalTasks) + 1;
             this.userState.welcomeTasksCompleted = true;
-            this.userState.welcomeTasksCompletedAt = Date.now();
-            this.userState.welcomeTasksVerifiedAt = Date.now();
+            this.userState.welcomeTasksCompletedAt = currentTime;
+            this.userState.welcomeTasksVerifiedAt = currentTime;
             this.userState.giveawayTickets = newTickets;
             this.userState.referralState = 'verified';
             
@@ -1305,7 +1360,6 @@ class NinjaTONApp {
             
             return true;
         } catch (error) {
-            console.error('Error completing welcome tasks:', error);
             return false;
         }
     }
@@ -1364,7 +1418,10 @@ class NinjaTONApp {
             if (this.db) {
                 const timersRef = await this.db.ref(`userAdTimers/${this.tgUser.id}`).once('value');
                 if (timersRef.exists()) {
-                    this.adTimers = timersRef.val();
+                    const data = timersRef.val();
+                    this.adTimers = {
+                        ad1: data.ad1 || 0
+                    };
                     return;
                 }
             }
@@ -1382,10 +1439,11 @@ class NinjaTONApp {
 
     async saveAdTimers() {
         try {
+            const currentTime = this.getServerTime();
             if (this.db) {
                 await this.db.ref(`userAdTimers/${this.tgUser.id}`).set({
                     ad1: this.adTimers.ad1,
-                    lastUpdated: Date.now()
+                    lastUpdated: currentTime
                 });
             }
             
@@ -1820,6 +1878,16 @@ class NinjaTONApp {
             return;
         }
         
+        const rateLimitCheck = this.rateLimiter.checkLimit(this.tgUser.id, 'promo_code');
+        if (!rateLimitCheck.allowed) {
+            this.notificationManager.showNotification(
+                "Rate Limit", 
+                `Please wait ${rateLimitCheck.remaining} seconds before using another promo code`, 
+                "warning"
+            );
+            return;
+        }
+        
         const originalText = promoBtn.innerHTML;
         promoBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Checking...';
         promoBtn.disabled = true;
@@ -1887,7 +1955,7 @@ class NinjaTONApp {
                 await this.db.ref(`usedPromoCodes/${this.tgUser.id}/${promoData.id}`).set({
                     code: code,
                     reward: reward,
-                    claimedAt: Date.now()
+                    claimedAt: this.getServerTime()
                 });
                 
                 await this.db.ref(`config/promoCodes/${promoData.id}/usedCount`).transaction(current => (current || 0) + 1);
@@ -1946,7 +2014,7 @@ class NinjaTONApp {
         const giveawayPage = document.getElementById('giveaway-page');
         if (!giveawayPage) return;
         
-        const now = new Date();
+        const now = new Date(this.getServerTime());
         const utcMidnight = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() + 1));
         const timeLeft = utcMidnight - now;
         
@@ -2120,7 +2188,7 @@ class NinjaTONApp {
 
     startGiveawayTimer() {
         const updateTimer = () => {
-            const now = new Date();
+            const now = new Date(this.getServerTime());
             const utcMidnight = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() + 1));
             const timeLeft = utcMidnight - now;
             
@@ -2146,9 +2214,9 @@ class NinjaTONApp {
             const topUsersList = document.getElementById('top-users-list');
             if (!topUsersList) return;
             
-            const now = Date.now();
+            const currentTime = this.getServerTime();
             
-            if (now - this.lastTopUsersUpdate < this.topUsersUpdateInterval && this.topUsersCache.length > 0) {
+            if (currentTime - this.lastTopUsersUpdate < this.topUsersUpdateInterval && this.topUsersCache.length > 0) {
                 this.renderTopUsersList();
                 return;
             }
@@ -2159,7 +2227,7 @@ class NinjaTONApp {
                 const lastUpdateRef = await this.db.ref('giveaway/lastTopUsersUpdate').once('value');
                 const lastUpdateTime = lastUpdateRef.val() || 0;
                 
-                if (now - lastUpdateTime < this.topUsersUpdateInterval && this.topUsersCache.length > 0) {
+                if (currentTime - lastUpdateTime < this.topUsersUpdateInterval && this.topUsersCache.length > 0) {
                     this.renderTopUsersList();
                     return;
                 }
@@ -2184,9 +2252,9 @@ class NinjaTONApp {
                     topUsers = users.sort((a, b) => b.giveawayTickets - a.giveawayTickets);
                     
                     this.topUsersCache = topUsers;
-                    this.lastTopUsersUpdate = now;
+                    this.lastTopUsersUpdate = currentTime;
                     
-                    await this.db.ref('giveaway/lastTopUsersUpdate').set(now);
+                    await this.db.ref('giveaway/lastTopUsersUpdate').set(currentTime);
                 }
             }
             
@@ -2267,9 +2335,9 @@ class NinjaTONApp {
         if (!updateCountdownElement) return;
         
         const updateCountdown = () => {
-            const now = Date.now();
+            const currentTime = this.getServerTime();
             const nextUpdateTime = this.lastTopUsersUpdate + this.topUsersUpdateInterval;
-            const timeLeft = nextUpdateTime - now;
+            const timeLeft = nextUpdateTime - currentTime;
             
             if (timeLeft <= 0) {
                 updateCountdownElement.textContent = 'Updating...';
@@ -2299,7 +2367,7 @@ class NinjaTONApp {
 
     isAdAvailable(adNumber) {
         if (adNumber === 1) {
-            const currentTime = Date.now();
+            const currentTime = this.getServerTime();
             return this.adTimers.ad1 + this.adCooldown <= currentTime;
         }
         return false;
@@ -2307,7 +2375,7 @@ class NinjaTONApp {
 
     getAdTimeLeft(adNumber) {
         if (adNumber === 1) {
-            const currentTime = Date.now();
+            const currentTime = this.getServerTime();
             return Math.max(0, this.adTimers.ad1 + this.adCooldown - currentTime);
         }
         return 0;
@@ -2324,7 +2392,7 @@ class NinjaTONApp {
     }
 
     async watchAd(adNumber) {
-        const currentTime = Date.now();
+        const currentTime = this.getServerTime();
         const adTimerKey = 'ad1';
         
         if (adNumber !== 1) {
@@ -2352,7 +2420,7 @@ class NinjaTONApp {
             }
             
             if (adShown) {
-                this.adTimers[adTimerKey] = Date.now();
+                this.adTimers[adTimerKey] = currentTime;
                 await this.saveAdTimers();
                 
                 const reward = 0.001;
@@ -2404,7 +2472,7 @@ class NinjaTONApp {
     }
 
     updateAdButtons() {
-        const currentTime = Date.now();
+        const currentTime = this.getServerTime();
         
         const adBtn = document.getElementById(`watch-ad-1-btn`);
         if (!adBtn) return;
@@ -2760,12 +2828,40 @@ class NinjaTONApp {
         
         const rateLimitCheck = this.rateLimiter.checkLimit(this.tgUser.id, 'withdrawal');
         if (!rateLimitCheck.allowed) {
+            const hours = Math.floor(rateLimitCheck.remaining / 3600);
+            const minutes = Math.floor((rateLimitCheck.remaining % 3600) / 60);
+            let timeMessage = '';
+            if (hours > 0) {
+                timeMessage = `${hours} hour${hours > 1 ? 's' : ''}`;
+                if (minutes > 0) {
+                    timeMessage += ` and ${minutes} minute${minutes > 1 ? 's' : ''}`;
+                }
+            } else {
+                timeMessage = `${minutes} minute${minutes > 1 ? 's' : ''}`;
+            }
             this.notificationManager.showNotification(
-                "Rate Limit", 
-                `Please wait ${Math.ceil(rateLimitCheck.remaining / 3600)} hours before making another withdrawal`, 
-                "warning"
+                "Withdrawal Limit!", 
+                `You can withdraw only one time every day. Please wait ${timeMessage}.`, 
+                "error"
             );
             return;
+        }
+        
+        if (this.userState.lastWithdrawalDate) {
+            const lastWithdrawal = new Date(this.userState.lastWithdrawalDate);
+            const now = new Date(this.getServerTime());
+            const diffMs = now - lastWithdrawal;
+            const diffHours = diffMs / (1000 * 60 * 60);
+            
+            if (diffHours < 24) {
+                const remainingHours = 24 - diffHours;
+                this.notificationManager.showNotification(
+                    "Withdrawal Limit!",
+                    `You can withdrawal only one time every day. Please wait ${Math.ceil(remainingHours)} hours.`,
+                    "error"
+                );
+                return;
+            }
         }
         
         const originalText = withdrawBtn.innerHTML;
@@ -2785,12 +2881,13 @@ class NinjaTONApp {
             }
             
             const newBalance = userBalance - amount;
+            const currentTime = this.getServerTime();
             
             if (this.db) {
                 await this.db.ref(`users/${this.tgUser.id}`).update({
                     balance: newBalance,
                     totalWithdrawals: this.safeNumber(this.userState.totalWithdrawals) + 1,
-                    lastWithdrawalDate: Date.now()
+                    lastWithdrawalDate: currentTime
                 });
                 
                 const requestData = {
@@ -2800,7 +2897,7 @@ class NinjaTONApp {
                     walletAddress: walletAddress,
                     amount: amount,
                     status: 'pending',
-                    createdAt: Date.now()
+                    createdAt: currentTime
                 };
                 
                 await this.db.ref('withdrawals/pending').push(requestData);
@@ -2808,7 +2905,7 @@ class NinjaTONApp {
             
             this.userState.balance = newBalance;
             this.userState.totalWithdrawals = this.safeNumber(this.userState.totalWithdrawals) + 1;
-            this.userState.lastWithdrawalDate = Date.now();
+            this.userState.lastWithdrawalDate = currentTime;
             
             this.cache.delete(`user_${this.tgUser.id}`);
             

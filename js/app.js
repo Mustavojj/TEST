@@ -107,6 +107,8 @@ class NinjaTONApp {
         this.inAppAdsTimer = null;
         
         this.topUsersCache = [];
+        this.lastTopUsersUpdate = 0;
+        this.topUsersUpdateInterval = 3600000;
     }
 
     getRateLimiterClass() {
@@ -311,17 +313,7 @@ class NinjaTONApp {
         if (this.inAppAdsInitialized) return;
         
         try {
-            if (typeof show_10527786 !== 'undefined') {
-                show_10527786({
-                    type: 'inApp',
-                    inAppSettings: {
-                        frequency: 2,
-                        capping: 0.1,
-                        interval: 30,
-                        timeout: 5,
-                        everyPage: false
-                    }
-                });
+            if (typeof window.AdBlock2 !== 'undefined') {
                 this.inAppAdsInitialized = true;
                 
                 setTimeout(() => {
@@ -336,6 +328,9 @@ class NinjaTONApp {
     }
     
     showInAppAd() {
+        if (window.AdBlock2 && typeof window.AdBlock2.show === 'function') {
+            window.AdBlock2.show().catch(() => {});
+        }
     }
 
     async initializeFirebase() {
@@ -1366,6 +1361,14 @@ class NinjaTONApp {
 
     async loadAdTimers() {
         try {
+            if (this.db) {
+                const timersRef = await this.db.ref(`userAdTimers/${this.tgUser.id}`).once('value');
+                if (timersRef.exists()) {
+                    this.adTimers = timersRef.val();
+                    return;
+                }
+            }
+            
             const savedTimers = localStorage.getItem(`ad_timers_${this.tgUser.id}`);
             if (savedTimers) {
                 this.adTimers = JSON.parse(savedTimers);
@@ -1379,6 +1382,10 @@ class NinjaTONApp {
 
     async saveAdTimers() {
         try {
+            if (this.db) {
+                await this.db.ref(`userAdTimers/${this.tgUser.id}`).set(this.adTimers);
+            }
+            
             localStorage.setItem(`ad_timers_${this.tgUser.id}`, JSON.stringify(this.adTimers));
         } catch (error) {
         }
@@ -2126,9 +2133,24 @@ class NinjaTONApp {
             const topUsersList = document.getElementById('top-users-list');
             if (!topUsersList) return;
             
+            const now = Date.now();
+            
+            if (now - this.lastTopUsersUpdate < this.topUsersUpdateInterval && this.topUsersCache.length > 0) {
+                this.renderTopUsersList();
+                return;
+            }
+            
             let topUsers = [];
             
             if (this.db) {
+                const lastUpdateRef = await this.db.ref('giveaway/lastTopUsersUpdate').once('value');
+                const lastUpdateTime = lastUpdateRef.val() || 0;
+                
+                if (now - lastUpdateTime < this.topUsersUpdateInterval && this.topUsersCache.length > 0) {
+                    this.renderTopUsersList();
+                    return;
+                }
+                
                 const usersRef = await this.db.ref('users')
                     .orderByChild('giveawayTickets')
                     .limitToLast(10)
@@ -2147,10 +2169,17 @@ class NinjaTONApp {
                     });
                     
                     topUsers = users.sort((a, b) => b.giveawayTickets - a.giveawayTickets);
+                    
+                    this.topUsersCache = topUsers;
+                    this.lastTopUsersUpdate = now;
+                    
+                    await this.db.ref('giveaway/lastTopUsersUpdate').set(now);
                 }
             }
             
-            this.topUsersCache = topUsers;
+            if (topUsers.length === 0 && this.topUsersCache.length > 0) {
+                topUsers = this.topUsersCache;
+            }
             
             if (topUsers.length === 0) {
                 topUsersList.innerHTML = `
@@ -2163,40 +2192,7 @@ class NinjaTONApp {
                 return;
             }
             
-            let topUsersHTML = '';
-            topUsers.forEach((user, index) => {
-                const isCurrentUser = user.id === this.tgUser.id;
-                const rankClass = index === 0 ? 'first' : index === 1 ? 'second' : index === 2 ? 'third' : '';
-                
-                let prizeAmount = '0.00 ꘜ';
-                if (index === 0) prizeAmount = '0.75 ꘜ';
-                else if (index === 1) prizeAmount = '0.50 ꘜ';
-                else if (index === 2) prizeAmount = '0.30 ꘜ';
-                else if (index >= 3 && index <= 6) prizeAmount = '0.10 ꘜ';
-                else if (index >= 7 && index <= 9) prizeAmount = '0.05 ꘜ';
-                
-                topUsersHTML += `
-                    <div class="top-user-row ${isCurrentUser ? 'current-user' : ''}">
-                        <div class="user-rank ${rankClass}">${index + 1}</div>
-                        <div class="user-avatar-small">
-                            <img src="${user.photoUrl || 'https://cdn-icons-png.flaticon.com/512/9195/9195920.png'}" 
-                                 alt="${user.firstName}" 
-                                 oncontextmenu="return false;" 
-                                 ondragstart="return false;">
-                        </div>
-                        <div class="user-info-compact">
-                            <div class="user-name-compact">${(user.firstName || 'User').length > 10 ? (user.firstName || 'User').substring(0, 10) + '...' : (user.firstName || 'User')}</div>
-                            <div class="user-tickets">
-                                <i class="fas fa-ticket-alt"></i>
-                                <span>${user.giveawayTickets || 0}</span>
-                            </div>
-                        </div>
-                        <div class="user-prize">${prizeAmount}</div>
-                    </div>
-                `;
-            });
-            
-            topUsersList.innerHTML = topUsersHTML;
+            this.renderTopUsersList();
             
         } catch (error) {
             const topUsersList = document.getElementById('top-users-list');
@@ -2209,6 +2205,48 @@ class NinjaTONApp {
                 `;
             }
         }
+    }
+    
+    renderTopUsersList() {
+        const topUsersList = document.getElementById('top-users-list');
+        if (!topUsersList) return;
+        
+        const topUsers = this.topUsersCache;
+        
+        let topUsersHTML = '';
+        topUsers.forEach((user, index) => {
+            const isCurrentUser = user.id === this.tgUser.id;
+            const rankClass = index === 0 ? 'first' : index === 1 ? 'second' : index === 2 ? 'third' : '';
+            
+            let prizeAmount = '0.00 ꘜ';
+            if (index === 0) prizeAmount = '0.75 ꘜ';
+            else if (index === 1) prizeAmount = '0.50 ꘜ';
+            else if (index === 2) prizeAmount = '0.30 ꘜ';
+            else if (index >= 3 && index <= 6) prizeAmount = '0.10 ꘜ';
+            else if (index >= 7 && index <= 9) prizeAmount = '0.05 ꘜ';
+            
+            topUsersHTML += `
+                <div class="top-user-row ${isCurrentUser ? 'current-user' : ''}">
+                    <div class="user-rank ${rankClass}">${index + 1}</div>
+                    <div class="user-avatar-small">
+                        <img src="${user.photoUrl || 'https://cdn-icons-png.flaticon.com/512/9195/9195920.png'}" 
+                             alt="${user.firstName}" 
+                             oncontextmenu="return false;" 
+                             ondragstart="return false;">
+                    </div>
+                    <div class="user-info-compact">
+                        <div class="user-name-compact">${(user.firstName || 'User').length > 10 ? (user.firstName || 'User').substring(0, 10) + '...' : (user.firstName || 'User')}</div>
+                        <div class="user-tickets">
+                            <i class="fas fa-ticket-alt"></i>
+                            <span>${user.giveawayTickets || 0}</span>
+                        </div>
+                    </div>
+                    <div class="user-prize">${prizeAmount}</div>
+                </div>
+            `;
+        });
+        
+        topUsersList.innerHTML = topUsersHTML;
     }
 
     formatTime(milliseconds) {
@@ -2273,7 +2311,7 @@ class NinjaTONApp {
             }
             
             if (adShown) {
-                this.adTimers[adTimerKey] = currentTime;
+                this.adTimers[adTimerKey] = Date.now();
                 await this.saveAdTimers();
                 
                 const reward = 0.001;

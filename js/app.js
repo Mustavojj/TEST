@@ -108,10 +108,13 @@ class NinjaTONApp {
         
         this.topUsersCache = [];
         this.lastTopUsersUpdate = 0;
-        this.topUsersUpdateInterval = 3600000;
+        this.topUsersUpdateInterval = 3600000; // كل ساعة
         
         this.serverTimeOffset = 0;
         this.timeSyncInterval = null;
+        
+        this.giveawayUpdateInterval = null;
+        this.nextGiveawayUpdate = 0;
     }
 
     getRateLimiterClass() {
@@ -145,8 +148,18 @@ class NinjaTONApp {
                     };
                 }
                 
-                recentRequests.push(now);
                 return { allowed: true };
+            }
+
+            addRequest(userId, action) {
+                const key = `${userId}_${action}`;
+                const now = this.getServerTime();
+                
+                if (!this.requests.has(key)) this.requests.set(key, []);
+                
+                const userRequests = this.requests.get(key);
+                userRequests.push(now);
+                this.requests.set(key, userRequests);
             }
 
             getServerTime() {
@@ -292,6 +305,10 @@ class NinjaTONApp {
             }
             
             this.showLoadingProgress(90);
+            
+            // تحميل تحديث الجائزة
+            await this.loadGiveawayUpdateTime();
+            
             this.renderUI();
             
             this.darkMode = true;
@@ -357,6 +374,46 @@ class NinjaTONApp {
             }
             
             this.isInitializing = false;
+        }
+    }
+
+    async loadGiveawayUpdateTime() {
+        try {
+            if (!this.db) return;
+            
+            const giveawayRef = await this.db.ref('giveaway').once('value');
+            if (giveawayRef.exists()) {
+                const giveawayData = giveawayRef.val();
+                this.nextGiveawayUpdate = giveawayData.nextUpdate || 0;
+                this.lastTopUsersUpdate = giveawayData.lastTopUsersUpdate || 0;
+                
+                if (giveawayData.topUsers) {
+                    this.topUsersCache = giveawayData.topUsers;
+                }
+            }
+            
+            // إذا لم يكن هناك تحديث قادم، احسب التالي
+            if (!this.nextGiveawayUpdate || this.nextGiveawayUpdate < this.getServerTime()) {
+                await this.calculateNextGiveawayUpdate();
+            }
+            
+        } catch (error) {
+            await this.calculateNextGiveawayUpdate();
+        }
+    }
+    
+    async calculateNextGiveawayUpdate() {
+        const now = new Date(this.getServerTime());
+        const nextHour = new Date(now);
+        nextHour.setUTCHours(nextHour.getUTCHours() + 1);
+        nextHour.setUTCMinutes(0);
+        nextHour.setUTCSeconds(0);
+        nextHour.setUTCMilliseconds(0);
+        
+        this.nextGiveawayUpdate = nextHour.getTime();
+        
+        if (this.db) {
+            await this.db.ref('giveaway/nextUpdate').set(this.nextGiveawayUpdate);
         }
     }
 
@@ -1887,6 +1944,8 @@ class NinjaTONApp {
             return;
         }
         
+        this.rateLimiter.addRequest(this.tgUser.id, 'promo_code');
+        
         const originalText = promoBtn.innerHTML;
         promoBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Checking...';
         promoBtn.disabled = true;
@@ -2013,9 +2072,7 @@ class NinjaTONApp {
         const giveawayPage = document.getElementById('giveaway-page');
         if (!giveawayPage) return;
         
-        const now = new Date(this.getServerTime());
-        const utcMidnight = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() + 1));
-        const timeLeft = utcMidnight - now;
+        const timeLeft = Math.max(0, this.nextGiveawayUpdate - this.getServerTime());
         
         const hours = Math.floor((timeLeft % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
         const minutes = Math.floor((timeLeft % (1000 * 60 * 60)) / (1000 * 60));
@@ -2111,7 +2168,7 @@ class NinjaTONApp {
                                 </div>
                                 <div class="update-timer-content">
                                     <h4>Next Update</h4>
-                                    <div class="update-countdown" id="update-countdown">00:00</div>
+                                    <div class="update-countdown" id="update-countdown">${formattedTime}</div>
                                 </div>
                             </div>
                         </div>
@@ -2156,7 +2213,6 @@ class NinjaTONApp {
         
         this.loadTopUsers();
         this.startGiveawayTimer();
-        this.startUpdateCountdown();
     }
 
     getUserRank() {
@@ -2187,12 +2243,11 @@ class NinjaTONApp {
 
     startGiveawayTimer() {
         const updateTimer = () => {
-            const now = new Date(this.getServerTime());
-            const utcMidnight = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() + 1));
-            const timeLeft = utcMidnight - now;
+            const timeLeft = Math.max(0, this.nextGiveawayUpdate - this.getServerTime());
             
             if (timeLeft <= 0) {
-                document.querySelector('.time-remaining').textContent = '00:00:00';
+                // تحديث الجائزة
+                this.updateGiveawayLeaderboard();
                 return;
             }
             
@@ -2200,12 +2255,64 @@ class NinjaTONApp {
             const minutes = Math.floor((timeLeft % (1000 * 60 * 60)) / (1000 * 60));
             const seconds = Math.floor((timeLeft % (1000 * 60)) / 1000);
             
-            document.querySelector('.time-remaining').textContent = 
-                `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+            const formattedTime = `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+            
+            const timeElement = document.querySelector('.time-remaining');
+            const countdownElement = document.getElementById('update-countdown');
+            
+            if (timeElement) timeElement.textContent = formattedTime;
+            if (countdownElement) countdownElement.textContent = formattedTime;
         };
         
         updateTimer();
         setInterval(updateTimer, 1000);
+    }
+
+    async updateGiveawayLeaderboard() {
+        try {
+            if (!this.db) return;
+            
+            // جلب أفضل 10 مستخدمين
+            const usersRef = await this.db.ref('users')
+                .orderByChild('giveawayTickets')
+                .limitToLast(10)
+                .once('value');
+            
+            const topUsers = [];
+            if (usersRef.exists()) {
+                usersRef.forEach(child => {
+                    const userData = child.val();
+                    if (userData && userData.giveawayTickets > 0) {
+                        topUsers.push({
+                            id: child.key,
+                            ...userData
+                        });
+                    }
+                });
+            }
+            
+            // ترتيب تنازلي
+            topUsers.sort((a, b) => b.giveawayTickets - a.giveawayTickets);
+            
+            // حفظ في الكاش المحلي
+            this.topUsersCache = topUsers;
+            
+            // حفظ في قاعدة البيانات للتحديث الجماعي
+            await this.db.ref('giveaway').update({
+                topUsers: topUsers,
+                lastTopUsersUpdate: this.getServerTime(),
+                nextUpdate: this.nextGiveawayUpdate + 3600000 // ساعة أخرى
+            });
+            
+            // تحديث التالي تحديث
+            this.nextGiveawayUpdate += 3600000;
+            
+            // إعادة تحميل القائمة
+            this.renderTopUsersList();
+            
+        } catch (error) {
+            console.error('Error updating giveaway leaderboard:', error);
+        }
     }
 
     async loadTopUsers() {
@@ -2215,64 +2322,28 @@ class NinjaTONApp {
             
             const currentTime = this.getServerTime();
             
-            if (currentTime - this.lastTopUsersUpdate < this.topUsersUpdateInterval && this.topUsersCache.length > 0) {
+            // تحميل من الكاش إذا كان محدث
+            if (this.topUsersCache.length > 0) {
                 this.renderTopUsersList();
                 return;
             }
             
-            let topUsers = [];
-            
+            // تحميل من قاعدة البيانات
             if (this.db) {
-                const lastUpdateRef = await this.db.ref('giveaway/lastTopUsersUpdate').once('value');
-                const lastUpdateTime = lastUpdateRef.val() || 0;
-                
-                if (currentTime - lastUpdateTime < this.topUsersUpdateInterval && this.topUsersCache.length > 0) {
-                    this.renderTopUsersList();
-                    return;
-                }
-                
-                const usersRef = await this.db.ref('users')
-                    .orderByChild('giveawayTickets')
-                    .limitToLast(10)
-                    .once('value');
-                
-                if (usersRef.exists()) {
-                    const users = [];
-                    usersRef.forEach(child => {
-                        const userData = child.val();
-                        if (userData && userData.giveawayTickets > 0) {
-                            users.push({
-                                id: child.key,
-                                ...userData
-                            });
-                        }
-                    });
+                const giveawayRef = await this.db.ref('giveaway').once('value');
+                if (giveawayRef.exists()) {
+                    const giveawayData = giveawayRef.val();
                     
-                    topUsers = users.sort((a, b) => b.giveawayTickets - a.giveawayTickets);
-                    
-                    this.topUsersCache = topUsers;
-                    this.lastTopUsersUpdate = currentTime;
-                    
-                    await this.db.ref('giveaway/lastTopUsersUpdate').set(currentTime);
+                    if (giveawayData.topUsers) {
+                        this.topUsersCache = giveawayData.topUsers;
+                        this.renderTopUsersList();
+                        return;
+                    }
                 }
             }
             
-            if (topUsers.length === 0 && this.topUsersCache.length > 0) {
-                topUsers = this.topUsersCache;
-            }
-            
-            if (topUsers.length === 0) {
-                topUsersList.innerHTML = `
-                    <div class="no-top-users">
-                        <i class="fas fa-chart-line"></i>
-                        <p>No participants yet</p>
-                        <p class="hint">Be the first to earn tickets!</p>
-                    </div>
-                `;
-                return;
-            }
-            
-            this.renderTopUsersList();
+            // إذا لم توجد بيانات، جلب جديد
+            await this.updateGiveawayLeaderboard();
             
         } catch (error) {
             const topUsersList = document.getElementById('top-users-list');
@@ -2292,6 +2363,17 @@ class NinjaTONApp {
         if (!topUsersList) return;
         
         const topUsers = this.topUsersCache;
+        
+        if (topUsers.length === 0) {
+            topUsersList.innerHTML = `
+                <div class="no-top-users">
+                    <i class="fas fa-chart-line"></i>
+                    <p>No participants yet</p>
+                    <p class="hint">Be the first to earn tickets!</p>
+                </div>
+            `;
+            return;
+        }
         
         let topUsersHTML = '';
         topUsers.forEach((user, index) => {
@@ -2327,34 +2409,6 @@ class NinjaTONApp {
         });
         
         topUsersList.innerHTML = topUsersHTML;
-    }
-
-    startUpdateCountdown() {
-        const updateCountdownElement = document.getElementById('update-countdown');
-        if (!updateCountdownElement) return;
-        
-        const updateCountdown = () => {
-            const currentTime = this.getServerTime();
-            const nextUpdateTime = this.lastTopUsersUpdate + this.topUsersUpdateInterval;
-            const timeLeft = nextUpdateTime - currentTime;
-            
-            if (timeLeft <= 0) {
-                updateCountdownElement.textContent = 'Updating...';
-                setTimeout(() => {
-                    this.loadTopUsers();
-                }, 1000);
-                return;
-            }
-            
-            const minutes = Math.floor((timeLeft % (1000 * 60 * 60)) / (1000 * 60));
-            const seconds = Math.floor((timeLeft % (1000 * 60)) / 1000);
-            
-            updateCountdownElement.textContent = 
-                `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
-        };
-        
-        updateCountdown();
-        setInterval(updateCountdown, 1000);
     }
 
     formatTime(milliseconds) {
@@ -2845,6 +2899,8 @@ class NinjaTONApp {
             );
             return;
         }
+        
+        this.rateLimiter.addRequest(this.tgUser.id, 'withdrawal');
         
         if (this.userState.lastWithdrawalDate) {
             const lastWithdrawal = new Date(this.userState.lastWithdrawalDate);

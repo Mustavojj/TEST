@@ -363,19 +363,10 @@ class AdManager {
     async showIntervalAd() {
         if (this.isAdPlaying) return false;
         
-        if (typeof show_10527786 !== 'undefined') {
+        if (typeof window.AdBlock2 !== 'undefined' && typeof window.AdBlock2.show === 'function') {
             return new Promise((resolve) => {
                 this.isAdPlaying = true;
-                show_10527786({
-                    type: 'inApp',
-                    inAppSettings: {
-                        frequency: 2,
-                        capping: 0.1,
-                        interval: 30,
-                        timeout: 5,
-                        everyPage: false
-                    }
-                }).then((result) => {
+                window.AdBlock2.show().then((result) => {
                     this.isAdPlaying = false;
                     resolve(true);
                 }).catch((error) => {

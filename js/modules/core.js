@@ -62,7 +62,7 @@ class RateLimiter {
 
     checkLimit(userId, action) {
         const key = `${userId}_${action}`;
-        const now = Date.now();
+        const now = this.getServerTime();
         const limitConfig = this.limits[action] || { limit: 5, window: 60000 };
         
         if (!this.requests.has(key)) this.requests.set(key, []);
@@ -81,6 +81,10 @@ class RateLimiter {
         
         recentRequests.push(now);
         return { allowed: true };
+    }
+
+    getServerTime() {
+        return Date.now() + (window.app?.serverTimeOffset || 0);
     }
 }
 

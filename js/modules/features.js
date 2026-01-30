@@ -55,7 +55,6 @@ class TaskManager {
                     try {
                         const taskData = child.val();
                         
-                        // التحقق من حالة المهمة والحد الأقصى للاكتمال
                         if (taskData.status !== 'active' && taskData.taskStatus !== 'active') {
                             return;
                         }
@@ -64,12 +63,10 @@ class TaskManager {
                             return;
                         }
                         
-                        // التحقق من الحد الأقصى للاكتمال
                         const currentCompletions = taskData.currentCompletions || 0;
                         const maxCompletions = taskData.maxCompletions || 999999;
                         
                         if (currentCompletions >= maxCompletions) {
-                            // تحديث حالة المهمة إلى مكتملة في قاعدة البيانات
                             this.app.db.ref(`config/tasks/${child.key}`).update({
                                 status: 'completed',
                                 taskStatus: 'completed'
@@ -205,6 +202,16 @@ class TaskManager {
         
         if (this.app.isProcessingTask) {
             this.app.notificationManager.showNotification("Busy", "Please complete current task first", "warning");
+            return;
+        }
+        
+        const rateLimitCheck = this.app.rateLimiter.checkLimit(this.app.tgUser.id, 'task_start');
+        if (!rateLimitCheck.allowed) {
+            this.app.notificationManager.showNotification(
+                "Rate Limit", 
+                `Please wait ${rateLimitCheck.remaining} seconds before starting another task`, 
+                "warning"
+            );
             return;
         }
         
@@ -395,6 +402,7 @@ class TaskManager {
             }
             
             const newTickets = this.app.safeNumber(this.app.userState.giveawayTickets) + 1;
+            const currentTime = this.app.getServerTime();
             
             const updates = {};
             updates.balance = currentBalance + taskReward;
@@ -408,11 +416,9 @@ class TaskManager {
             
             await this.app.db.ref(`users/${this.app.tgUser.id}`).update(updates);
             
-            // زيادة عدد الاكتمالات والتحقق من الوصول للحد الأقصى
             await this.app.db.ref(`config/tasks/${taskId}/currentCompletions`).transaction(current => {
                 const newValue = (current || 0) + 1;
                 
-                // إذا وصل للحد الأقصى، تحديث الحالة إلى مكتملة
                 if (newValue >= task.maxCompletions) {
                     this.app.db.ref(`config/tasks/${taskId}`).update({
                         status: 'completed',

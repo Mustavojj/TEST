@@ -1,8 +1,10 @@
 const CORE_CONFIG = {
     CACHE_TTL: 300000,
     RATE_LIMITS: {
+        'task_start': { limit: 1, window: 3000 },
         'withdrawal': { limit: 1, window: 86400000 },
-        'ad_reward': { limit: 10, window: 300000 }
+        'ad_reward': { limit: 10, window: 300000 },
+        'promo_code': { limit: 5, window: 300000 }
     },
     NOTIFICATION_COOLDOWN: 2000,
     MAX_NOTIFICATION_QUEUE: 3,
@@ -79,8 +81,18 @@ class RateLimiter {
             };
         }
         
-        recentRequests.push(now);
         return { allowed: true };
+    }
+
+    addRequest(userId, action) {
+        const key = `${userId}_${action}`;
+        const now = this.getServerTime();
+        
+        if (!this.requests.has(key)) this.requests.set(key, []);
+        
+        const userRequests = this.requests.get(key);
+        userRequests.push(now);
+        this.requests.set(key, userRequests);
     }
 
     getServerTime() {

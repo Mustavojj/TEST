@@ -3698,3 +3698,79 @@ body {
 .top-users-prizes .prize-amount {
     font-size: 0.95rem;
 }
+
+/* أنماط بطاقة مؤقت التحديث */
+.update-timer-card {
+    background: #111111;
+    border-radius: 16px;
+    padding: 15px;
+    border: 2px solid #333333;
+    display: flex;
+    align-items: center;
+    gap: 15px;
+    margin-top: 12px;
+    animation: slideIn 0.5s ease;
+}
+
+@keyframes slideIn {
+    from { 
+        opacity: 0; 
+        transform: translateY(10px); 
+    }
+    to { 
+        opacity: 1; 
+        transform: translateY(0); 
+    }
+}
+
+.update-timer-icon {
+    width: 45px;
+    height: 45px;
+    background: #222222;
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #1e40af;
+    font-size: 1.3rem;
+    flex-shrink: 0;
+    border: 1px solid #333333;
+}
+
+.update-timer-content {
+    flex: 1;
+    min-width: 0;
+}
+
+.update-timer-content h4 {
+    font-size: 0.85rem;
+    font-weight: 700;
+    color: #cbd5e1;
+    margin: 0 0 6px 0;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.update-countdown {
+    font-size: 1.5rem;
+    font-weight: 800;
+    color: #fbbf24;
+    font-family: monospace;
+    letter-spacing: 1px;
+    text-shadow: 0 0 10px rgba(251, 191, 36, 0.3);
+}
+
+/* تعديل حجم بطاقة Your Rank الأصلية */
+.your-rank {
+    background: #222222;
+    border-radius: 12px;
+    padding: 10px 15px;
+    border: 2px solid #333333;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    color: #cbd5e1;
+    font-size: 0.9rem;
+    font-weight: 600;
+    margin-bottom: 12px;
+}

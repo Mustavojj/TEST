@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <title>Ninja TON</title>
+    <title>Tornado</title>
     
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -19,12 +19,8 @@
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-auth.js"></script>
     
-    <!-- إعلانات In-App Interstitial - Adsgram 2 -->
-    <script src="https://sad.adsgram.ai/js/sad.min.js"></script>
-    
     <script>
         document.addEventListener('DOMContentLoaded', function() {
-            // تهيئة إعلانات المهام
             if (typeof Adsgram !== 'undefined') {
                 window.AdBlock19345 = Adsgram.init({ blockId: "21944" });
                 window.AdBlock2 = Adsgram.init({ blockId: "int-22015" });
@@ -36,17 +32,17 @@
     
     <div class="app-background"></div>
     
-    <div id="app-loader" style="background: #000000;">
+    <div id="app-loader">
         <div class="loading-card">
             <div class="loading-card-header">
                 <div class="loading-card-logo-container">
-                    <img src="https://i.ibb.co/GvWFRrnp/ninja.png" 
-                         alt="Ninja TON" 
+                    <img src="https://cdn-icons-png.flaticon.com/512/9195/9195920.png" 
+                         alt="Tornado" 
                          class="loading-card-logo"
                          oncontextmenu="return false;" 
                          ondragstart="return false;">
                 </div>
-                <h1 class="loading-card-title">NINJA TON V2</h1>
+                <h1 class="loading-card-title">TORNADO</h1>
             </div>
             
             <div class="loading-card-body">
@@ -59,7 +55,7 @@
         </div>
     </div>
 
-    <div id="app" style="display: none;">
+    <div id="app" style="display: none; opacity: 0;">
         <header class="app-header">
             <div class="profile-card">
                 <div class="profile-content">
@@ -72,18 +68,18 @@
                                  ondragstart="return false;">
                         </div>
                          <div class="user-info-left">
-    <h2 id="user-name" class="user-name">User</h2>
-    <div id="header-ton-balance" class="balance-amount">0.00000 TON</div>
+                            <h2 id="user-name" class="user-name">User</h2>
+                            <div id="header-ton-balance" class="balance-amount">0.00000 TON</div>
                          </div>
+                    </div>
                 </div>
             </div>
         </header>
         
         <main id="main-content">
-            <div id="tasks-page" class="page"></div>
-            <div id="giveaway-page" class="page"></div>
+            <div id="tasks-page" class="page active"></div>
             <div id="referrals-page" class="page"></div>
-            <div id="withdraw-page" class="page"></div>
+            <div id="profile-page" class="page"></div>
         </main>
           
         <nav class="bottom-nav">
@@ -91,76 +87,556 @@
                 <i class="fas fa-coins"></i>
                 <span>Earn</span>
             </button>
-            <button class="nav-btn" data-page="giveaway-page">
-                <i class="fas fa-gift"></i>
-                <span>Giveaway</span>
-            </button>
             <button class="nav-btn" data-page="referrals-page">
                 <i class="fas fa-user-plus"></i>
                 <span>Invite</span>
             </button>
-            <button class="nav-btn" data-page="withdraw-page">
-                <i class="fas fa-wallet"></i>
-                <span>Withdraw</span>
+            <button class="nav-btn" data-page="profile-page">
+                <i class="fas fa-user"></i>
+                <span>Profile</span>
             </button>
         </nav>
     </div>
 
-    <script type="module" src="js/app.js"></script>
-    
-    <script>
-        (function() {
-            'use strict';
+    <script type="module">
+        import { APP_CONFIG } from './js/data.js';
+        
+        // نسخة مبسطة من TornadoApp للاختبار
+        class SimpleTornadoApp {
+            constructor() {
+                this.tg = null;
+                this.tgUser = null;
+                this.isInitialized = false;
+                this.loadingProgress = 0;
+            }
             
-            function showError() {
+            showLoadingProgress(percent) {
+                this.loadingProgress = percent;
+                const progressBar = document.getElementById('loading-progress-bar');
+                const loadingPercentage = document.getElementById('loading-percentage');
+                
+                if (progressBar) {
+                    progressBar.style.width = percent + '%';
+                }
+                
+                if (loadingPercentage) {
+                    loadingPercentage.textContent = `${percent}%`;
+                }
+            }
+            
+            showError(message) {
                 document.body.innerHTML = `
-                    <div class="telegram-error">
-                        <div class="error-content">
-                            <div class="error-header">
-                                <div class="error-icon">
-                                    <i class="fab fa-telegram"></i>
-                                </div>
-                                <h2>Ninja TON</h2>
+                    <div style="
+                        position: fixed;
+                        top: 0;
+                        left: 0;
+                        width: 100%;
+                        height: 100%;
+                        background: #000;
+                        display: flex;
+                        align-items: center;
+                        justify-content: center;
+                        padding: 20px;
+                        z-index: 10000;
+                    ">
+                        <div style="
+                            background: #111;
+                            border-radius: 24px;
+                            padding: 30px;
+                            max-width: 320px;
+                            text-align: center;
+                            border: 1px solid #333;
+                        ">
+                            <div style="
+                                width: 60px;
+                                height: 60px;
+                                background: #ef4444;
+                                border-radius: 50%;
+                                display: flex;
+                                align-items: center;
+                                justify-content: center;
+                                margin: 0 auto 20px;
+                                color: white;
+                                font-size: 24px;
+                            ">
+                                <i class="fas fa-exclamation-triangle"></i>
                             </div>
-                            
-                            <div class="error-message">
-                                <div class="error-icon-wrapper">
-                                    <i class="fas fa-exclamation-triangle"></i>
-                                </div>
-                                <h3>Access Denied</h3>
-                                <p>This application works only inside Telegram.</p>
-                            </div>
-                            
-                            <a href="https://t.me/NinjaTONS_Bot" target="_blank" class="telegram-btn">
-                                <i class="fab fa-telegram"></i> Open in Telegram
-                            </a>
+                            <h3 style="color: white; margin-bottom: 10px;">Error</h3>
+                            <p style="color: #9ca3af; margin-bottom: 20px;">${message}</p>
+                            <button onclick="window.location.reload()" style="
+                                width: 100%;
+                                padding: 14px;
+                                background: #059669;
+                                border: none;
+                                border-radius: 12px;
+                                color: white;
+                                font-weight: bold;
+                            ">
+                                Reload App
+                            </button>
                         </div>
                     </div>
                 `;
             }
             
-            function verify() {
-                if (!window.Telegram || !window.Telegram.WebApp) return false;
-                
-                const tg = window.Telegram.WebApp;
-                if (!tg.initDataUnsafe || !tg.initDataUnsafe.user) return false;
-                
-                const user = tg.initDataUnsafe.user;
-                if (!user.id || typeof user.id !== 'number' || user.id <= 0) return false;
-                if (!user.first_name || user.first_name.trim().length === 0) return false;
-                if (!tg.initData || tg.initData.length < 10) return false;
-                
-                return true;
+            async initialize() {
+                try {
+                    this.showLoadingProgress(10);
+                    
+                    // التحقق من Telegram WebApp
+                    if (!window.Telegram || !window.Telegram.WebApp) {
+                        setTimeout(() => {
+                            this.showError("Please open from Telegram Mini App");
+                        }, 100);
+                        return;
+                    }
+                    
+                    this.tg = window.Telegram.WebApp;
+                    this.tg.ready();
+                    this.tg.expand();
+                    
+                    this.showLoadingProgress(30);
+                    
+                    // التحقق من بيانات المستخدم
+                    if (!this.tg.initDataUnsafe || !this.tg.initDataUnsafe.user) {
+                        setTimeout(() => {
+                            this.showError("User data not available");
+                        }, 100);
+                        return;
+                    }
+                    
+                    this.tgUser = this.tg.initDataUnsafe.user;
+                    this.showLoadingProgress(50);
+                    
+                    // تهيئة واجهة المستخدم الأساسية
+                    setTimeout(() => {
+                        this.showLoadingProgress(80);
+                        
+                        // تحديث معلومات المستخدم
+                        const userName = document.getElementById('user-name');
+                        const userPhoto = document.getElementById('user-photo');
+                        const tonBalance = document.getElementById('header-ton-balance');
+                        
+                        if (userName) {
+                            const fullName = this.tgUser.first_name || 'User';
+                            userName.textContent = fullName.length > 20 ? fullName.substring(0, 20) + '...' : fullName;
+                        }
+                        
+                        if (userPhoto && this.tgUser.photo_url) {
+                            userPhoto.src = this.tgUser.photo_url;
+                        }
+                        
+                        if (tonBalance) {
+                            tonBalance.innerHTML = `<b>0.00000 TON</b>`;
+                        }
+                        
+                        this.showLoadingProgress(100);
+                        
+                        // الانتقال إلى الشاشة الرئيسية
+                        setTimeout(() => {
+                            const appLoader = document.getElementById('app-loader');
+                            const app = document.getElementById('app');
+                            
+                            if (appLoader) {
+                                appLoader.style.opacity = '0';
+                                appLoader.style.transition = 'opacity 0.5s ease';
+                                
+                                setTimeout(() => {
+                                    appLoader.style.display = 'none';
+                                }, 500);
+                            }
+                            
+                            if (app) {
+                                app.style.display = 'block';
+                                setTimeout(() => {
+                                    app.style.opacity = '1';
+                                    app.style.transition = 'opacity 0.3s ease';
+                                }, 50);
+                            }
+                            
+                            // تهيئة الصفحات
+                            this.initializePages();
+                            this.isInitialized = true;
+                            
+                        }, 500);
+                        
+                    }, 1000);
+                    
+                } catch (error) {
+                    console.error("Initialization error:", error);
+                    this.showError("Failed to initialize app");
+                }
             }
             
-            document.addEventListener('DOMContentLoaded', function() {
-                if (!window.Telegram || !window.Telegram.WebApp) {
-                    showError();
-                    return;
-                }
-            });
+            initializePages() {
+                // تهيئة صفحة المهام
+                this.renderTasksPage();
+                this.setupNavigation();
+            }
             
-        })();
+            renderTasksPage() {
+                const tasksPage = document.getElementById('tasks-page');
+                if (!tasksPage) return;
+                
+                tasksPage.innerHTML = `
+                    <div id="tasks-content">
+                        <div class="tasks-tabs">
+                            <button class="tab-btn active" data-tab="social-tab">
+                                <i class="fas fa-users"></i> Social
+                            </button>
+                            <button class="tab-btn" data-tab="partner-tab">
+                                <i class="fas fa-handshake"></i> Partner
+                            </button>
+                            <button class="tab-btn" data-tab="more-tab">
+                                <i class="fas fa-ellipsis-h"></i> More
+                            </button>
+                        </div>
+                        
+                        <div id="social-tab" class="tasks-tab-content active">
+                            <div class="add-task-card">
+                                <button class="add-task-btn" id="add-task-btn">
+                                    <i class="fas fa-plus-circle"></i> Add New Task
+                                </button>
+                            </div>
+                            <div class="no-tasks">
+                                <i class="fas fa-users"></i>
+                                <p>No social tasks available now</p>
+                            </div>
+                        </div>
+                        <div id="partner-tab" class="tasks-tab-content">
+                            <div class="no-tasks">
+                                <i class="fas fa-handshake"></i>
+                                <p>No partner tasks available now</p>
+                            </div>
+                        </div>
+                        <div id="more-tab" class="tasks-tab-content">
+                            <div class="promo-card">
+                                <div class="promo-header">
+                                    <div class="promo-icon">
+                                        <i class="fas fa-gift"></i>
+                                    </div>
+                                    <h3>Promo Codes</h3>
+                                    
+                                </div>
+                                <input type="text" id="promo-input" class="promo-input" 
+                                       placeholder="Enter promo code" maxlength="20">
+                                <button id="promo-btn" class="promo-btn">
+                                    <i class="fas fa-gift"></i> APPLY
+                                </button>
+                            </div>
+                            <div class="ad-card">
+                                <div class="ad-header">
+                                    <div class="ad-icon">
+                                        <i class="fas fa-ad"></i>
+                                    </div>
+                                    <div class="ad-title">Watch AD #1</div>
+                                </div>
+                                <div class="ad-reward">
+                                    <img src="https://cdn-icons-png.flaticon.com/512/15208/15208522.png" alt="TON">
+                                    <span>Reward: 0.001 TON</span>
+                                </div>
+                                <button class="ad-btn available" id="watch-ad-1-btn">
+                                    WATCH
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                `;
+                
+                this.setupTasksTabs();
+            }
+            
+            setupTasksTabs() {
+                const tabButtons = document.querySelectorAll('.tasks-tabs .tab-btn');
+                const tabContents = document.querySelectorAll('.tasks-tab-content');
+                
+                tabButtons.forEach(button => {
+                    button.addEventListener('click', () => {
+                        const tabId = button.getAttribute('data-tab');
+                        
+                        tabButtons.forEach(btn => btn.classList.remove('active'));
+                        tabContents.forEach(content => content.classList.remove('active'));
+                        
+                        button.classList.add('active');
+                        const targetTab = document.getElementById(tabId);
+                        if (targetTab) {
+                            targetTab.classList.add('active');
+                        }
+                    });
+                });
+            }
+            
+            setupNavigation() {
+                const bottomNav = document.querySelector('.bottom-nav');
+                if (!bottomNav) return;
+                
+                const navButtons = bottomNav.querySelectorAll('.nav-btn');
+                navButtons.forEach(btn => {
+                    btn.addEventListener('click', (e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        const pageId = btn.getAttribute('data-page');
+                        if (pageId) {
+                            this.showPage(pageId);
+                        }
+                    });
+                });
+            }
+            
+            showPage(pageId) {
+                const pages = document.querySelectorAll('.page');
+                const navButtons = document.querySelectorAll('.nav-btn');
+                
+                pages.forEach(page => page.classList.remove('active'));
+                navButtons.forEach(btn => btn.classList.remove('active'));
+                
+                const targetPage = document.getElementById(pageId);
+                const targetButton = document.querySelector(`[data-page="${pageId}"]`);
+                
+                if (targetPage) {
+                    targetPage.classList.add('active');
+                    
+                    if (targetButton) targetButton.classList.add('active');
+                    
+                    if (pageId === 'tasks-page') {
+                        // Already rendered
+                    } else if (pageId === 'referrals-page') {
+                        this.renderReferralsPage();
+                    } else if (pageId === 'profile-page') {
+                        this.renderProfilePage();
+                    }
+                }
+            }
+            
+            renderReferralsPage() {
+                const referralsPage = document.getElementById('referrals-page');
+                if (!referralsPage) return;
+                
+                const referralLink = `https://t.me/${APP_CONFIG.BOT_USERNAME}/tornado?startapp=${this.tgUser.id}`;
+                
+                referralsPage.innerHTML = `
+                    <div class="referrals-container">
+                        <div class="referral-link-section">
+                            <div class="referral-link-box">
+                                <p class="link-label">Your referral link:</p>
+                                <div class="link-display" id="referral-link-text">${referralLink}</div>
+                                <button class="copy-btn" id="copy-referral-link-btn">
+                                    <i class="far fa-copy"></i> Copy Link
+                                </button>
+                            </div>
+                            
+                            <div class="referral-info">
+                                <div class="info-card">
+                                    <div class="info-icon">
+                                        <i class="fas fa-gift"></i>
+                                    </div>
+                                    <div class="info-content">
+                                        <h4>Get ${APP_CONFIG.REFERRAL_BONUS_TON} TON</h4>
+                                        <p>For each verified referral</p>
+                                    </div>
+                                </div>
+                                <div class="info-card">
+                                    <div class="info-icon">
+                                        <i class="fas fa-percentage"></i>
+                                    </div>
+                                    <div class="info-content">
+                                        <h4>Earn ${APP_CONFIG.REFERRAL_PERCENTAGE}% Bonus</h4>
+                                        <p>From your referrals' earnings</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="referral-stats-section">
+                            <h3><i class="fas fa-chart-bar"></i> Referrals Statistics</h3>
+                            <div class="stats-grid-two">
+                                <div class="stat-card">
+                                    <div class="stat-icon">
+                                        <i class="fas fa-users"></i>
+                                    </div>
+                                    <div class="stat-info">
+                                        <h4>Total Referrals</h4>
+                                        <p class="stat-value">0</p>
+                                    </div>
+                                </div>
+                                <div class="stat-card">
+                                    <div class="stat-icon">
+                                        <i class="fas fa-coins"></i>
+                                    </div>
+                                    <div class="stat-info">
+                                        <h4>Total Earnings</h4>
+                                        <p class="stat-value">0.00000 TON</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="last-referrals-section">
+                            <h3><i class="fas fa-history"></i> Recent Referrals</h3>
+                            <div class="referrals-list" id="referrals-list">
+                                <div class="no-data">
+                                    <i class="fas fa-handshake"></i>
+                                    <p>No referrals yet</p>
+                                    <p class="hint">Share your link to earn free TON!</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                `;
+                
+                this.setupReferralsPageEvents();
+            }
+            
+            setupReferralsPageEvents() {
+                const copyBtn = document.getElementById('copy-referral-link-btn');
+                if (copyBtn) {
+                    copyBtn.addEventListener('click', () => {
+                        const referralLink = `https://t.me/${APP_CONFIG.BOT_USERNAME}/tornado?startapp=${this.tgUser.id}`;
+                        navigator.clipboard.writeText(referralLink).then(() => {
+                            copyBtn.classList.add('copied');
+                            const originalText = copyBtn.innerHTML;
+                            copyBtn.innerHTML = '<i class="fas fa-check"></i> Copied!';
+                            
+                            setTimeout(() => {
+                                copyBtn.classList.remove('copied');
+                                copyBtn.innerHTML = originalText;
+                            }, 2000);
+                        });
+                    });
+                }
+            }
+            
+            renderProfilePage() {
+                const profilePage = document.getElementById('profile-page');
+                if (!profilePage) return;
+                
+                profilePage.innerHTML = `
+                    <div class="profile-container">
+                        <div class="profile-header">
+                            <div class="profile-avatar-large">
+                                <img src="${this.tgUser.photo_url || 'https://cdn-icons-png.flaticon.com/512/9195/9195920.png'}" 
+                                     alt="User" 
+                                     oncontextmenu="return false;" 
+                                     ondragstart="return false;">
+                            </div>
+                            <div class="profile-name">${this.tgUser.username ? `@${this.tgUser.username}` : 'No Username'}</div>
+                        </div>
+                        
+                        <div class="profile-stats">
+                            <div class="stats-grid">
+                                <div class="stat-item">
+                                    <div class="stat-icon">
+                                        <i class="fas fa-calendar-day"></i>
+                                    </div>
+                                    <div class="stat-content">
+                                        <div class="stat-label">Joined at</div>
+                                        <div class="stat-value">Now</div>
+                                    </div>
+                                </div>
+                                
+                                <div class="stat-item">
+                                    <div class="stat-icon">
+                                        <i class="fas fa-ad"></i>
+                                    </div>
+                                    <div class="stat-content">
+                                        <div class="stat-label">Watched Ads</div>
+                                        <div class="stat-value">0</div>
+                                    </div>
+                                </div>
+                                
+                                <div class="stat-item">
+                                    <div class="stat-icon">
+                                        <i class="fas fa-users"></i>
+                                    </div>
+                                    <div class="stat-content">
+                                        <div class="stat-label">Total Referrals</div>
+                                        <div class="stat-value">0</div>
+                                    </div>
+                                </div>
+                                
+                                <div class="stat-item">
+                                    <div class="stat-icon">
+                                        <i class="fas fa-wallet"></i>
+                                    </div>
+                                    <div class="stat-content">
+                                        <div class="stat-label">Total Withdrawals</div>
+                                        <div class="stat-value">0.000 TON</div>
+                                    </div>
+                                </div>
+                                
+                                <div class="stat-item">
+                                    <div class="stat-icon">
+                                        <i class="fas fa-chart-line"></i>
+                                    </div>
+                                    <div class="stat-content">
+                                        <div class="stat-label">Total Earnings</div>
+                                        <div class="stat-value">0.000 TON</div>
+                                    </div>
+                                </div>
+                                
+                                <div class="stat-item">
+                                    <div class="stat-icon">
+                                        <i class="fas fa-tasks"></i>
+                                    </div>
+                                    <div class="stat-content">
+                                        <div class="stat-label">Tasks Completed</div>
+                                        <div class="stat-value">0</div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="wallet-section">
+                            <div class="wallet-header">
+                                <h3><i class="fas fa-wallet"></i> Wallet</h3>
+                            </div>
+                            
+                            <div class="wallet-balance-card">
+                                <div class="balance-icon">
+                                    <i class="fas fa-gem"></i>
+                                </div>
+                                <div class="balance-info">
+                                    <div class="balance-label">Current Balance</div>
+                                    <div class="balance-amount">0.00000 TON</div>
+                                </div>
+                            </div>
+                            
+                            <div class="wallet-actions">
+                                <button class="wallet-btn deposit" id="deposit-btn">
+                                    <i class="fas fa-arrow-down"></i> Deposit
+                                </button>
+                                <button class="wallet-btn withdraw" id="withdraw-btn">
+                                    <i class="fas fa-arrow-up"></i> Withdraw
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }
+        }
+        
+        document.addEventListener('DOMContentLoaded', () => {
+            if (!window.Telegram || !window.Telegram.WebApp) {
+                document.body.innerHTML = `
+                    <div class="error-container">
+                        <div class="error-content">
+                            <div class="error-icon">
+                                <i class="fab fa-telegram"></i>
+                            </div>
+                            <h2>Tornado</h2>
+                            <p>Please open from Telegram Mini App</p>
+                        </div>
+                    </div>
+                `;
+                return;
+            }
+            
+            window.app = new SimpleTornadoApp();
+            
+            setTimeout(() => {
+                window.app.initialize();
+            }, 300);
+        });
     </script>
 </body>
 </html>

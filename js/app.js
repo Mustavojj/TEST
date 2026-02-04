@@ -1,26 +1,31 @@
 const APP_CONFIG = {
-    APP_NAME: "Ninja TON",
-    BOT_USERNAME: "NINJA2_Rbot",
+    APP_NAME: "TORNADO", 
+    BOT_USERNAME: "@Tornado_Rbot", 
     MINIMUM_WITHDRAW: 0.10,
-    REFERRAL_BONUS_TON: 0.001,
-    REFERRAL_PERCENTAGE: 20,
+    REFERRAL_BONUS_TON: 0.01,
+    REFERRAL_PERCENTAGE: 10,
     REFERRAL_BONUS_TASKS: 0,
     TASK_REWARD_BONUS: 0,
     MAX_DAILY_ADS: 999999,
     AD_COOLDOWN: 600000,
     WELCOME_TASKS: [
         {
-            name: "Join Official Channel",
-            url: "https://t.me/NINJA_TONS",
-            channel: "@NINJA_TONS"
+            name: "Join Tornado Channel",
+            url: "https://t.me/TORNADO_CHNL",
+            channel: "@TORNADO_CHNL"
         },
         {
-            name: "Join Partner 1",
+            name: "Join Tornado Group",
+            url: "https://t.me/NEJARS",
+            channel: "@NEJARS"
+        },
+        {
+            name: "Join Money Hub",
             url: "https://t.me/MONEYHUB9_69",
             channel: "@MONEYHUB9_69"
         },
         {
-            name: "Join Partner 2",
+            name: "Join Crypto AL",
             url: "https://t.me/Crypto_al2",
             channel: "@Crypto_al2"
         }

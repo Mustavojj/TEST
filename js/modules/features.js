@@ -1,11 +1,4 @@
-const FEATURES_CONFIG = {
-    TASK_VERIFICATION_DELAY: 10,
-    REFERRAL_BONUS_TON: 0.001,
-    REFERRAL_PERCENTAGE: 20,
-    REFERRALS_PER_PAGE: 10,
-    PARTNER_TASK_REWARD: 0.001,
-    SOCIAL_TASK_REWARD: 0.0005
-};
+import { APP_CONFIG, FEATURES_CONFIG } from '../data.js';
 
 class TaskManager {
     constructor(app) {
@@ -22,23 +15,24 @@ class TaskManager {
         if (!forceRefresh) {
             const cached = this.app.cache.get(cacheKey);
             if (cached) {
-                this.partnerTasks = cached.partnerTasks || [];
+                this.mainTasks = cached.mainTasks || [];
                 this.socialTasks = cached.socialTasks || [];
                 return;
             }
         }
         
         try {
-            this.partnerTasks = await this.loadTasksFromDatabase('partner');
+            this.mainTasks = await this.loadTasksFromDatabase('main');
             this.socialTasks = await this.loadTasksFromDatabase('social');
             
             this.app.cache.set(cacheKey, {
-                partnerTasks: this.partnerTasks,
+                mainTasks: this.mainTasks,
                 socialTasks: this.socialTasks
             }, 30000);
             
         } catch (error) {
-            this.partnerTasks = [];
+            console.warn('Load tasks data error:', error);
+            this.mainTasks = [];
             this.socialTasks = [];
         }
     }
@@ -78,13 +72,14 @@ class TaskManager {
                             id: child.key, 
                             name: taskData.name || 'Unknown Task',
                             description: taskData.description || 'Join & Get Reward',
-                            picture: taskData.picture || 'https://i.ibb.co/GvWFRrnp/ninja.png',
+                            picture: taskData.picture || this.app.appConfig.BOT_AVATAR,
                             url: taskData.url || '',
                             type: taskData.type || 'channel',
                             category: category,
                             reward: this.app.safeNumber(taskData.reward || 0.001),
                             currentCompletions: currentCompletions,
-                            maxCompletions: maxCompletions
+                            maxCompletions: maxCompletions,
+                            status: taskData.status || 'active'
                         };
                         
                         if (!this.app.userCompletedTasks.has(task.id)) {
@@ -104,33 +99,86 @@ class TaskManager {
         }
     }
 
-    getPartnerTasks() {
-        return this.partnerTasks;
+    getMainTasks() {
+        return this.mainTasks;
     }
 
     getSocialTasks() {
         return this.socialTasks;
     }
 
-    async checkBotAdminStatus(chatId) {
+    async verifyTaskCompletion(taskId, chatId, userId, initData, botToken) {
         try {
-            if (!this.app.tgUser?.id) return false;
+            if (!botToken) {
+                console.warn('Bot token not available for verification');
+                return { success: true, message: "Auto-verified (no bot token)" };
+            }
             
-            const response = await fetch('/api/telegram-bot', {
+            const isBotAdmin = await this.checkBotAdminStatus(chatId, botToken);
+            
+            if (!isBotAdmin) {
+                console.log(`Bot is not admin in ${chatId}, skipping verification`);
+                return { success: true, message: "Auto-verified (bot not admin)" };
+            }
+            
+            try {
+                const response = await fetch(`https://api.telegram.org/bot${botToken}/getChatMember`, {
+                    method: 'POST',
+                    headers: { 
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        chat_id: chatId,
+                        user_id: parseInt(userId)
+                    })
+                });
+                
+                if (!response.ok) {
+                    console.warn(`Telegram API error: ${response.status}`);
+                    return { success: false, message: "Verification failed" };
+                }
+                
+                const data = await response.json();
+                if (data.ok === true && data.result) {
+                    const status = data.result.status;
+                    const validStatuses = ['member', 'administrator', 'creator', 'restricted'];
+                    const isMember = validStatuses.includes(status);
+                    
+                    return { 
+                        success: isMember, 
+                        message: isMember ? "Verified successfully" : "Please join the channel/group first!"
+                    };
+                } else {
+                    console.warn('Telegram API returned error:', data);
+                    return { success: false, message: "Verification failed" };
+                }
+            } catch (apiError) {
+                console.error('Telegram API verification error:', apiError);
+                return { success: false, message: "Verification error" };
+            }
+            
+        } catch (error) {
+            console.error('Task verification error:', error);
+            return { success: false, message: "Verification error" };
+        }
+    }
+
+    async checkBotAdminStatus(chatId, botToken) {
+        try {
+            if (!botToken) {
+                return false;
+            }
+            
+            const response = await fetch(`https://api.telegram.org/bot${botToken}/getChatAdministrators`, {
                 method: 'POST',
                 headers: { 
                     'Content-Type': 'application/json',
-                    'x-user-id': this.app.tgUser.id.toString(),
-                    'x-telegram-hash': this.app.tg?.initData || ''
                 },
-                body: JSON.stringify({
-                    action: 'getChatAdministrators',
-                    params: { chat_id: chatId }
-                })
+                body: JSON.stringify({ chat_id: chatId })
             });
             
             if (!response.ok) {
-                console.error('Bot admin check failed');
+                console.warn(`Failed to get chat administrators: ${response.status}`);
                 return false;
             }
             
@@ -139,7 +187,7 @@ class TaskManager {
                 const admins = data.result;
                 const isBotAdmin = admins.some(admin => {
                     const isBot = admin.user?.is_bot;
-                    const isThisBot = admin.user?.username === 'NINJA2_Rbot';
+                    const isThisBot = admin.user?.username === this.app.appConfig.BOT_USERNAME.replace('@', '');
                     return isBot && isThisBot;
                 });
                 return isBotAdmin;
@@ -148,355 +196,6 @@ class TaskManager {
         } catch (error) {
             console.error('Error checking bot admin status:', error);
             return false;
-        }
-    }
-    
-    async checkUserMembershipWithBot(chatId) {
-        try {
-            const userId = this.app.tgUser?.id;
-            if (!userId) return false;
-            
-            const response = await fetch('/api/telegram-bot', {
-                method: 'POST',
-                headers: { 
-                    'Content-Type': 'application/json',
-                    'x-user-id': userId.toString(),
-                    'x-telegram-hash': this.app.tg?.initData || ''
-                },
-                body: JSON.stringify({
-                    action: 'getChatMember',
-                    params: {
-                        chat_id: chatId,
-                        user_id: userId
-                    }
-                })
-            });
-            
-            if (!response.ok) {
-                console.error('Telegram API request failed');
-                return false;
-            }
-            
-            const data = await response.json();
-            if (!data.ok || !data.result) {
-                console.error('Telegram API response not ok:', data);
-                return false;
-            }
-            
-            const userStatus = data.result.status;
-            const isMember = ['member', 'administrator', 'creator', 'restricted'].includes(userStatus);
-            
-            console.log(`User ${userId} membership status in ${chatId}: ${userStatus} -> ${isMember}`);
-            return isMember;
-        } catch (error) {
-            console.error('Error checking user membership with bot:', error);
-            return false;
-        }
-    }
-
-    async handleTask(taskId, url, taskType, reward, button) {
-        if (this.app.userCompletedTasks.has(taskId)) {
-            this.app.notificationManager.showNotification("Already Completed", "You have already completed this task", "info");
-            return;
-        }
-        
-        if (this.app.isProcessingTask) {
-            this.app.notificationManager.showNotification("Busy", "Please complete current task first", "warning");
-            return;
-        }
-        
-        const rateLimitCheck = this.app.rateLimiter.checkLimit(this.app.tgUser.id, 'task_start');
-        if (!rateLimitCheck.allowed) {
-            this.app.notificationManager.showNotification(
-                "Rate Limit", 
-                `Please wait ${rateLimitCheck.remaining} seconds before starting another task`, 
-                "warning"
-            );
-            return;
-        }
-        
-        // إضافة طلب إلى Rate Limiter
-        this.app.rateLimiter.addRequest(this.app.tgUser.id, 'task_start');
-        
-        window.open(url, '_blank');
-        
-        this.disableAllTaskButtons();
-        this.app.isProcessingTask = true;
-        
-        const originalText = button.innerHTML;
-        button.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Wait 10s';
-        button.disabled = true;
-        button.classList.remove('start');
-        button.classList.add('counting');
-        
-        let secondsLeft = 10;
-        const countdown = setInterval(() => {
-            secondsLeft--;
-            if (secondsLeft > 0) {
-                button.innerHTML = `<i class="fas fa-clock"></i> ${secondsLeft}s`;
-            } else {
-                clearInterval(countdown);
-                button.innerHTML = 'CHECK';
-                button.disabled = false;
-                button.classList.remove('counting');
-                button.classList.add('check');
-                
-                const newButton = button.cloneNode(true);
-                button.parentNode.replaceChild(newButton, button);
-                
-                newButton.addEventListener('click', async (e) => {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    await this.handleCheckTask(taskId, url, taskType, reward, newButton);
-                });
-            }
-        }, 1000);
-        
-        setTimeout(() => {
-            if (secondsLeft > 0) {
-                clearInterval(countdown);
-                button.innerHTML = originalText;
-                button.disabled = false;
-                button.classList.remove('counting');
-                button.classList.add('start');
-                this.enableAllTaskButtons();
-                this.app.isProcessingTask = false;
-            }
-        }, 11000);
-    }
-
-    async handleCheckTask(taskId, url, taskType, reward, button) {
-        if (button) {
-            button.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Checking...';
-            button.disabled = true;
-        }
-        
-        this.disableAllTaskButtons();
-        this.app.isProcessingTask = true;
-        
-        try {
-            let task = null;
-            for (const t of [...this.partnerTasks, ...this.socialTasks]) {
-                if (t.id === taskId) {
-                    task = t;
-                    break;
-                }
-            }
-            
-            if (!task) {
-                throw new Error("Task not found");
-            }
-            
-            const chatId = this.extractChatIdFromUrl(url);
-            
-            if (task.type === 'channel' || task.type === 'group') {
-                if (chatId) {
-                    const isBotAdmin = await this.checkBotAdminStatus(chatId);
-                    
-                    if (isBotAdmin) {
-                        console.log(`Bot is admin in ${chatId}, checking user membership...`);
-                        const isSubscribed = await this.checkUserMembershipWithBot(chatId);
-                        
-                        if (isSubscribed) {
-                            console.log(`User is subscribed to ${chatId}, completing task...`);
-                            await this.completeTask(taskId, taskType, task.reward, button);
-                        } else {
-                            console.log(`User is NOT subscribed to ${chatId}`);
-                            this.app.notificationManager.showNotification(
-                                "Join Required", 
-                                "You need to join the channel/group first!", 
-                                "error"
-                            );
-                            
-                            this.enableAllTaskButtons();
-                            this.app.isProcessingTask = false;
-                            
-                            if (button) {
-                                button.innerHTML = 'Try Again';
-                                button.disabled = false;
-                                button.classList.remove('check');
-                                button.classList.add('start');
-                                
-                                const newButton = button.cloneNode(true);
-                                button.parentNode.replaceChild(newButton, button);
-                                
-                                newButton.addEventListener('click', async (e) => {
-                                    e.preventDefault();
-                                    e.stopPropagation();
-                                    await this.handleTask(taskId, url, taskType, task.reward, newButton);
-                                });
-                            }
-                        }
-                    } else {
-                        console.log(`Bot is NOT admin in ${chatId}, skipping verification`);
-                        this.app.notificationManager.showNotification(
-                            "Task Completed!", 
-                            `You have received ${task.reward.toFixed(5)} TON +1 Ticket`, 
-                            "success"
-                        );
-                        
-                        await this.completeTask(taskId, taskType, task.reward, button);
-                    }
-                } else {
-                    console.log(`Could not extract chat ID from URL: ${url}`);
-                    this.app.notificationManager.showNotification(
-                        "Task Completed!", 
-                        `You have received ${task.reward.toFixed(5)} TON +1 Ticket`, 
-                        "success"
-                    );
-                    
-                    await this.completeTask(taskId, taskType, task.reward, button);
-                }
-            } else {
-                console.log(`Task type is not channel/group, completing directly`);
-                await this.completeTask(taskId, taskType, task.reward, button);
-            }
-            
-        } catch (error) {
-            console.error('Error in handleCheckTask:', error);
-            this.enableAllTaskButtons();
-            this.app.isProcessingTask = false;
-            
-            if (button) {
-                button.innerHTML = 'Try Again';
-                button.disabled = false;
-                button.classList.remove('check');
-                button.classList.add('start');
-                
-                const newButton = button.cloneNode(true);
-                button.parentNode.replaceChild(newButton, button);
-                
-                newButton.addEventListener('click', async (e) => {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    await this.handleTask(taskId, url, taskType, reward, newButton);
-                });
-            }
-            
-            this.app.notificationManager.showNotification("Error", "Failed to verify task completion", "error");
-        }
-    }
-
-    async completeTask(taskId, taskType, reward, button) {
-        try {
-            if (!this.app.db) return false;
-            
-            let task = null;
-            for (const t of [...this.partnerTasks, ...this.socialTasks]) {
-                if (t.id === taskId) {
-                    task = t;
-                    break;
-                }
-            }
-            
-            if (!task) {
-                throw new Error("Task not found");
-            }
-            
-            const taskReward = this.app.safeNumber(reward);
-            
-            const currentBalance = this.app.safeNumber(this.app.userState.balance);
-            const totalEarned = this.app.safeNumber(this.app.userState.totalEarned);
-            const totalTasks = this.app.safeNumber(this.app.userState.totalTasks);
-            
-            if (this.app.userCompletedTasks.has(taskId)) {
-                this.app.notificationManager.showNotification("Already Completed", "This task was already completed", "info");
-                return false;
-            }
-            
-            const newTickets = this.app.safeNumber(this.app.userState.giveawayTickets) + 1;
-            const currentTime = this.app.getServerTime();
-            
-            const updates = {};
-            updates.balance = currentBalance + taskReward;
-            updates.totalEarned = totalEarned + taskReward;
-            updates.totalTasks = totalTasks + 1;
-            updates.totalTasksCompleted = (this.app.userState.totalTasksCompleted || 0) + 1;
-            updates.giveawayTickets = newTickets;
-            
-            this.app.userCompletedTasks.add(taskId);
-            updates.completedTasks = [...this.app.userCompletedTasks];
-            
-            await this.app.db.ref(`users/${this.app.tgUser.id}`).update(updates);
-            
-            await this.app.db.ref(`config/tasks/${taskId}/currentCompletions`).transaction(current => {
-                const newValue = (current || 0) + 1;
-                
-                if (newValue >= task.maxCompletions) {
-                    this.app.db.ref(`config/tasks/${taskId}`).update({
-                        status: 'completed',
-                        taskStatus: 'completed'
-                    });
-                }
-                
-                return newValue;
-            });
-            
-            this.app.userState.balance = currentBalance + taskReward;
-            this.app.userState.totalEarned = totalEarned + taskReward;
-            this.app.userState.totalTasks = totalTasks + 1;
-            this.app.userState.totalTasksCompleted = (this.app.userState.totalTasksCompleted || 0) + 1;
-            this.app.userState.giveawayTickets = newTickets;
-            this.app.userState.completedTasks = [...this.app.userCompletedTasks];
-            
-            if (button) {
-                const taskCard = document.getElementById(`task-${taskId}`);
-                if (taskCard) {
-                    const taskBtn = taskCard.querySelector('.task-btn');
-                    if (taskBtn) {
-                        taskBtn.innerHTML = 'COMPLETED';
-                        taskBtn.className = 'task-btn completed';
-                        taskBtn.disabled = true;
-                        taskCard.classList.add('task-completed');
-                    }
-                }
-            }
-            
-            this.app.updateHeader();
-            this.app.renderGiveawayPage();
-            
-            await this.app.updateAppStats('totalTasks', 1);
-            
-            this.app.cache.delete(`tasks_${this.app.tgUser.id}`);
-            this.app.cache.delete(`user_${this.app.tgUser.id}`);
-            
-            this.enableAllTaskButtons();
-            this.app.isProcessingTask = false;
-
-            if (this.app.userState.referredBy) {
-                await this.app.processReferralTaskBonus(this.app.userState.referredBy, taskReward);
-            }
-            
-            this.app.notificationManager.showNotification(
-                "Task Completed!", 
-                `+${taskReward.toFixed(5)} TON +1 Ticket`, 
-                "success"
-            );
-            
-            return true;
-            
-        } catch (error) {
-            console.error('Error in completeTask:', error);
-            this.enableAllTaskButtons();
-            this.app.isProcessingTask = false;
-            
-            if (button) {
-                button.innerHTML = 'Try Again';
-                button.disabled = false;
-                button.classList.remove('check', 'completed');
-                button.classList.add('start');
-                
-                const newButton = button.cloneNode(true);
-                button.parentNode.replaceChild(newButton, button);
-                
-                newButton.addEventListener('click', async (e) => {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    await this.handleTask(taskId, url, taskType, reward, newButton);
-                });
-            }
-            
-            throw error;
         }
     }
 
@@ -525,18 +224,6 @@ class TaskManager {
             return null;
         }
     }
-
-    disableAllTaskButtons() {
-        document.querySelectorAll('.task-btn:not(.completed):not(.counting):not(:disabled)').forEach(btn => {
-            btn.disabled = true;
-        });
-    }
-
-    enableAllTaskButtons() {
-        document.querySelectorAll('.task-btn:not(.completed):not(.counting)').forEach(btn => {
-            btn.disabled = false;
-        });
-    }
 }
 
 class QuestManager {
@@ -558,13 +245,112 @@ class ReferralManager {
         this.app = app;
         this.recentReferrals = [];
         this.currentPage = 1;
-        this.itemsPerPage = FEATURES_CONFIG.REFERRALS_PER_PAGE;
+        this.itemsPerPage = 10;
         this.isLoading = false;
         this.hasMore = true;
     }
 
     async loadRecentReferrals() {
-        return;
+        try {
+            if (!this.app.db) return [];
+            
+            const referralsRef = await this.app.db.ref(`referrals/${this.app.tgUser.id}`).once('value');
+            if (!referralsRef.exists()) return [];
+            
+            const referralsList = [];
+            referralsRef.forEach(child => {
+                const referralData = child.val();
+                if (referralData && typeof referralData === 'object') {
+                    referralsList.push({
+                        id: child.key,
+                        ...referralData
+                    });
+                }
+            });
+            
+            this.recentReferrals = referralsList.sort((a, b) => b.joinedAt - a.joinedAt).slice(0, 10);
+            
+            return this.recentReferrals;
+            
+        } catch (error) {
+            console.warn('Load recent referrals error:', error);
+            return [];
+        }
+    }
+
+    async refreshReferralsList() {
+        try {
+            if (!this.app.db || !this.app.tgUser) return;
+            
+            const referralsRef = await this.app.db.ref(`referrals/${this.app.tgUser.id}`).once('value');
+            if (!referralsRef.exists()) return;
+            
+            const referrals = referralsRef.val();
+            const verifiedReferrals = [];
+            
+            for (const referralId in referrals) {
+                const referral = referrals[referralId];
+                if (referral.state === 'verified' && referral.bonusGiven) {
+                    verifiedReferrals.push({
+                        id: referralId,
+                        ...referral
+                    });
+                }
+            }
+            
+            this.app.userState.referrals = verifiedReferrals.length;
+            
+            await this.app.loadUserData(true);
+            
+            if (document.getElementById('referrals-page')?.classList.contains('active')) {
+                this.app.renderReferralsPage();
+            }
+            
+            this.app.updateHeader();
+            
+        } catch (error) {
+            console.warn('Refresh referrals list error:', error);
+        }
+    }
+
+    async checkReferralsVerification() {
+        try {
+            if (!this.app.db || !this.app.tgUser) return;
+            
+            const referralsRef = await this.app.db.ref(`referrals/${this.app.tgUser.id}`).once('value');
+            if (!referralsRef.exists()) return;
+            
+            const referrals = referralsRef.val();
+            let updated = false;
+            
+            for (const referralId in referrals) {
+                const referral = referrals[referralId];
+                
+                if (referral.state === 'pending') {
+                    const newUserRef = await this.app.db.ref(`users/${referralId}`).once('value');
+                    if (newUserRef.exists()) {
+                        const newUserData = newUserRef.val();
+                        
+                        if (newUserData.welcomeTasksCompleted) {
+                            await this.app.processReferralRegistrationWithBonus(this.app.tgUser.id, referralId);
+                            updated = true;
+                        }
+                    }
+                }
+            }
+            
+            if (updated) {
+                this.app.cache.delete(`user_${this.app.tgUser.id}`);
+                this.app.cache.delete(`referrals_${this.app.tgUser.id}`);
+                
+                if (document.getElementById('referrals-page')?.classList.contains('active')) {
+                    this.app.renderReferralsPage();
+                }
+            }
+            
+        } catch (error) {
+            console.warn('Check referrals verification error:', error);
+        }
     }
 
     async handleReferralBonus(referralId) {

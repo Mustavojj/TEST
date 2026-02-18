@@ -1,41 +1,8 @@
-const APP_CONFIG = {
-    APP_NAME: "TORNADO", 
-    BOT_USERNAME: "@Tornado_Rbot", 
-    MINIMUM_WITHDRAW: 0.10,
-    REFERRAL_BONUS_TON: 0.01,
-    REFERRAL_PERCENTAGE: 10,
-    REFERRAL_BONUS_TASKS: 0,
-    TASK_REWARD_BONUS: 0,
-    MAX_DAILY_ADS: 999999,
-    AD_COOLDOWN: 600000,
-    WELCOME_TASKS: [
-        {
-            name: "Join Tornado Channel",
-            url: "https://t.me/TORNADO_CHNL",
-            channel: "@TORNADO_CHNL"
-        },
-        {
-            name: "Join Tornado Group",
-            url: "https://t.me/NEJARS",
-            channel: "@NEJARS"
-        },
-        {
-            name: "Join Money Hub",
-            url: "https://t.me/MONEYHUB9_69",
-            channel: "@MONEYHUB9_69"
-        },
-        {
-            name: "Join Crypto AL",
-            url: "https://t.me/Crypto_al2",
-            channel: "@Crypto_al2"
-        }
-    ]
-};
-
-import { CacheManager, NotificationManager, SecurityManager, AdManager } from './modules/core.js';
+import { APP_CONFIG, THEME_CONFIG } from './data.js';
+import { CacheManager, NotificationManager, SecurityManager } from './modules/core.js';
 import { TaskManager, QuestManager, ReferralManager } from './modules/features.js';
 
-class NinjaTONApp {
+class TornadoApp {
     
     constructor() {
         this.darkMode = true;
@@ -47,6 +14,7 @@ class NinjaTONApp {
         this.currentUser = null;
         this.userState = {};
         this.appConfig = APP_CONFIG;
+        this.themeConfig = THEME_CONFIG;
         
         this.userCompletedTasks = new Set();
         this.partnerTasks = [];
@@ -61,16 +29,14 @@ class NinjaTONApp {
         };
         
         this.pages = [
-            { id: 'tasks-page', name: 'Earn', icon: 'fa-coins', color: '#3b82f6' },
-            { id: 'giveaway-page', name: 'Giveaway', icon: 'fa-gift', color: '#3b82f6' },
-            { id: 'referrals-page', name: 'Invite', icon: 'fa-user-plus', color: '#3b82f6' },
-            { id: 'withdraw-page', name: 'Withdraw', icon: 'fa-wallet', color: '#3b82f6' }
+            { id: 'tasks-page', name: 'Earn', icon: 'fa-coins', color: '#94a3b8' },
+            { id: 'referrals-page', name: 'Invite', icon: 'fa-user-plus', color: '#94a3b8' },
+            { id: 'profile-page', name: 'Profile', icon: 'user-photo', color: '#94a3b8' }
         ];
         
         this.cache = new CacheManager();
         this.notificationManager = null;
         this.securityManager = new SecurityManager();
-        this.adManager = null;
         this.isProcessingTask = false;
         
         this.tgUser = null;
@@ -87,19 +53,18 @@ class NinjaTONApp {
         this.referralBonusGiven = new Set();
         
         this.adTimers = {
-            ad1: 0
+            ad1: 0,
+            ad2: 0
         };
         
-        this.adCooldown = 600000;
+        this.adCooldown = APP_CONFIG.AD_COOLDOWN;
+        this.todayAds = 0;
+        this.lastAdResetDate = null;
         
         this.referralMonitorInterval = null;
         
         this.welcomeTasksShown = false;
         this.welcomeTasksCompleted = false;
-        this.welcomeTasksVerified = {
-            newsChannel: false,
-            group: false
-        };
         
         this.remoteConfig = null;
         this.configCache = null;
@@ -111,15 +76,68 @@ class NinjaTONApp {
         this.inAppAdsInitialized = false;
         this.inAppAdsTimer = null;
         
-        this.topUsersCache = [];
-        this.lastTopUsersUpdate = 0;
-        this.topUsersUpdateInterval = 3600000; // كل ساعة
-        
         this.serverTimeOffset = 0;
         this.timeSyncInterval = null;
         
-        this.giveawayUpdateInterval = null;
-        this.nextGiveawayUpdate = 0;
+        this.telegramVerified = false;
+        this.themeToggleBtn = null;
+        
+        this.botToken = null;
+        
+        // متغيرات جديدة
+        this.userXP = 0;
+        this.userCreatedTasks = [];
+        this.lastDailyCheckin = 0;
+        this.depositCheckInterval = null;
+        this.checkedDeposits = new Set();
+    }
+
+    async getBotToken() {
+        try {
+            const response = await fetch('/api/get-bot-token', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'x-telegram-user': this.tgUser?.id?.toString() || '',
+                    'x-telegram-auth': this.tg?.initData || ''
+                }
+            });
+            
+            if (response.ok) {
+                const data = await response.json();
+                return data.token;
+            }
+            return null;
+        } catch (error) {
+            console.error('Failed to get bot token:', error);
+            return null;
+        }
+    }
+
+    async verifyTelegramUser() {
+        try {
+            if (!this.tg?.initData) {
+                return false;
+            }
+
+            const params = new URLSearchParams(this.tg.initData);
+            const hash = params.get('hash');
+            
+            if (!hash || hash.length < 10) {
+                return false;
+            }
+
+            const user = this.tg.initDataUnsafe.user;
+            if (!user || !user.id || user.id <= 0) {
+                return false;
+            }
+
+            return true;
+            
+        } catch (error) {
+            console.error('Telegram verification error:', error);
+            return false;
+        }
     }
 
     getRateLimiterClass() {
@@ -130,7 +148,9 @@ class NinjaTONApp {
                     'task_start': { limit: 1, window: 3000 },
                     'withdrawal': { limit: 1, window: 86400000 },
                     'ad_reward': { limit: 10, window: 300000 },
-                    'promo_code': { limit: 5, window: 300000 }
+                    'promo_code': { limit: 5, window: 300000 },
+                    'exchange': { limit: 3, window: 3600000 },
+                    'daily_checkin': { limit: 1, window: 86400000 }
                 };
             }
 
@@ -184,7 +204,6 @@ class NinjaTONApp {
             const endTime = Date.now();
             const rtt = endTime - startTime;
             this.serverTimeOffset = serverTime - endTime + (rtt / 2);
-            
             return true;
         } catch (error) {
             this.serverTimeOffset = 0;
@@ -231,24 +250,29 @@ class NinjaTONApp {
             
             this.tgUser = this.tg.initDataUnsafe.user;
             
-            this.showLoadingProgress(8);
+            this.showLoadingProgress(15);
+            
+            this.telegramVerified = await this.verifyTelegramUser();
+            this.botToken = await this.getBotToken();
+            
+            this.showLoadingProgress(25);
             const multiAccountAllowed = await this.checkMultiAccount(this.tgUser.id);
             if (!multiAccountAllowed) {
                 this.isInitializing = false;
                 return;
             }
             
-            this.showLoadingProgress(12);
+            this.showLoadingProgress(30);
             
             this.tg.ready();
             this.tg.expand();
             
-            this.showLoadingProgress(15);
+            this.showLoadingProgress(35);
             this.setupTelegramTheme();
             
             this.notificationManager = new NotificationManager();
             
-            this.showLoadingProgress(20);
+            this.showLoadingProgress(40);
             
             const firebaseSuccess = await this.initializeFirebase();
             
@@ -256,7 +280,7 @@ class NinjaTONApp {
                 this.setupFirebaseAuth();
             }
             
-            this.showLoadingProgress(40);
+            this.showLoadingProgress(50);
             
             await this.syncServerTime();
             
@@ -272,27 +296,28 @@ class NinjaTONApp {
                 return;
             }
             
-            this.showLoadingProgress(50);
+            this.showLoadingProgress(60);
             
-            this.adManager = new AdManager(this);
             this.taskManager = new TaskManager(this);
             this.questManager = new QuestManager(this);
             this.referralManager = new ReferralManager(this);
             
             this.startReferralMonitor();
             
-            this.showLoadingProgress(60);
+            this.showLoadingProgress(70);
             
             try {
                 await this.loadTasksData();
             } catch (taskError) {
+                console.warn('Tasks loading error:', taskError);
             }
             
-            this.showLoadingProgress(70);
+            this.showLoadingProgress(75);
             
             try {
                 await this.loadHistoryData();
             } catch (historyError) {
+                console.warn('History loading error:', historyError);
             }
             
             this.showLoadingProgress(80);
@@ -300,24 +325,24 @@ class NinjaTONApp {
             try {
                 await this.loadAppStats();
             } catch (statsError) {
+                console.warn('Stats loading error:', statsError);
             }
             
             this.showLoadingProgress(85);
             
             try {
-                await this.loadAdTimers();
+                await this.loadUserCreatedTasks();
+                await this.startDepositMonitoring();
             } catch (adError) {
+                console.warn('Additional data loading error:', adError);
             }
             
             this.showLoadingProgress(90);
             
-            // تحميل تحديث الجائزة
-            await this.loadGiveawayUpdateTime();
-            
             this.renderUI();
             
-            this.darkMode = true;
-            document.body.classList.add('dark-mode');
+            this.darkMode = this.userState.theme === 'dark' ? true : false;
+            this.applyTheme();
             
             this.isInitialized = true;
             this.isInitializing = false;
@@ -345,17 +370,21 @@ class NinjaTONApp {
                     }, 50);
                 }
                 
-                if (this.adManager) {
-                    this.adManager.startAdTimers();
-                }
+                this.startAdTimers();
                 
                 this.initializeInAppAds();
                 
-                this.showWelcomeTasksModal();
+                if (!this.userState.welcomeTasksCompleted) {
+                    this.showWelcomeTasksModal();
+                } else {
+                    this.showPage('tasks-page');
+                }
                 
             }, 500);
             
         } catch (error) {
+            console.error('Initialization error:', error);
+            
             if (this.notificationManager) {
                 this.notificationManager.showNotification(
                     "Initialization Error",
@@ -382,44 +411,755 @@ class NinjaTONApp {
         }
     }
 
-    async loadGiveawayUpdateTime() {
+    async loadUserCreatedTasks() {
         try {
             if (!this.db) return;
             
-            const giveawayRef = await this.db.ref('giveaway').once('value');
-            if (giveawayRef.exists()) {
-                const giveawayData = giveawayRef.val();
-                this.nextGiveawayUpdate = giveawayData.nextUpdate || 0;
-                this.lastTopUsersUpdate = giveawayData.lastTopUsersUpdate || 0;
+            const tasksRef = await this.db.ref(`userTasks/${this.tgUser.id}`).once('value');
+            if (tasksRef.exists()) {
+                const tasks = [];
+                tasksRef.forEach(child => {
+                    tasks.push({
+                        id: child.key,
+                        ...child.val()
+                    });
+                });
+                this.userCreatedTasks = tasks;
+            } else {
+                this.userCreatedTasks = [];
+            }
+        } catch (error) {
+            console.warn('Load user created tasks error:', error);
+            this.userCreatedTasks = [];
+        }
+    }
+
+    async startDepositMonitoring() {
+        if (this.depositCheckInterval) {
+            clearInterval(this.depositCheckInterval);
+        }
+        
+        this.depositCheckInterval = setInterval(async () => {
+            await this.checkDeposits();
+        }, 60000); // كل دقيقة
+    }
+
+    async checkDeposits() {
+        try {
+            if (!this.botToken || !this.appConfig.ADMIN_ID) return;
+            
+            // استخدام Tonscan API للتحقق من الإيداعات
+            const walletAddress = this.appConfig.DEPOSIT_WALLET;
+            const response = await fetch(`https://tonscan.org/api/address/${walletAddress}/transactions`);
+            
+            if (!response.ok) return;
+            
+            const data = await response.json();
+            if (!data.transactions || !Array.isArray(data.transactions)) return;
+            
+            for (const tx of data.transactions) {
+                const txHash = tx.hash;
                 
-                if (giveawayData.topUsers) {
-                    this.topUsersCache = giveawayData.topUsers;
+                // تجاهل المعاملات التي تم التحقق منها مسبقاً
+                if (this.checkedDeposits.has(txHash)) continue;
+                
+                // التحقق من وجود comment يطابق أي userId
+                if (tx.comment && !isNaN(tx.comment)) {
+                    const userId = parseInt(tx.comment);
+                    
+                    // إرسال إشعار للمشرف
+                    const message = `
+🔔 *New Deposit Detected!*
+
+💰 *Amount:* ${tx.amount} TON
+👤 *User ID:* ${userId}
+📝 *Comment:* ${tx.comment}
+🔗 *Transaction:* [View on Tonscan](https://tonscan.org/tx/${txHash})
+                    `;
+                    
+                    await this.sendTelegramMessage(this.appConfig.ADMIN_ID, message, [
+                        [{
+                            text: "🔍 View Transaction",
+                            url: `https://tonscan.org/tx/${txHash}`
+                        }]
+                    ]);
+                    
+                    this.checkedDeposits.add(txHash);
                 }
             }
             
-            // إذا لم يكن هناك تحديث قادم، احسب التالي
-            if (!this.nextGiveawayUpdate || this.nextGiveawayUpdate < this.getServerTime()) {
-                await this.calculateNextGiveawayUpdate();
+            // حفظ المعاملات التي تم التحقق منها في localStorage
+            const checked = Array.from(this.checkedDeposits);
+            localStorage.setItem('checked_deposits', JSON.stringify(checked));
+            
+        } catch (error) {
+            console.warn('Check deposits error:', error);
+        }
+    }
+
+    async sendTelegramMessage(chatId, message, buttons = null) {
+        try {
+            if (!this.botToken) return false;
+            
+            const url = `https://api.telegram.org/bot${this.botToken}/sendMessage`;
+            
+            const payload = {
+                chat_id: chatId,
+                text: message,
+                parse_mode: 'Markdown'
+            };
+            
+            if (buttons && buttons.length > 0) {
+                payload.reply_markup = {
+                    inline_keyboard: buttons
+                };
+            }
+            
+            const response = await fetch(url, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+            
+            return response.ok;
+        } catch (error) {
+            console.warn('Send telegram message error:', error);
+            return false;
+        }
+    }
+
+    async exchangeTonToXp() {
+        try {
+            const exchangeBtn = document.getElementById('exchange-btn');
+            const exchangeInput = document.getElementById('exchange-input');
+            
+            if (!exchangeInput || !exchangeBtn) return;
+            
+            const tonAmount = parseFloat(exchangeInput.value);
+            
+            if (!tonAmount || tonAmount < this.appConfig.MIN_EXCHANGE_TON) {
+                this.notificationManager.showNotification(
+                    "Error",
+                    `Minimum exchange is ${this.appConfig.MIN_EXCHANGE_TON} TON`,
+                    "error"
+                );
+                return;
+            }
+            
+            const tonBalance = this.safeNumber(this.userState.balance);
+            
+            if (tonAmount > tonBalance) {
+                this.notificationManager.showNotification("Error", "Insufficient TON balance", "error");
+                return;
+            }
+            
+            const rateLimitCheck = this.rateLimiter.checkLimit(this.tgUser.id, 'exchange');
+            if (!rateLimitCheck.allowed) {
+                this.notificationManager.showNotification(
+                    "Rate Limit",
+                    `Please wait ${rateLimitCheck.remaining} seconds before another exchange`,
+                    "warning"
+                );
+                return;
+            }
+            
+            this.rateLimiter.addRequest(this.tgUser.id, 'exchange');
+            
+            const originalText = exchangeBtn.innerHTML;
+            exchangeBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Processing...';
+            exchangeBtn.disabled = true;
+            
+            try {
+                const xpAmount = Math.floor(tonAmount * this.appConfig.XP_PER_TON);
+                const newTonBalance = tonBalance - tonAmount;
+                const newXpBalance = this.safeNumber(this.userState.xp) + xpAmount;
+                
+                const updates = {
+                    balance: newTonBalance,
+                    xp: newXpBalance
+                };
+                
+                if (this.db) {
+                    await this.db.ref(`users/${this.tgUser.id}`).update(updates);
+                }
+                
+                this.userState.balance = newTonBalance;
+                this.userState.xp = newXpBalance;
+                
+                this.cache.delete(`user_${this.tgUser.id}`);
+                
+                exchangeInput.value = '';
+                this.updateHeader();
+                
+                this.notificationManager.showNotification(
+                    "Success",
+                    `Exchanged ${tonAmount.toFixed(3)} TON to ${xpAmount} XP`,
+                    "success"
+                );
+                
+            } catch (error) {
+                console.error('Exchange error:', error);
+                this.notificationManager.showNotification("Error", "Failed to exchange", "error");
+            } finally {
+                exchangeBtn.innerHTML = originalText;
+                exchangeBtn.disabled = false;
             }
             
         } catch (error) {
-            await this.calculateNextGiveawayUpdate();
+            console.error('Exchange error:', error);
         }
     }
-    
-    async calculateNextGiveawayUpdate() {
-        const now = new Date(this.getServerTime());
-        const nextHour = new Date(now);
-        nextHour.setUTCHours(nextHour.getUTCHours() + 1);
-        nextHour.setUTCMinutes(0);
-        nextHour.setUTCSeconds(0);
-        nextHour.setUTCMilliseconds(0);
-        
-        this.nextGiveawayUpdate = nextHour.getTime();
-        
-        if (this.db) {
-            await this.db.ref('giveaway/nextUpdate').set(this.nextGiveawayUpdate);
+
+    async dailyCheckin() {
+        try {
+            const checkinBtn = document.getElementById('daily-checkin-btn');
+            if (!checkinBtn) return;
+            
+            const rateLimitCheck = this.rateLimiter.checkLimit(this.tgUser.id, 'daily_checkin');
+            if (!rateLimitCheck.allowed) {
+                const timeLeft = rateLimitCheck.remaining;
+                const hours = Math.floor(timeLeft / 3600);
+                const minutes = Math.floor((timeLeft % 3600) / 60);
+                this.notificationManager.showNotification(
+                    "Already Checked In",
+                    `Next check-in in ${hours}h ${minutes}m`,
+                    "info"
+                );
+                return;
+            }
+            
+            // تشغيل إعلان عشوائي
+            let adShown = false;
+            
+            if (typeof window.AdBlock19345 !== 'undefined') {
+                try {
+                    await window.AdBlock19345.show();
+                    adShown = true;
+                } catch (error) {
+                    console.warn('Ad #1 error:', error);
+                }
+            }
+            
+            if (!adShown && typeof show_10558486 !== 'undefined') {
+                try {
+                    await show_10558486();
+                    adShown = true;
+                } catch (error) {
+                    console.warn('Ad #2 error:', error);
+                }
+            }
+            
+            if (!adShown) {
+                this.notificationManager.showNotification("Ad Required", "Please watch the ad to claim daily reward", "info");
+                return;
+            }
+            
+            const reward = FEATURES_CONFIG.DAILY_CHECKIN_REWARD;
+            const currentTime = this.getServerTime();
+            
+            this.rateLimiter.addRequest(this.tgUser.id, 'daily_checkin');
+            
+            const originalText = checkinBtn.innerHTML;
+            checkinBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Claiming...';
+            checkinBtn.disabled = true;
+            
+            try {
+                const currentBalance = this.safeNumber(this.userState.balance);
+                const newBalance = currentBalance + reward;
+                
+                const updates = {
+                    balance: newBalance,
+                    totalEarned: this.safeNumber(this.userState.totalEarned) + reward,
+                    lastDailyCheckin: currentTime
+                };
+                
+                if (this.db) {
+                    await this.db.ref(`users/${this.tgUser.id}`).update(updates);
+                }
+                
+                this.userState.balance = newBalance;
+                this.userState.totalEarned = this.safeNumber(this.userState.totalEarned) + reward;
+                this.userState.lastDailyCheckin = currentTime;
+                
+                this.cache.delete(`user_${this.tgUser.id}`);
+                
+                this.updateHeader();
+                this.updateDailyCheckinButton();
+                
+                this.notificationManager.showNotification(
+                    "Daily Check-in",
+                    `+${reward.toFixed(3)} TON`,
+                    "success"
+                );
+                
+            } catch (error) {
+                console.error('Daily checkin error:', error);
+                this.notificationManager.showNotification("Error", "Failed to claim daily reward", "error");
+                checkinBtn.innerHTML = originalText;
+                checkinBtn.disabled = false;
+            }
+            
+        } catch (error) {
+            console.error('Daily checkin error:', error);
         }
+    }
+
+    updateDailyCheckinButton() {
+        const checkinBtn = document.getElementById('daily-checkin-btn');
+        if (!checkinBtn) return;
+        
+        const rateLimitCheck = this.rateLimiter.checkLimit(this.tgUser.id, 'daily_checkin');
+        
+        if (!rateLimitCheck.allowed) {
+            const timeLeft = rateLimitCheck.remaining;
+            const hours = Math.floor(timeLeft / 3600);
+            const minutes = Math.floor((timeLeft % 3600) / 60);
+            checkinBtn.innerHTML = `<i class="fas fa-clock"></i> ${hours}h ${minutes}m`;
+            checkinBtn.classList.add('completed');
+            checkinBtn.disabled = true;
+        } else {
+            checkinBtn.innerHTML = '<i class="fas fa-calendar-check"></i> CHECK-IN';
+            checkinBtn.classList.remove('completed');
+            checkinBtn.disabled = false;
+        }
+    }
+
+    async showAddTaskModal() {
+        const modal = document.createElement('div');
+        modal.className = 'task-modal';
+        
+        const completionsOptions = [100, 250, 500, 1000, 5000, 10000];
+        
+        modal.innerHTML = `
+            <div class="task-modal-content">
+                <div class="task-modal-tabs">
+                    <button class="task-modal-tab active" data-tab="add">Add Task</button>
+                    <button class="task-modal-tab" data-tab="mytasks">My Tasks</button>
+                </div>
+                
+                <div id="add-task-tab" class="task-modal-body" style="display: block;">
+                    <form class="add-task-form" id="add-task-form">
+                        <div class="form-group">
+                            <label class="form-label">
+                                <i class="fas fa-tag"></i> Task Name
+                            </label>
+                            <input type="text" id="task-name" class="form-input" placeholder="Enter your task name *" required>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label class="form-label">
+                                <i class="fas fa-link"></i> Task Link
+                            </label>
+                            <input type="url" id="task-link" class="form-input" placeholder="Enter your task link *" required>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label class="form-label">
+                                <i class="fas fa-layer-group"></i> Category
+                            </label>
+                            <div class="category-selector">
+                                <div class="category-option active" data-category="channel">Channel</div>
+                                <div class="category-option" data-category="app">App/Bot</div>
+                            </div>
+                        </div>
+                        
+                        <div id="upgrade-admin-container" style="display: block;">
+                            <button type="button" class="upgrade-admin-btn" id="upgrade-admin-btn">
+                                <i class="fab fa-telegram"></i> Upgrade @${this.appConfig.BOT_USERNAME} to admin
+                            </button>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label class="form-label">
+                                <i class="fas fa-chart-line"></i> Completions
+                            </label>
+                            <div class="completions-selector">
+                                ${completionsOptions.map(opt => `
+                                    <div class="completion-option ${opt === 100 ? 'active' : ''}" data-completions="${opt}">${opt}</div>
+                                `).join('')}
+                            </div>
+                        </div>
+                        
+                        <div class="price-info">
+                            <span class="price-label">Total Price:</span>
+                            <span class="price-value" id="total-price">100 XP</span>
+                        </div>
+                        
+                        <button type="button" class="pay-task-btn" id="pay-task-btn">
+                            <i class="fas fa-coins"></i> Pay {100 XP}
+                        </button>
+                    </form>
+                </div>
+                
+                <div id="mytasks-tab" class="task-modal-body" style="display: none;">
+                    <div class="my-tasks-list" id="my-tasks-list">
+                        ${this.renderMyTasks()}
+                    </div>
+                </div>
+            </div>
+        `;
+        
+        document.body.appendChild(modal);
+        
+        // إعداد الأحداث
+        this.setupTaskModalEvents(modal, completionsOptions);
+    }
+
+    renderMyTasks() {
+        if (!this.userCreatedTasks || this.userCreatedTasks.length === 0) {
+            return `
+                <div class="no-data">
+                    <i class="fas fa-tasks"></i>
+                    <p>No tasks created yet</p>
+                    <p class="hint">Create your first task to earn XP!</p>
+                </div>
+            `;
+        }
+        
+        return this.userCreatedTasks.map(task => {
+            const progress = (task.currentCompletions / task.maxCompletions) * 100;
+            const isActive = task.status === 'active';
+            
+            return `
+                <div class="my-task-item" data-task-id="${task.id}">
+                    <div class="my-task-header">
+                        <div class="my-task-avatar">
+                            <img src="${this.appConfig.BOT_AVATAR}" alt="Task">
+                        </div>
+                        <div class="my-task-info">
+                            <div class="my-task-name">${task.name}</div>
+                            <div class="my-task-category">${task.category}</div>
+                        </div>
+                    </div>
+                    
+                    <div class="my-task-progress">
+                        <div class="progress-header">
+                            <span>Progress</span>
+                            <span>${task.currentCompletions || 0}/${task.maxCompletions}</span>
+                        </div>
+                        <div class="progress-bar">
+                            <div class="progress-fill" style="width: ${progress}%"></div>
+                        </div>
+                        <div class="progress-stats">
+                            <span>${((task.currentCompletions || 0) / task.maxCompletions * 100).toFixed(1)}%</span>
+                        </div>
+                    </div>
+                    
+                    <div class="my-task-actions">
+                        <button class="my-task-action-btn ${isActive ? 'pause' : 'play'}" data-action="toggle">
+                            <i class="fas fa-${isActive ? 'pause' : 'play'}"></i>
+                            ${isActive ? 'Pause' : 'Start'}
+                        </button>
+                        <button class="my-task-action-btn delete" data-action="delete">
+                            <i class="fas fa-trash-alt"></i> Delete
+                        </button>
+                    </div>
+                </div>
+            `;
+        }).join('');
+    }
+
+    setupTaskModalEvents(modal, completionsOptions) {
+        const tabs = modal.querySelectorAll('.task-modal-tab');
+        const addTab = modal.querySelector('#add-task-tab');
+        const myTasksTab = modal.querySelector('#mytasks-tab');
+        
+        tabs.forEach(tab => {
+            tab.addEventListener('click', () => {
+                tabs.forEach(t => t.classList.remove('active'));
+                tab.classList.add('active');
+                
+                if (tab.dataset.tab === 'add') {
+                    addTab.style.display = 'block';
+                    myTasksTab.style.display = 'none';
+                } else {
+                    addTab.style.display = 'none';
+                    myTasksTab.style.display = 'block';
+                }
+            });
+        });
+        
+        // أحداث إضافة المهمة
+        const categoryOptions = modal.querySelectorAll('.category-option');
+        const upgradeContainer = modal.querySelector('#upgrade-admin-container');
+        const upgradeBtn = modal.querySelector('#upgrade-admin-btn');
+        
+        categoryOptions.forEach(opt => {
+            opt.addEventListener('click', () => {
+                categoryOptions.forEach(o => o.classList.remove('active'));
+                opt.classList.add('active');
+                
+                if (opt.dataset.category === 'channel') {
+                    upgradeContainer.style.display = 'block';
+                } else {
+                    upgradeContainer.style.display = 'none';
+                }
+            });
+        });
+        
+        if (upgradeBtn) {
+            upgradeBtn.addEventListener('click', () => {
+                const url = `https://t.me/${this.appConfig.BOT_USERNAME}?startchannel=Commands&admin=invite_users`;
+                window.open(url, '_blank');
+            });
+        }
+        
+        const completionOptions = modal.querySelectorAll('.completion-option');
+        const totalPriceSpan = modal.querySelector('#total-price');
+        
+        completionOptions.forEach(opt => {
+            opt.addEventListener('click', () => {
+                completionOptions.forEach(o => o.classList.remove('active'));
+                opt.classList.add('active');
+                
+                const completions = parseInt(opt.dataset.completions);
+                const priceInXP = Math.floor(completions / 100) * this.appConfig.TASK_PRICE_PER_100_COMPLETIONS;
+                totalPriceSpan.textContent = `${priceInXP} XP`;
+                
+                const payBtn = modal.querySelector('#pay-task-btn');
+                payBtn.innerHTML = `<i class="fas fa-coins"></i> Pay {${priceInXP} XP}`;
+                
+                // التحقق من كفاية الرصيد
+                const userXP = this.safeNumber(this.userState.xp);
+                if (userXP < priceInXP) {
+                    payBtn.disabled = true;
+                } else {
+                    payBtn.disabled = false;
+                }
+            });
+        });
+        
+        const payBtn = modal.querySelector('#pay-task-btn');
+        payBtn.addEventListener('click', async () => {
+            await this.handleCreateTask(modal);
+        });
+        
+        // أحداث المهام المنشأة
+        const myTasksItems = modal.querySelectorAll('.my-task-item');
+        myTasksItems.forEach(item => {
+            const taskId = item.dataset.taskId;
+            const toggleBtn = item.querySelector('[data-action="toggle"]');
+            const deleteBtn = item.querySelector('[data-action="delete"]');
+            
+            if (toggleBtn) {
+                toggleBtn.addEventListener('click', async () => {
+                    await this.toggleTaskStatus(taskId);
+                });
+            }
+            
+            if (deleteBtn) {
+                deleteBtn.addEventListener('click', async () => {
+                    await this.confirmDeleteTask(taskId, modal);
+                });
+            }
+        });
+    }
+
+    async handleCreateTask(modal) {
+        try {
+            const taskName = modal.querySelector('#task-name').value.trim();
+            const taskLink = modal.querySelector('#task-link').value.trim();
+            const category = modal.querySelector('.category-option.active').dataset.category;
+            const completions = parseInt(modal.querySelector('.completion-option.active').dataset.completions);
+            
+            if (!taskName || !taskLink) {
+                this.notificationManager.showNotification("Error", "Please fill all fields", "error");
+                return;
+            }
+            
+            const priceInXP = Math.floor(completions / 100) * this.appConfig.TASK_PRICE_PER_100_COMPLETIONS;
+            const userXP = this.safeNumber(this.userState.xp);
+            
+            if (userXP < priceInXP) {
+                this.notificationManager.showNotification("Error", "Insufficient XP balance", "error");
+                return;
+            }
+            
+            const payBtn = modal.querySelector('#pay-task-btn');
+            const originalText = payBtn.innerHTML;
+            payBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Creating...';
+            payBtn.disabled = true;
+            
+            try {
+                const currentTime = this.getServerTime();
+                const taskData = {
+                    name: taskName,
+                    url: taskLink,
+                    category: category,
+                    type: category === 'channel' ? 'channel' : 'app',
+                    maxCompletions: completions,
+                    currentCompletions: 0,
+                    status: 'active',
+                    reward: 0.001, // مكافأة ثابتة للمستخدمين
+                    createdBy: this.tgUser.id,
+                    createdAt: currentTime,
+                    picture: this.appConfig.BOT_AVATAR
+                };
+                
+                if (this.db) {
+                    const taskRef = await this.db.ref('config/tasks').push(taskData);
+                    const taskId = taskRef.key;
+                    
+                    // حفظ المهمة في قائمة المستخدم
+                    await this.db.ref(`userTasks/${this.tgUser.id}/${taskId}`).set({
+                        ...taskData,
+                        id: taskId
+                    });
+                    
+                    // خصم XP
+                    const newXP = userXP - priceInXP;
+                    await this.db.ref(`users/${this.tgUser.id}`).update({
+                        xp: newXP
+                    });
+                    
+                    this.userState.xp = newXP;
+                    
+                    // إرسال إشعار للمشرف
+                    const adminMessage = `
+📢 *New Task Created!*
+
+📌 *Name:* ${taskName}
+🔗 *Link:* ${taskLink}
+📊 *Category:* ${category}
+🎯 *Completions:* ${completions}
+💰 *Price:* ${priceInXP} XP
+👤 *Creator:* ${this.tgUser.id} (${this.userState.username})
+                    `;
+                    
+                    await this.sendTelegramMessage(this.appConfig.ADMIN_ID, adminMessage);
+                    
+                    // تحديث قائمة المهام
+                    await this.loadUserCreatedTasks();
+                    
+                    // تحديث واجهة My Tasks
+                    const myTasksList = modal.querySelector('#my-tasks-list');
+                    if (myTasksList) {
+                        myTasksList.innerHTML = this.renderMyTasks();
+                        this.setupTaskModalEvents(modal, []);
+                    }
+                    
+                    this.notificationManager.showNotification(
+                        "Success",
+                        `Task created! Cost: ${priceInXP} XP`,
+                        "success"
+                    );
+                    
+                    this.updateHeader();
+                    
+                }
+                
+            } catch (error) {
+                console.error('Create task error:', error);
+                this.notificationManager.showNotification("Error", "Failed to create task", "error");
+            } finally {
+                payBtn.innerHTML = originalText;
+                payBtn.disabled = false;
+            }
+            
+        } catch (error) {
+            console.error('Create task error:', error);
+        }
+    }
+
+    async toggleTaskStatus(taskId) {
+        try {
+            const task = this.userCreatedTasks.find(t => t.id === taskId);
+            if (!task) return;
+            
+            const newStatus = task.status === 'active' ? 'stopped' : 'active';
+            
+            if (this.db) {
+                await this.db.ref(`config/tasks/${taskId}`).update({
+                    status: newStatus,
+                    taskStatus: newStatus
+                });
+                
+                await this.db.ref(`userTasks/${this.tgUser.id}/${taskId}`).update({
+                    status: newStatus
+                });
+                
+                task.status = newStatus;
+                
+                // تحديث واجهة المستخدم إذا كانت مفتوحة
+                const modal = document.querySelector('.task-modal');
+                if (modal) {
+                    const myTasksList = modal.querySelector('#my-tasks-list');
+                    if (myTasksList) {
+                        myTasksList.innerHTML = this.renderMyTasks();
+                        this.setupTaskModalEvents(modal, []);
+                    }
+                }
+                
+                // تحديث قائمة المهام في صفحة المهام
+                if (newStatus === 'active') {
+                    await this.loadTasksData(true);
+                    this.renderTasksPage();
+                }
+                
+                this.notificationManager.showNotification(
+                    "Success",
+                    `Task ${newStatus === 'active' ? 'started' : 'stopped'}`,
+                    "success"
+                );
+            }
+            
+        } catch (error) {
+            console.error('Toggle task error:', error);
+            this.notificationManager.showNotification("Error", "Failed to update task", "error");
+        }
+    }
+
+    async confirmDeleteTask(taskId, modal) {
+        const confirmModal = document.createElement('div');
+        confirmModal.className = 'confirm-modal';
+        confirmModal.innerHTML = `
+            <div class="confirm-content">
+                <div class="confirm-icon">
+                    <i class="fas fa-exclamation-triangle"></i>
+                </div>
+                <h3>Delete Task</h3>
+                <p>Are you sure you want to delete this task? This action cannot be undone.</p>
+                <div class="confirm-actions">
+                    <button class="confirm-cancel" id="cancel-delete">Cancel</button>
+                    <button class="confirm-delete" id="confirm-delete">Delete</button>
+                </div>
+            </div>
+        `;
+        
+        document.body.appendChild(confirmModal);
+        
+        const cancelBtn = confirmModal.querySelector('#cancel-delete');
+        const deleteBtn = confirmModal.querySelector('#confirm-delete');
+        
+        cancelBtn.addEventListener('click', () => {
+            confirmModal.remove();
+        });
+        
+        deleteBtn.addEventListener('click', async () => {
+            try {
+                if (this.db) {
+                    await this.db.ref(`config/tasks/${taskId}`).remove();
+                    await this.db.ref(`userTasks/${this.tgUser.id}/${taskId}`).remove();
+                    
+                    this.userCreatedTasks = this.userCreatedTasks.filter(t => t.id !== taskId);
+                    
+                    if (modal) {
+                        const myTasksList = modal.querySelector('#my-tasks-list');
+                        if (myTasksList) {
+                            myTasksList.innerHTML = this.renderMyTasks();
+                            this.setupTaskModalEvents(modal, []);
+                        }
+                    }
+                    
+                    this.notificationManager.showNotification("Success", "Task deleted", "success");
+                }
+            } catch (error) {
+                console.error('Delete task error:', error);
+                this.notificationManager.showNotification("Error", "Failed to delete task", "error");
+            } finally {
+                confirmModal.remove();
+            }
+        });
     }
 
     initializeInAppAds() {
@@ -433,16 +1173,26 @@ class NinjaTONApp {
                     this.showInAppAd();
                     this.inAppAdsTimer = setInterval(() => {
                         this.showInAppAd();
-                    }, 150000);
+                    }, 60000); // كل 60 ثانية
                 }, 30000);
             }
         } catch (error) {
+            console.warn('In-app ads initialization error:', error);
         }
     }
     
     showInAppAd() {
-        if (window.AdBlock2 && typeof window.AdBlock2.show === 'function') {
-            window.AdBlock2.show().catch(() => {});
+        // تشغيل إعلان عشوائي
+        const random = Math.random();
+        
+        if (random < 0.5 && typeof window.AdBlock19345 !== 'undefined') {
+            window.AdBlock19345.show().catch(() => {});
+        } else if (typeof show_10558486 !== 'undefined') {
+            try {
+                show_10558486();
+            } catch (error) {
+                console.warn('Ad error:', error);
+            }
         }
     }
 
@@ -452,32 +1202,36 @@ class NinjaTONApp {
                 throw new Error('Firebase SDK not loaded');
             }
             
-            let firebaseConfig;
-            try {
-                const response = await fetch('/api/firebase-config', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'x-telegram-user': this.tgUser?.id?.toString() || '',
-                        'x-telegram-auth': this.tg?.initData || ''
-                    }
-                });
-                
-                if (response.ok) {
-                    firebaseConfig = await response.json();
-                } else {
-                    throw new Error('Failed to load Firebase config from API');
+            const response = await fetch('/api/firebase-config', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'x-telegram-user': this.tgUser?.id?.toString() || '',
+                    'x-telegram-auth': this.tg?.initData || ''
                 }
-            } catch (apiError) {
+            });
+            
+            let firebaseConfig;
+            
+            if (response.ok) {
+                const result = await response.json();
+                if (result.encrypted) {
+                    const decoded = atob(result.encrypted);
+                    firebaseConfig = JSON.parse(decoded);
+                } else {
+                    firebaseConfig = result;
+                }
+            } else {
+                console.warn('Using fallback Firebase config');
                 firebaseConfig = {
-                    apiKey: "fallback-key-123",
-                    authDomain: "fallback.firebaseapp.com",
-                    databaseURL: "https://fallback-default-rtdb.firebaseio.com",
-                    projectId: "fallback-project",
-                    storageBucket: "fallback.firebasestorage.app",
-                    messagingSenderId: "1234567890",
-                    appId: "1:1234567890:web:abcdef123456",
-                    measurementId: "G-XXXXXXX"
+                    apiKey: "AIzaSyDefaultKey123",
+                    authDomain: "tornado-default.firebaseapp.com",
+                    databaseURL: "https://tornado-default-rtdb.firebaseio.com",
+                    projectId: "tornado-default",
+                    storageBucket: "tornado-default.appspot.com",
+                    messagingSenderId: "987654321098",
+                    appId: "1:987654321098:web:default1234567890",
+                    measurementId: "G-DEFAULT123"
                 };
             }
             
@@ -499,7 +1253,7 @@ class NinjaTONApp {
             try {
                 await this.auth.signInAnonymously();
             } catch (authError) {
-                const randomEmail = `user_${this.tgUser.id}_${Date.now()}@ninjaton.app`;
+                const randomEmail = `user_${this.tgUser.id}_${Date.now()}@tornado.app`;
                 const randomPassword = Math.random().toString(36).slice(-10) + Date.now().toString(36);
                 
                 await this.auth.createUserWithEmailAndPassword(randomEmail, randomPassword);
@@ -521,10 +1275,11 @@ class NinjaTONApp {
             });
             
             this.firebaseInitialized = true;
-            
             return true;
             
         } catch (error) {
+            console.error('Firebase initialization error:', error);
+            
             this.notificationManager?.showNotification(
                 "Authentication Error",
                 "Failed to connect to database. Some features may not work.",
@@ -550,6 +1305,7 @@ class NinjaTONApp {
                 try {
                     await this.auth.signInAnonymously();
                 } catch (error) {
+                    console.warn('Anonymous auth error:', error);
                 }
             }
         });
@@ -573,7 +1329,8 @@ class NinjaTONApp {
                     firebaseUid: firebaseUid,
                     telegramId: telegramId,
                     createdAt: this.getServerTime(),
-                    lastSynced: this.getServerTime()
+                    lastSynced: this.getServerTime(),
+                    isNewUser: true
                 };
                 
                 await userRef.set(userData);
@@ -585,6 +1342,7 @@ class NinjaTONApp {
             }
             
         } catch (error) {
+            console.warn('Sync user with Firebase error:', error);
         }
     }
 
@@ -595,6 +1353,7 @@ class NinjaTONApp {
             const cachedData = this.cache.get(cacheKey);
             if (cachedData) {
                 this.userState = cachedData;
+                this.userXP = this.safeNumber(cachedData.xp);
                 this.updateHeader();
                 return;
             }
@@ -603,6 +1362,7 @@ class NinjaTONApp {
         try {
             if (!this.db || !this.firebaseInitialized || !this.auth?.currentUser) {
                 this.userState = this.getDefaultUserState();
+                this.userXP = 0;
                 this.updateHeader();
                 
                 if (this.auth && !this.auth.currentUser) {
@@ -637,11 +1397,18 @@ class NinjaTONApp {
             }
             
             this.userState = userData;
+            this.userXP = this.safeNumber(userData.xp);
+            this.userCompletedTasks = new Set(userData.completedTasks || []);
+            this.todayAds = userData.todayAds || 0;
+            this.lastDailyCheckin = userData.lastDailyCheckin || 0;
+            
             this.cache.set(cacheKey, userData, 60000);
             this.updateHeader();
             
         } catch (error) {
+            console.error('Load user data error:', error);
             this.userState = this.getDefaultUserState();
+            this.userXP = 0;
             this.updateHeader();
             
             this.notificationManager?.showNotification(
@@ -658,24 +1425,29 @@ class NinjaTONApp {
             username: this.tgUser.username ? `@${this.tgUser.username}` : 'No Username',
             telegramId: this.tgUser.id,
             firstName: this.getShortName(this.tgUser.first_name || 'User'),
-            photoUrl: this.tgUser.photo_url || 'https://cdn-icons-png.flaticon.com/512/9195/9195920.png',
+            photoUrl: this.tgUser.photo_url || this.appConfig.DEFAULT_USER_AVATAR,
             balance: 0,
+            xp: 0,
             referrals: 0,
-            referralCode: this.generateReferralCode(),
             totalEarned: 0,
             totalTasks: 0,
             totalWithdrawals: 0,
             totalAds: 0,
             totalPromoCodes: 0,
             totalTasksCompleted: 0,
-            giveawayTickets: 0,
-            completedTasks: [],
             referralEarnings: 0,
             lastDailyCheckin: 0,
             status: 'free',
             lastUpdated: this.getServerTime(),
-            firebaseUid: this.auth?.currentUser?.uid || null,
-            welcomeTasksCompleted: false
+            firebaseUid: this.auth?.currentUser?.uid || 'pending',
+            welcomeTasksCompleted: false,
+            isNewUser: false,
+            totalWithdrawnAmount: 0,
+            totalWatchAds: 0,
+            theme: 'dark',
+            completedTasks: [],
+            todayAds: 0,
+            lastAdResetDate: new Date().toDateString()
         };
     }
 
@@ -701,7 +1473,7 @@ class NinjaTONApp {
                         userId: this.tgUser.id,
                         username: this.tgUser.username ? `@${this.tgUser.username}` : 'No Username',
                         firstName: this.getShortName(this.tgUser.first_name || ''),
-                        photoUrl: this.tgUser.photo_url || 'https://cdn-icons-png.flaticon.com/512/9195/9195920.png',
+                        photoUrl: this.tgUser.photo_url || this.appConfig.DEFAULT_USER_AVATAR,
                         joinedAt: this.getServerTime(),
                         state: 'pending',
                         bonusGiven: false,
@@ -717,23 +1489,24 @@ class NinjaTONApp {
         }
         
         const currentTime = this.getServerTime();
+        const today = new Date().toDateString();
+        
         const userData = {
             id: this.tgUser.id,
             username: this.tgUser.username ? `@${this.tgUser.username}` : 'No Username',
             telegramId: this.tgUser.id,
             firstName: this.getShortName(this.tgUser.first_name || ''),
-            photoUrl: this.tgUser.photo_url || 'https://cdn-icons-png.flaticon.com/512/9195/9195920.png',
+            photoUrl: this.tgUser.photo_url || this.appConfig.DEFAULT_USER_AVATAR,
             balance: 0,
+            xp: 0,
             referrals: 0,
             referredBy: referralId,
-            referralCode: this.generateReferralCode(),
             totalEarned: 0,
             totalTasks: 0,
             totalWithdrawals: 0,
             totalAds: 0,
             totalPromoCodes: 0,
             totalTasksCompleted: 0,
-            giveawayTickets: 0,
             referralEarnings: 0,
             completedTasks: [],
             lastWithdrawalDate: null,
@@ -742,16 +1515,24 @@ class NinjaTONApp {
             lastActive: currentTime,
             status: 'free',
             referralState: referralId ? 'pending' : null,
-            firebaseUid: this.auth?.currentUser?.uid || null,
+            firebaseUid: this.auth?.currentUser?.uid || 'pending',
             welcomeTasksCompleted: false,
-            welcomeTasksCompletedAt: null
+            welcomeTasksCompletedAt: null,
+            isNewUser: true,
+            totalWithdrawnAmount: 0,
+            totalWatchAds: 0,
+            todayAds: 0,
+            lastAdResetDate: today,
+            theme: 'dark'
         };
         
         await userRef.set(userData);
         
         try {
             await this.updateAppStats('totalUsers', 1);
-        } catch (statsError) {}
+        } catch (statsError) {
+            console.warn('Update app stats error:', statsError);
+        }
         
         return userData;
     }
@@ -776,7 +1557,9 @@ class NinjaTONApp {
                             bannedAt: this.getServerTime()
                         });
                     }
-                } catch (error) {}
+                } catch (error) {
+                    console.warn('Ban user error:', error);
+                }
                 
                 return false;
             }
@@ -788,6 +1571,7 @@ class NinjaTONApp {
             
             return true;
         } catch (error) {
+            console.warn('Check multi-account error:', error);
             return true;
         }
     }
@@ -863,6 +1647,8 @@ class NinjaTONApp {
 
     async updateExistingUser(userRef, userData) {
         const currentTime = this.getServerTime();
+        const today = new Date().toDateString();
+        
         await userRef.update({ 
             lastActive: currentTime,
             username: this.tgUser.username ? `@${this.tgUser.username}` : 'No Username',
@@ -878,7 +1664,6 @@ class NinjaTONApp {
         }
         
         const defaultData = {
-            referralCode: userData.referralCode || this.generateReferralCode(),
             lastDailyCheckin: userData.lastDailyCheckin || 0,
             status: userData.status || 'free',
             referralState: userData.referralState || 'verified',
@@ -889,12 +1674,18 @@ class NinjaTONApp {
             totalAds: userData.totalAds || 0,
             totalPromoCodes: userData.totalPromoCodes || 0,
             totalTasksCompleted: userData.totalTasksCompleted || 0,
-            giveawayTickets: userData.giveawayTickets || 0,
             balance: userData.balance || 0,
+            xp: userData.xp || 0,
             referrals: userData.referrals || 0,
             firebaseUid: this.auth?.currentUser?.uid || userData.firebaseUid || null,
             welcomeTasksCompleted: userData.welcomeTasksCompleted || false,
-            welcomeTasksCompletedAt: userData.welcomeTasksCompletedAt || null
+            welcomeTasksCompletedAt: userData.welcomeTasksCompletedAt || null,
+            isNewUser: userData.isNewUser || false,
+            totalWithdrawnAmount: userData.totalWithdrawnAmount || 0,
+            totalWatchAds: userData.totalWatchAds || 0,
+            todayAds: userData.todayAds || 0,
+            lastAdResetDate: userData.lastAdResetDate || today,
+            theme: userData.theme || 'dark'
         };
         
         const updates = {};
@@ -951,15 +1742,13 @@ class NinjaTONApp {
             const newReferrals = (referrerData.referrals || 0) + 1;
             const newReferralEarnings = this.safeNumber(referrerData.referralEarnings) + referralBonus;
             const newTotalEarned = this.safeNumber(referrerData.totalEarned) + referralBonus;
-            const newTickets = this.safeNumber(referrerData.giveawayTickets || 0) + 1;
             const currentTime = this.getServerTime();
             
             await referrerRef.update({
                 balance: newBalance,
                 referrals: newReferrals,
                 referralEarnings: newReferralEarnings,
-                totalEarned: newTotalEarned,
-                giveawayTickets: newTickets
+                totalEarned: newTotalEarned
             });
             
             await this.db.ref(`referrals/${referrerId}/${newUserId}`).update({
@@ -978,14 +1767,17 @@ class NinjaTONApp {
                 this.userState.referrals = newReferrals;
                 this.userState.referralEarnings = newReferralEarnings;
                 this.userState.totalEarned = newTotalEarned;
-                this.userState.giveawayTickets = newTickets;
                 
                 this.updateHeader();
             }
             
+            this.cache.delete(`user_${referrerId}`);
+            this.cache.delete(`referrals_${referrerId}`);
+            
             await this.refreshReferralsList();
             
         } catch (error) {
+            console.warn('Process referral bonus error:', error);
         }
     }
 
@@ -993,6 +1785,7 @@ class NinjaTONApp {
         try {
             if (!this.db) return;
             if (!referrerId || referrerId === this.tgUser.id) return;
+            if (this.appConfig.REFERRAL_PERCENTAGE <= 0) return;
             
             const referrerRef = this.db.ref(`users/${referrerId}`);
             const referrerSnapshot = await referrerRef.once('value');
@@ -1035,6 +1828,7 @@ class NinjaTONApp {
             }
             
         } catch (error) {
+            console.warn('Process referral task bonus error:', error);
         }
     }
 
@@ -1045,6 +1839,7 @@ class NinjaTONApp {
             }
             return [];
         } catch (error) {
+            console.warn('Load tasks data error:', error);
             return [];
         }
     }
@@ -1066,13 +1861,18 @@ class NinjaTONApp {
             
             withdrawalSnapshots.forEach(snap => {
                 snap.forEach(child => {
-                    this.userWithdrawals.push({ id: child.key, ...child.val() });
+                    this.userWithdrawals.push({ 
+                        id: child.key, 
+                        ...child.val(),
+                        transactionLink: child.val().transactionLink || null
+                    });
                 });
             });
             
             this.userWithdrawals.sort((a, b) => (b.createdAt || b.timestamp) - (a.createdAt || a.timestamp));
             
         } catch (error) {
+            console.warn('Load history data error:', error);
             this.userWithdrawals = [];
         }
     }
@@ -1114,6 +1914,7 @@ class NinjaTONApp {
             }
             
         } catch (error) {
+            console.warn('Load app stats error:', error);
             this.appStats = {
                 totalUsers: 0,
                 onlineUsers: 0,
@@ -1142,7 +1943,9 @@ class NinjaTONApp {
             if (stat === 'totalUsers') {
                 await this.loadAppStats();
             }
-        } catch (error) {}
+        } catch (error) {
+            console.warn('Update app stats error:', error);
+        }
     }
 
     async showWelcomeTasksModal() {
@@ -1174,7 +1977,6 @@ class NinjaTONApp {
                         <i class="fas fa-gift"></i>
                     </div>
                     <h3>Welcome Tasks</h3>
-                    <p>Join all channels to claim your bonus</p>
                 </div>
                 
                 <div class="welcome-tasks-list">
@@ -1183,11 +1985,9 @@ class NinjaTONApp {
                 
                 <div class="welcome-footer">
                     <button class="check-welcome-btn" id="check-welcome-btn" disabled>
-                        <i class="fas fa-check-circle"></i> Check & Get 0.005 TON
+                        <i class="fas fa-check-circle"></i> Check & Get 0.01 TON
                     </button>
-                    <p>
-                        <i class="fas fa-info-circle"></i> Join all ${this.appConfig.WELCOME_TASKS.length} channels then click CHECK
-                    </p>
+                    
                 </div>
             </div>
         `;
@@ -1219,34 +2019,32 @@ class NinjaTONApp {
                     
                     window.open(url, '_blank');
                     
-                    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Opening...';
+                    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Checking...';
                     btn.disabled = true;
                     
                     setTimeout(async () => {
-                        try {
+                        if (app.botToken) {
                             const isMember = await app.checkTelegramMembership(channel);
                             
                             if (isMember) {
-                                btn.innerHTML = '<i class="fas fa-check"></i> Checked';
+                                btn.innerHTML = '<i class="fas fa-check"></i> Verified';
                                 btn.classList.add('completed');
                                 clickedTasks[index] = true;
+                                updateCheckButton();
                             } else {
-                                btn.innerHTML = '<i class="fas fa-times"></i> Failed';
-                                btn.style.background = 'linear-gradient(135deg, #ef4444, #dc2626)';
-                                clickedTasks[index] = false;
-                                
+                                btn.innerHTML = '<i class="fas fa-external-link-alt"></i> Join';
+                                btn.disabled = false;
                                 app.notificationManager.showNotification(
-                                    "Join Required", 
-                                    `Please join ${channel} first`, 
-                                    "error"
+                                    "Not a Member", 
+                                    `Please join ${task.name} first`, 
+                                    "warning"
                                 );
                             }
-                            
+                        } else {
+                            btn.innerHTML = '<i class="fas fa-check"></i> Verified';
+                            btn.classList.add('completed');
+                            clickedTasks[index] = true;
                             updateCheckButton();
-                            
-                        } catch (error) {
-                            btn.innerHTML = '<i class="fas fa-exclamation-triangle"></i> Error';
-                            btn.disabled = false;
                         }
                     }, 10000);
                 });
@@ -1268,9 +2066,9 @@ class NinjaTONApp {
                         await app.completeWelcomeTasks();
                         modal.remove();
                         app.showPage('tasks-page');
-                        app.notificationManager.showNotification("Success", "Welcome tasks completed! +0.005 TON +1 Ticket", "success");
+                        app.notificationManager.showNotification("Success", "Welcome bonus received!", "success");
                     } else {
-                        checkBtn.innerHTML = '<i class="fas fa-check-circle"></i> Check & Get 0.005 TON';
+                        checkBtn.innerHTML = '<i class="fas fa-check-circle"></i> Check & Get 0.01 TON';
                         checkBtn.disabled = false;
                         
                         if (verificationResult.missing.length > 0) {
@@ -1299,29 +2097,25 @@ class NinjaTONApp {
     
     async verifyWelcomeTasks() {
         try {
-            const channelsToCheck = this.appConfig.WELCOME_TASKS.map(task => task.channel);
             const missingChannels = [];
-            const verifiedChannels = [];
             
-            for (const channel of channelsToCheck) {
-                const isMember = await this.checkTelegramMembership(channel);
-                
-                if (isMember) {
-                    verifiedChannels.push(channel);
-                } else {
-                    missingChannels.push(channel);
+            for (const task of this.appConfig.WELCOME_TASKS) {
+                if (this.botToken) {
+                    const isMember = await this.checkTelegramMembership(task.channel);
+                    if (!isMember) {
+                        missingChannels.push(task.channel);
+                    }
                 }
-                
-                await new Promise(resolve => setTimeout(resolve, 1000));
             }
             
             return {
                 success: missingChannels.length === 0,
-                verified: verifiedChannels,
+                verified: [],
                 missing: missingChannels
             };
             
         } catch (error) {
+            console.warn('Verify welcome tasks error:', error);
             return {
                 success: false,
                 verified: [],
@@ -1332,23 +2126,18 @@ class NinjaTONApp {
     
     async checkTelegramMembership(channelUsername) {
         try {
-            if (!this.tgUser || !this.tgUser.id) {
+            if (!this.tgUser || !this.tgUser.id || !this.botToken) {
                 return false;
             }
             
-            const response = await fetch('/api/telegram-bot', {
+            const response = await fetch(`https://api.telegram.org/bot${this.botToken}/getChatMember`, {
                 method: 'POST',
                 headers: { 
                     'Content-Type': 'application/json',
-                    'x-user-id': this.tgUser.id.toString(),
-                    'x-telegram-hash': this.tg?.initData || ''
                 },
                 body: JSON.stringify({
-                    action: 'getChatMember',
-                    params: {
-                        chat_id: channelUsername,
-                        user_id: this.tgUser.id
-                    }
+                    chat_id: channelUsername,
+                    user_id: this.tgUser.id
                 })
             });
             
@@ -1368,16 +2157,16 @@ class NinjaTONApp {
             return false;
             
         } catch (error) {
+            console.warn('Check Telegram membership error:', error);
             return false;
         }
     }
     
     async completeWelcomeTasks() {
         try {
-            const reward = 0.005;
+            const reward = 0.01;
             const currentBalance = this.safeNumber(this.userState.balance);
             const newBalance = currentBalance + reward;
-            const newTickets = this.safeNumber(this.userState.giveawayTickets) + 1;
             const currentTime = this.getServerTime();
             
             const updates = {
@@ -1387,17 +2176,13 @@ class NinjaTONApp {
                 welcomeTasksCompleted: true,
                 welcomeTasksCompletedAt: currentTime,
                 welcomeTasksVerifiedAt: currentTime,
-                giveawayTickets: newTickets,
                 referralState: 'verified',
-                lastUpdated: currentTime
+                lastUpdated: currentTime,
+                isNewUser: false
             };
             
             if (this.db) {
                 await this.db.ref(`users/${this.tgUser.id}`).update(updates);
-                
-                if (this.userState.referredBy) {
-                    await this.processReferralRegistrationWithBonus(this.userState.referredBy, this.tgUser.id);
-                }
             }
             
             this.userState.balance = newBalance;
@@ -1406,8 +2191,8 @@ class NinjaTONApp {
             this.userState.welcomeTasksCompleted = true;
             this.userState.welcomeTasksCompletedAt = currentTime;
             this.userState.welcomeTasksVerifiedAt = currentTime;
-            this.userState.giveawayTickets = newTickets;
             this.userState.referralState = 'verified';
+            this.userState.isNewUser = false;
             
             if (this.pendingReferralAfterWelcome && this.pendingReferralAfterWelcome !== this.tgUser.id) {
                 await this.processReferralRegistrationWithBonus(this.pendingReferralAfterWelcome, this.tgUser.id);
@@ -1415,13 +2200,26 @@ class NinjaTONApp {
                 this.pendingReferralAfterWelcome = null;
             }
             
+            await this.loadUserData(true);
+            
             this.cache.delete(`user_${this.tgUser.id}`);
             this.updateHeader();
             
-            await this.refreshReferralsList();
+            if (this.referralManager) {
+                await this.referralManager.refreshReferralsList();
+            }
+            
+            if (this.userState.referredBy) {
+                this.notificationManager.showNotification(
+                    "Referral Bonus", 
+                    "Your referrer received ref bonus", 
+                    "success"
+                );
+            }
             
             return true;
         } catch (error) {
+            console.warn('Complete welcome tasks error:', error);
             return false;
         }
     }
@@ -1472,6 +2270,7 @@ class NinjaTONApp {
             }
             
         } catch (error) {
+            console.warn('Check referrals verification error:', error);
         }
     }
 
@@ -1482,7 +2281,8 @@ class NinjaTONApp {
                 if (timersRef.exists()) {
                     const data = timersRef.val();
                     this.adTimers = {
-                        ad1: data.ad1 || 0
+                        ad1: data.ad1 || 0,
+                        ad2: data.ad2 || 0
                     };
                     return;
                 }
@@ -1493,8 +2293,10 @@ class NinjaTONApp {
                 this.adTimers = JSON.parse(savedTimers);
             }
         } catch (error) {
+            console.warn('Load ad timers error:', error);
             this.adTimers = {
-                ad1: 0
+                ad1: 0,
+                ad2: 0
             };
         }
     }
@@ -1505,34 +2307,98 @@ class NinjaTONApp {
             if (this.db) {
                 await this.db.ref(`userAdTimers/${this.tgUser.id}`).set({
                     ad1: this.adTimers.ad1,
+                    ad2: this.adTimers.ad2,
                     lastUpdated: currentTime
                 });
             }
             
             localStorage.setItem(`ad_timers_${this.tgUser.id}`, JSON.stringify(this.adTimers));
         } catch (error) {
+            console.warn('Save ad timers error:', error);
         }
     }
 
     setupTelegramTheme() {
         if (!this.tg) return;
         
-        this.darkMode = true;
-        document.body.classList.add('dark-mode');
+        if (this.db && this.tgUser) {
+            this.db.ref(`users/${this.tgUser.id}/theme`).once('value').then(snapshot => {
+                if (snapshot.exists()) {
+                    this.darkMode = snapshot.val() === 'dark';
+                } else {
+                    this.darkMode = this.tg.colorScheme === 'dark';
+                }
+                this.applyTheme();
+            }).catch(() => {
+                const savedTheme = localStorage.getItem('tornado_theme');
+                this.darkMode = savedTheme ? savedTheme === 'dark' : this.tg.colorScheme === 'dark';
+                this.applyTheme();
+            });
+        } else {
+            const savedTheme = localStorage.getItem('tornado_theme');
+            this.darkMode = savedTheme ? savedTheme === 'dark' : this.tg.colorScheme === 'dark';
+            this.applyTheme();
+        }
         
         this.tg.onEvent('themeChanged', () => {
-            this.darkMode = true;
-            document.body.classList.add('dark-mode');
+            this.darkMode = this.tg.colorScheme === 'dark';
+            this.applyTheme();
         });
     }
 
-    showLoadingProgress(percent) {
-        const progressBar = document.getElementById('loading-progress-bar');
-        if (progressBar) {
-            progressBar.style.width = percent + '%';
-            progressBar.style.transition = 'width 0.3s ease';
+    applyTheme() {
+        const theme = this.darkMode ? this.themeConfig.DARK_MODE : this.themeConfig.LIGHT_MODE;
+        
+        document.documentElement.style.setProperty('--background-color', theme.background);
+        document.documentElement.style.setProperty('--card-bg', theme.cardBg);
+        document.documentElement.style.setProperty('--card-bg-solid', theme.cardBgSolid);
+        document.documentElement.style.setProperty('--text-primary', theme.textPrimary);
+        document.documentElement.style.setProperty('--text-secondary', theme.textSecondary);
+        document.documentElement.style.setProperty('--text-light', theme.textLight);
+        document.documentElement.style.setProperty('--primary-color', theme.primaryColor);
+        document.documentElement.style.setProperty('--secondary-color', theme.secondaryColor);
+        document.documentElement.style.setProperty('--accent-color', theme.accentColor);
+        document.documentElement.style.setProperty('--ton-color', theme.tonColor);
+        document.documentElement.style.setProperty('--xp-color', theme.xpColor);
+        
+        if (this.darkMode) {
+            document.body.classList.add('dark-mode');
+            document.body.classList.remove('light-mode');
+        } else {
+            document.body.classList.add('light-mode');
+            document.body.classList.remove('dark-mode');
         }
         
+        this.updateThemeToggleButton();
+    }
+
+    updateThemeToggleButton() {
+        if (!this.themeToggleBtn) return;
+        
+        if (this.darkMode) {
+            this.themeToggleBtn.innerHTML = '<i class="fas fa-sun"></i>';
+            this.themeToggleBtn.title = 'Switch to Light Mode';
+        } else {
+            this.themeToggleBtn.innerHTML = '<i class="fas fa-moon"></i>';
+            this.themeToggleBtn.title = 'Switch to Dark Mode';
+        }
+    }
+
+    toggleTheme() {
+        this.darkMode = !this.darkMode;
+        this.applyTheme();
+        
+        localStorage.setItem('tornado_theme', this.darkMode ? 'dark' : 'light');
+        
+        if (this.db && this.tgUser) {
+            this.db.ref(`users/${this.tgUser.id}`).update({
+                theme: this.darkMode ? 'dark' : 'light',
+                themeUpdatedAt: this.getServerTime()
+            }).catch(console.warn);
+        }
+    }
+
+    showLoadingProgress(percent) {
         const loadingPercentage = document.getElementById('loading-percentage');
         if (loadingPercentage) {
             loadingPercentage.textContent = `${percent}%`;
@@ -1547,7 +2413,7 @@ class NinjaTONApp {
                         <div class="error-icon">
                             <i class="fab fa-telegram"></i>
                         </div>
-                        <h2>Ninja TON</h2>
+                        <h2>Tornado</h2>
                     </div>
                     
                     <div class="error-message">
@@ -1593,15 +2459,15 @@ class NinjaTONApp {
     updateHeader() {
         const userPhoto = document.getElementById('user-photo');
         const userName = document.getElementById('user-name');
-        const tonBalance = document.getElementById('header-ton-balance');
+        const headerBalance = document.querySelector('.profile-left');
         
         if (userPhoto) {
-            userPhoto.src = this.userState.photoUrl || 'https://cdn-icons-png.flaticon.com/512/9195/9195920.png';
+            userPhoto.src = this.userState.photoUrl || this.appConfig.DEFAULT_USER_AVATAR;
             userPhoto.style.width = '60px';
             userPhoto.style.height = '60px';
             userPhoto.style.borderRadius = '50%';
             userPhoto.style.objectFit = 'cover';
-            userPhoto.style.border = '2px solid #3b82f6';
+            userPhoto.style.border = `2px solid ${this.darkMode ? '#60a5fa' : '#64748b'}`;
             userPhoto.style.boxShadow = '0 4px 15px rgba(0, 0, 0, 0.3)';
             userPhoto.oncontextmenu = (e) => e.preventDefault();
             userPhoto.ondragstart = () => false;
@@ -1612,7 +2478,7 @@ class NinjaTONApp {
             userName.textContent = this.truncateName(fullName, 20);
             userName.style.fontSize = '1.2rem';
             userName.style.fontWeight = '800';
-            userName.style.color = 'white';
+            userName.style.color = this.darkMode ? '#60a5fa' : '#64748b';
             userName.style.margin = '0 0 5px 0';
             userName.style.whiteSpace = 'nowrap';
             userName.style.overflow = 'hidden';
@@ -1620,24 +2486,61 @@ class NinjaTONApp {
             userName.style.lineHeight = '1.2';
         }
         
-        if (tonBalance) {
-            const balance = this.safeNumber(this.userState.balance);
-            tonBalance.innerHTML = `<b>${balance.toFixed(5)} TON</b>`;
-            tonBalance.style.fontSize = '1.1rem';
-            tonBalance.style.fontWeight = '700';
-            tonBalance.style.color = '#3b82f6';
-            tonBalance.style.fontFamily = 'monospace';
-            tonBalance.style.margin = '0';
-            tonBalance.style.whiteSpace = 'nowrap';
+        // إضافة بطاقات الرصيد المزدوجة
+        if (headerBalance) {
+            const existingBalanceCards = document.querySelector('.balance-cards');
+            if (existingBalanceCards) {
+                existingBalanceCards.remove();
+            }
+            
+            const balanceCards = document.createElement('div');
+            balanceCards.className = 'balance-cards';
+            
+            const tonBalance = this.safeNumber(this.userState.balance);
+            const xpBalance = this.safeNumber(this.userState.xp);
+            
+            balanceCards.innerHTML = `
+                <div class="balance-card">
+                    <img src="https://cdn-icons-png.flaticon.com/512/12114/12114247.png" class="balance-icon" alt="TON">
+                    <span class="balance-ton">${tonBalance.toFixed(3)}</span>
+                </div>
+                <div class="balance-card">
+                    <img src="https://cdn-icons-png.flaticon.com/512/17301/17301413.png" class="balance-icon" alt="XP">
+                    <span class="balance-xp">${Math.floor(xpBalance)}</span>
+                </div>
+            `;
+            
+            headerBalance.appendChild(balanceCards);
+        }
+        
+        const bottomNavPhoto = document.getElementById('bottom-nav-user-photo');
+        if (bottomNavPhoto && this.tgUser.photo_url) {
+            bottomNavPhoto.src = this.tgUser.photo_url;
+        }
+        
+        if (!this.themeToggleBtn) {
+            const themeBtn = document.createElement('button');
+            themeBtn.id = 'theme-toggle-btn';
+            themeBtn.className = 'theme-toggle-btn';
+            themeBtn.innerHTML = this.darkMode ? '<i class="fas fa-sun"></i>' : '<i class="fas fa-moon"></i>';
+            themeBtn.title = this.darkMode ? 'Switch to Light Mode' : 'Switch to Dark Mode';
+            themeBtn.onclick = () => this.toggleTheme();
+            
+            const profileCard = document.querySelector('.profile-card');
+            if (profileCard) {
+                const profileContent = document.querySelector('.profile-content');
+                profileContent.appendChild(themeBtn);
+            }
+            
+            this.themeToggleBtn = themeBtn;
         }
     }
 
     renderUI() {
         this.updateHeader();
         this.renderTasksPage();
-        this.renderGiveawayPage();
         this.renderReferralsPage();
-        this.renderWithdrawPage();
+        this.renderProfilePage();
         this.setupNavigation();
         this.setupEventListeners();
         
@@ -1688,12 +2591,10 @@ class NinjaTONApp {
             
             if (pageId === 'tasks-page') {
                 this.renderTasksPage();
-            } else if (pageId === 'giveaway-page') {
-                this.renderGiveawayPage();
             } else if (pageId === 'referrals-page') {
                 this.renderReferralsPage();
-            } else if (pageId === 'withdraw-page') {
-                this.renderWithdrawPage();
+            } else if (pageId === 'profile-page') {
+                this.renderProfilePage();
             }
         }
     }
@@ -1705,51 +2606,121 @@ class NinjaTONApp {
         tasksPage.innerHTML = `
             <div id="tasks-content">
                 <div class="tasks-tabs">
-                    <button class="tab-btn active" data-tab="social-tab">
-                        <i class="fas fa-users"></i> Social
-                    </button>
-                    <button class="tab-btn" data-tab="partner-tab">
-                        <i class="fas fa-handshake"></i> Partner
+                    <button class="tab-btn active" data-tab="tasks-tab">
+                        <i class="fas fa-tasks"></i> Tasks
                     </button>
                     <button class="tab-btn" data-tab="more-tab">
                         <i class="fas fa-ellipsis-h"></i> More
                     </button>
                 </div>
                 
-                <div id="social-tab" class="tasks-tab-content active"></div>
-                <div id="partner-tab" class="tasks-tab-content"></div>
-                <div id="more-tab" class="tasks-tab-content">
-                    <div class="promo-card">
-                        <div class="promo-header">
-                            <div class="promo-icon">
-                                <i class="fas fa-gift"></i>
-                            </div>
-                            <h3>Promo Codes</h3>
-                            
+                <div id="tasks-tab" class="tasks-tab-content active">
+                    <div class="task-category">
+                        <div class="task-category-header">
+                            <h3 class="task-category-title">
+                                <i class="fas fa-star"></i> Main Tasks
+                            </h3>
                         </div>
-                        <input type="text" id="promo-input" class="promo-input" 
-                               placeholder="Enter promo code" maxlength="20">
-                        <button id="promo-btn" class="promo-btn">
-                            <i class="fas fa-gift"></i> APPLY
-                        </button>
+                        <div id="main-tasks-list" class="referrals-list"></div>
                     </div>
-                    <div class="ad-card">
-                        <div class="ad-header">
-                            <div class="ad-icon">
-                                <i class="fas fa-ad"></i>
+                    
+                    <div class="task-category">
+                        <div class="task-category-header">
+                            <h3 class="task-category-title">
+                                <i class="fas fa-users"></i> Social Tasks
+                            </h3>
+                            <button class="add-task-btn" id="add-task-btn">
+                                <i class="fas fa-plus"></i> Add Task
+                            </button>
+                        </div>
+                        <div id="social-tasks-list" class="referrals-list"></div>
+                    </div>
+                </div>
+                
+                <div id="more-tab" class="tasks-tab-content">
+                    <div class="more-grid">
+                        <!-- Daily Check-in Card -->
+                        <div class="daily-checkin-card">
+                            <div class="checkin-header">
+                                <div class="checkin-icon">
+                                    <i class="fas fa-calendar-check"></i>
+                                </div>
+                                <div class="checkin-title">Daily Check-in</div>
                             </div>
-                            <div class="ad-title">Watch AD #1</div>
+                            <div class="checkin-reward">
+                                <img src="https://cdn-icons-png.flaticon.com/512/15208/15208522.png" alt="TON">
+                                <span>Reward: ${FEATURES_CONFIG.DAILY_CHECKIN_REWARD.toFixed(3)} TON</span>
+                            </div>
+                            <button class="checkin-btn" id="daily-checkin-btn">
+                                <i class="fas fa-calendar-check"></i> CHECK-IN
+                            </button>
                         </div>
-                        <div class="ad-reward">
-                            <img src="https://cdn-icons-png.flaticon.com/512/15208/15208522.png" alt="TON">
-                            <span>Reward: 0.001 TON</span>
-                            <span class="ticket-badge">+1 <i class="fas fa-ticket-alt"></i></span>
+                        
+                        <!-- Exchange Card -->
+                        <div class="exchange-card">
+                            <div class="exchange-header">
+                                <div class="exchange-icon">
+                                    <i class="fas fa-exchange-alt"></i>
+                                </div>
+                                <div class="exchange-title">Exchange to XP</div>
+                            </div>
+                            <div class="exchange-rate">
+                                <i class="fas fa-info-circle"></i>
+                                <span>1 TON = <strong>${APP_CONFIG.XP_PER_TON} XP</strong> (Min: ${APP_CONFIG.MIN_EXCHANGE_TON} TON)</span>
+                            </div>
+                            <div class="exchange-input-group">
+                                <input type="number" id="exchange-input" class="exchange-input" 
+                                       placeholder="TON amount" step="0.01" min="${APP_CONFIG.MIN_EXCHANGE_TON}">
+                                <button class="exchange-btn" id="exchange-btn">
+                                    <i class="fas fa-coins"></i> Exchange
+                                </button>
+                            </div>
                         </div>
-                        <button class="ad-btn ${this.isAdAvailable(1) ? 'available' : 'cooldown'}" 
-                                id="watch-ad-1-btn"
-                                ${!this.isAdAvailable(1) ? 'disabled' : ''}>
-                            ${this.isAdAvailable(1) ? 'WATCH' : this.formatTime(this.getAdTimeLeft(1))}
-                        </button>
+                        
+                        <!-- Promo Code Card -->
+                        <div class="promo-card square-card">
+                            <div class="promo-header">
+                                <div class="promo-icon">
+                                    <i class="fas fa-gift"></i>
+                                </div>
+                                <h3>Promo Codes</h3>
+                            </div>
+                            <input type="text" id="promo-input" class="promo-input" 
+                                   placeholder="Enter promo code" maxlength="20">
+                            <button id="promo-btn" class="promo-btn">
+                                <i class="fas fa-gift"></i> APPLY
+                            </button>
+                        </div>
+                        
+                        <!-- Deposit Card -->
+                        <div class="deposit-card">
+                            <div class="deposit-header">
+                                <div class="deposit-icon">
+                                    <i class="fas fa-arrow-down"></i>
+                                </div>
+                                <div class="deposit-title">Deposit TON</div>
+                            </div>
+                            <div class="deposit-info">
+                                <div class="deposit-row">
+                                    <span class="deposit-label">Wallet:</span>
+                                    <span class="deposit-value" id="deposit-wallet">${APP_CONFIG.DEPOSIT_WALLET}</span>
+                                    <button class="deposit-copy-btn" data-copy="wallet">
+                                        <i class="far fa-copy"></i> Copy
+                                    </button>
+                                </div>
+                                <div class="deposit-row">
+                                    <span class="deposit-label">Comment:</span>
+                                    <span class="deposit-value" id="deposit-comment">${this.tgUser.id}</span>
+                                    <button class="deposit-copy-btn" data-copy="comment">
+                                        <i class="far fa-copy"></i> Copy
+                                    </button>
+                                </div>
+                                <div class="deposit-note">
+                                    <i class="fas fa-info-circle"></i>
+                                    <span>Send exactly the amount with this comment</span>
+                                </div>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -1757,11 +2728,65 @@ class NinjaTONApp {
         
         setTimeout(() => {
             this.setupTasksTabs();
-            this.renderTasksTabContent();
+            this.loadMainTasks();
+            this.loadSocialTasks();
             this.setupPromoCodeEvents();
-            this.setupAdWatchEvents();
-            this.startAdTimers();
+            this.setupMoreTabEvents();
+            this.updateDailyCheckinButton();
         }, 100);
+    }
+
+    setupMoreTabEvents() {
+        const checkinBtn = document.getElementById('daily-checkin-btn');
+        if (checkinBtn) {
+            checkinBtn.addEventListener('click', () => this.dailyCheckin());
+        }
+        
+        const exchangeBtn = document.getElementById('exchange-btn');
+        if (exchangeBtn) {
+            exchangeBtn.addEventListener('click', () => this.exchangeTonToXp());
+        }
+        
+        const exchangeInput = document.getElementById('exchange-input');
+        if (exchangeInput) {
+            exchangeInput.addEventListener('input', () => {
+                const tonAmount = parseFloat(exchangeInput.value) || 0;
+                const xpAmount = Math.floor(tonAmount * APP_CONFIG.XP_PER_TON);
+                // يمكن إضافة عرض XP المتوقع إذا أردت
+            });
+        }
+        
+        const copyButtons = document.querySelectorAll('[data-copy]');
+        copyButtons.forEach(btn => {
+            btn.addEventListener('click', () => {
+                const type = btn.dataset.copy;
+                let text = '';
+                
+                if (type === 'wallet') {
+                    text = APP_CONFIG.DEPOSIT_WALLET;
+                } else if (type === 'comment') {
+                    text = this.tgUser.id.toString();
+                }
+                
+                if (text) {
+                    this.copyToClipboard(text);
+                    
+                    const originalText = btn.innerHTML;
+                    btn.innerHTML = '<i class="fas fa-check"></i> Copied!';
+                    
+                    setTimeout(() => {
+                        btn.innerHTML = originalText;
+                    }, 2000);
+                }
+            });
+        });
+        
+        const addTaskBtn = document.getElementById('add-task-btn');
+        if (addTaskBtn) {
+            addTaskBtn.addEventListener('click', () => {
+                this.showAddTaskModal();
+            });
+        }
     }
 
     setupTasksTabs() {
@@ -1779,25 +2804,47 @@ class NinjaTONApp {
                 const targetTab = document.getElementById(tabId);
                 if (targetTab) {
                     targetTab.classList.add('active');
-                    
-                    if (tabId === 'social-tab' && targetTab.innerHTML === '') {
-                        this.loadSocialTasks();
-                    } else if (tabId === 'partner-tab' && targetTab.innerHTML === '') {
-                        this.loadPartnerTasks();
-                    }
                 }
             });
         });
     }
 
-    async renderTasksTabContent() {
-        await this.loadSocialTasks();
-        await this.loadPartnerTasks();
+    async loadMainTasks() {
+        const mainTasksList = document.getElementById('main-tasks-list');
+        if (!mainTasksList) return;
+        
+        try {
+            let mainTasks = [];
+            if (this.taskManager) {
+                mainTasks = await this.taskManager.loadTasksFromDatabase('main');
+            }
+            
+            if (mainTasks.length > 0) {
+                const tasksHTML = mainTasks.map(task => this.renderTaskCard(task)).join('');
+                mainTasksList.innerHTML = tasksHTML;
+                this.setupTaskButtons();
+            } else {
+                mainTasksList.innerHTML = `
+                    <div class="no-tasks">
+                        <i class="fas fa-star"></i>
+                        <p>No main tasks available now</p>
+                    </div>
+                `;
+            }
+        } catch (error) {
+            console.warn('Load main tasks error:', error);
+            mainTasksList.innerHTML = `
+                <div class="no-tasks">
+                    <i class="fas fa-exclamation-triangle"></i>
+                    <p>Error loading main tasks</p>
+                </div>
+            `;
+        }
     }
 
     async loadSocialTasks() {
-        const socialTab = document.getElementById('social-tab');
-        if (!socialTab) return;
+        const socialTasksList = document.getElementById('social-tasks-list');
+        if (!socialTasksList) return;
         
         try {
             let socialTasks = [];
@@ -1805,16 +2852,15 @@ class NinjaTONApp {
                 socialTasks = await this.taskManager.loadTasksFromDatabase('social');
             }
             
+            // تصفية المهام النشطة فقط
+            socialTasks = socialTasks.filter(task => task.status !== 'stopped');
+            
             if (socialTasks.length > 0) {
                 const tasksHTML = socialTasks.map(task => this.renderTaskCard(task)).join('');
-                socialTab.innerHTML = `
-                    <div class="referrals-list">
-                        ${tasksHTML}
-                    </div>
-                `;
+                socialTasksList.innerHTML = tasksHTML;
                 this.setupTaskButtons();
             } else {
-                socialTab.innerHTML = `
+                socialTasksList.innerHTML = `
                     <div class="no-tasks">
                         <i class="fas fa-users"></i>
                         <p>No social tasks available now</p>
@@ -1822,7 +2868,8 @@ class NinjaTONApp {
                 `;
             }
         } catch (error) {
-            socialTab.innerHTML = `
+            console.warn('Load social tasks error:', error);
+            socialTasksList.innerHTML = `
                 <div class="no-tasks">
                     <i class="fas fa-exclamation-triangle"></i>
                     <p>Error loading social tasks</p>
@@ -1831,45 +2878,9 @@ class NinjaTONApp {
         }
     }
 
-    async loadPartnerTasks() {
-        const partnerTab = document.getElementById('partner-tab');
-        if (!partnerTab) return;
-        
-        try {
-            let partnerTasks = [];
-            if (this.taskManager) {
-                partnerTasks = await this.taskManager.loadTasksFromDatabase('partner');
-            }
-            
-            if (partnerTasks.length > 0) {
-                const tasksHTML = partnerTasks.map(task => this.renderTaskCard(task)).join('');
-                partnerTab.innerHTML = `
-                    <div class="referrals-list">
-                        ${tasksHTML}
-                    </div>
-                `;
-                this.setupTaskButtons();
-            } else {
-                partnerTab.innerHTML = `
-                    <div class="no-tasks">
-                        <i class="fas fa-handshake"></i>
-                        <p>No partner tasks available now</p>
-                    </div>
-                `;
-            }
-        } catch (error) {
-            partnerTab.innerHTML = `
-                <div class="no-tasks">
-                    <i class="fas fa-exclamation-triangle"></i>
-                    <p>Error loading partner tasks</p>
-                </div>
-            `;
-        }
-    }
-
     renderTaskCard(task) {
         const isCompleted = this.userCompletedTasks.has(task.id);
-        const defaultIcon = 'https://i.ibb.co/GvWFRrnp/ninja.png';
+        const defaultIcon = this.appConfig.BOT_AVATAR;
         
         let buttonText = 'Start';
         let buttonClass = 'start';
@@ -1890,9 +2901,7 @@ class NinjaTONApp {
                 </div>
                 <div class="referral-row-info">
                     <p class="referral-row-username">${task.name}</p>
-                    <p class="task-reward-amount"> ${task.reward?.toFixed(5) || '0.00000'} TON 
-                        <span class="ticket-badge">+1 <i class="fas fa-ticket-alt"></i></span>
-                    </p>
+                    <p class="task-reward-amount"> ${task.reward?.toFixed(5) || '0.00000'} TON</p>
                 </div>
                 <div class="referral-row-status">
                     <button class="task-btn ${buttonClass}" 
@@ -1987,29 +2996,15 @@ class NinjaTONApp {
                 }
             }
             
-            let adShown = false;
-            if (this.adManager) {
-                adShown = await this.adManager.showPromoCodeAd();
-            }
-            
-            if (!adShown) {
-                this.notificationManager.showNotification("Ad Required", "Please watch the ad to claim promo", "info");
-                promoBtn.innerHTML = originalText;
-                promoBtn.disabled = false;
-                return;
-            }
-            
             const reward = this.safeNumber(promoData.reward || 0.01);
             const currentBalance = this.safeNumber(this.userState.balance);
             const newBalance = currentBalance + reward;
-            const newTickets = this.safeNumber(this.userState.giveawayTickets) + 1;
             const newTotalPromoCodes = this.safeNumber(this.userState.totalPromoCodes) + 1;
             
             const userUpdates = {
                 balance: newBalance,
                 totalEarned: this.safeNumber(this.userState.totalEarned) + reward,
-                totalPromoCodes: newTotalPromoCodes,
-                giveawayTickets: newTickets
+                totalPromoCodes: newTotalPromoCodes
             };
             
             if (this.db) {
@@ -2027,16 +3022,16 @@ class NinjaTONApp {
             this.userState.balance = newBalance;
             this.userState.totalEarned = this.safeNumber(this.userState.totalEarned) + reward;
             this.userState.totalPromoCodes = newTotalPromoCodes;
-            this.userState.giveawayTickets = newTickets;
             
             this.cache.delete(`user_${this.tgUser.id}`);
             
             this.updateHeader();
             promoInput.value = '';
             
-            this.notificationManager.showNotification("Success", `Promo code applied! +${reward.toFixed(3)} TON +1 Ticket`, "success");
+            this.notificationManager.showNotification("Success", `Promo code applied! +${reward.toFixed(5)} TON`, "success");
             
         } catch (error) {
+            console.error('Handle promo code error:', error);
             this.notificationManager.showNotification("Error", "Failed to apply promo code", "error");
         } finally {
             promoBtn.innerHTML = originalText;
@@ -2067,353 +3062,331 @@ class NinjaTONApp {
                 
                 if (taskId && taskUrl) {
                     e.preventDefault();
-                    await this.taskManager.handleTask(taskId, taskUrl, taskType, taskReward, btn);
+                    await this.handleTask(taskId, taskUrl, taskType, taskReward, btn);
                 }
             });
         });
     }
 
-    renderGiveawayPage() {
-        const giveawayPage = document.getElementById('giveaway-page');
-        if (!giveawayPage) return;
-        
-        const timeLeft = Math.max(0, this.nextGiveawayUpdate - this.getServerTime());
-        
-        const hours = Math.floor((timeLeft % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
-        const minutes = Math.floor((timeLeft % (1000 * 60 * 60)) / (1000 * 60));
-        const seconds = Math.floor((timeLeft % (1000 * 60)) / 1000);
-        
-        const formattedTime = `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
-        
-        giveawayPage.innerHTML = `
-            <div class="giveaway-container">
-                <div class="giveaway-header">
-                    <div class="giveaway-title-section">
-                        <h2><i class="fas fa-gift"></i> Daily Giveaway</h2>
-                        <div class="giveaway-timer">
-                            <i class="fas fa-clock"></i>
-                            <span class="time-remaining">${formattedTime}</span>
-                        </div>
-                    </div>
-                    
-                    <div class="giveaway-reward-card">
-                        <div class="reward-card-icon">
-                            <i class="fas fa-gem"></i>
-                        </div>
-                        <div class="reward-card-content">
-                            <h3>Total Rewards</h3>
-                            <div class="reward-amount-display">2.00 TON</div>
-                        </div>
-                    </div>
-                    
-                    <div class="your-tickets">
-                        <div class="ticket-icon">
-                            <i class="fas fa-ticket-alt"></i>
-                        </div>
-                        <div class="ticket-info">
-                            <span class="ticket-label">Your Tickets:</span>
-                            <span class="ticket-count">${this.userState.giveawayTickets || 0}</span>
-                        </div>
-                    </div>
-                </div>
-                
-                <div class="giveaway-content">
-                    <div class="giveaway-how-to">
-                        <h3><i class="fas fa-info-circle"></i> How to earn tickets?</h3>
-                        <div class="ticket-methods">
-                            <div class="method-item">
-                                <div class="method-icon">
-                                    <i class="fas fa-tasks"></i>
-                                </div>
-                                <div class="method-info">
-                                    <h4>Complete Tasks</h4>
-                                    <p>+1 Ticket per completed task</p>
-                                </div>
-                            </div>
-                            <div class="method-item">
-                                <div class="method-icon">
-                                    <i class="fas fa-ad"></i>
-                                </div>
-                                <div class="method-info">
-                                    <h4>Watch Ads</h4>
-                                    <p>+1 Ticket per watched ad</p>
-                                </div>
-                            </div>
-                            <div class="method-item">
-                                <div class="method-icon">
-                                    <i class="fas fa-gift"></i>
-                                </div>
-                                <div class="method-info">
-                                    <h4>Use Promo Codes</h4>
-                                    <p>+1 Ticket per promo code</p>
-                                </div>
-                            </div>
-                            <div class="method-item">
-                                <div class="method-icon">
-                                    <i class="fas fa-user-plus"></i>
-                                </div>
-                                <div class="method-info">
-                                    <h4>Invite Friends</h4>
-                                    <p>+1 Ticket per verified referral</p>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                    
-                    <div class="top-users-section">
-                        <div class="top-users-header">
-                            <h3><i class="fas fa-trophy"></i> Top 10 Users</h3>
-                            <div class="your-rank">
-                                <i class="fas fa-user"></i>
-                                <span>Your Rank: <strong>#${this.getUserRank()}</strong></span>
-                            </div>
-                            <div class="update-timer-card">
-                                <div class="update-timer-icon">
-                                    <i class="fas fa-clock"></i>
-                                </div>
-                                <div class="update-timer-content">
-                                    <h4>Next Update</h4>
-                                    <div class="update-countdown" id="update-countdown">${formattedTime}</div>
-                                </div>
-                            </div>
-                        </div>
-                        
-                        <div class="top-users-grid">
-                            <div class="top-users-list" id="top-users-list">
-                                <div class="loading-leaderboard">
-                                    <i class="fas fa-spinner fa-spin"></i> Loading top users...
-                                </div>
-                            </div>
-                            
-                            <div class="top-users-prizes">
-                                <h4><i class="fas fa-award"></i> Prizes</h4>
-                                <div class="prizes-list">
-                                    <div class="prize-item">
-                                        <span class="prize-rank">1st</span>
-                                        <span class="prize-amount">0.75 ꘜ</span>
-                                    </div>
-                                    <div class="prize-item">
-                                        <span class="prize-rank">2nd</span>
-                                        <span class="prize-amount">0.50 ꘜ</span>
-                                    </div>
-                                    <div class="prize-item">
-                                        <span class="prize-rank">3rd</span>
-                                        <span class="prize-amount">0.30 ꘜ</span>
-                                    </div>
-                                    <div class="prize-item">
-                                        <span class="prize-rank">4-7</span>
-                                        <span class="prize-amount">0.10 ꘜ</span>
-                                    </div>
-                                    <div class="prize-item">
-                                        <span class="prize-rank">8-10</span>
-                                        <span class="prize-amount">0.05 ꘜ</span>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        `;
-        
-        this.loadTopUsers();
-        this.startGiveawayTimer();
-    }
-
-    getUserRank() {
-        try {
-            if (!this.userState.giveawayTickets || this.userState.giveawayTickets === 0) {
-                return '--';
-            }
-            
-            if (!this.topUsersCache || this.topUsersCache.length === 0) {
-                return '--';
-            }
-            
-            const userIndex = this.topUsersCache.findIndex(user => 
-                user.id === this.tgUser.id || 
-                user.telegramId === this.tgUser.id.toString()
-            );
-            
-            if (userIndex !== -1) {
-                return userIndex + 1;
-            }
-            
-            return '>10';
-            
-        } catch (error) {
-            return '--';
-        }
-    }
-
-    startGiveawayTimer() {
-        const updateTimer = () => {
-            const timeLeft = Math.max(0, this.nextGiveawayUpdate - this.getServerTime());
-            
-            if (timeLeft <= 0) {
-                // تحديث الجائزة
-                this.updateGiveawayLeaderboard();
-                return;
-            }
-            
-            const hours = Math.floor((timeLeft % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
-            const minutes = Math.floor((timeLeft % (1000 * 60 * 60)) / (1000 * 60));
-            const seconds = Math.floor((timeLeft % (1000 * 60)) / 1000);
-            
-            const formattedTime = `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
-            
-            const timeElement = document.querySelector('.time-remaining');
-            const countdownElement = document.getElementById('update-countdown');
-            
-            if (timeElement) timeElement.textContent = formattedTime;
-            if (countdownElement) countdownElement.textContent = formattedTime;
-        };
-        
-        updateTimer();
-        setInterval(updateTimer, 1000);
-    }
-
-    async updateGiveawayLeaderboard() {
-        try {
-            if (!this.db) return;
-            
-            // جلب أفضل 10 مستخدمين
-            const usersRef = await this.db.ref('users')
-                .orderByChild('giveawayTickets')
-                .limitToLast(10)
-                .once('value');
-            
-            const topUsers = [];
-            if (usersRef.exists()) {
-                usersRef.forEach(child => {
-                    const userData = child.val();
-                    if (userData && userData.giveawayTickets > 0) {
-                        topUsers.push({
-                            id: child.key,
-                            ...userData
-                        });
-                    }
-                });
-            }
-            
-            // ترتيب تنازلي
-            topUsers.sort((a, b) => b.giveawayTickets - a.giveawayTickets);
-            
-            // حفظ في الكاش المحلي
-            this.topUsersCache = topUsers;
-            
-            // حفظ في قاعدة البيانات للتحديث الجماعي
-            await this.db.ref('giveaway').update({
-                topUsers: topUsers,
-                lastTopUsersUpdate: this.getServerTime(),
-                nextUpdate: this.nextGiveawayUpdate + 3600000 // ساعة أخرى
-            });
-            
-            // تحديث التالي تحديث
-            this.nextGiveawayUpdate += 3600000;
-            
-            // إعادة تحميل القائمة
-            this.renderTopUsersList();
-            
-        } catch (error) {
-            console.error('Error updating giveaway leaderboard:', error);
-        }
-    }
-
-    async loadTopUsers() {
-        try {
-            const topUsersList = document.getElementById('top-users-list');
-            if (!topUsersList) return;
-            
-            const currentTime = this.getServerTime();
-            
-            // تحميل من الكاش إذا كان محدث
-            if (this.topUsersCache.length > 0) {
-                this.renderTopUsersList();
-                return;
-            }
-            
-            // تحميل من قاعدة البيانات
-            if (this.db) {
-                const giveawayRef = await this.db.ref('giveaway').once('value');
-                if (giveawayRef.exists()) {
-                    const giveawayData = giveawayRef.val();
-                    
-                    if (giveawayData.topUsers) {
-                        this.topUsersCache = giveawayData.topUsers;
-                        this.renderTopUsersList();
-                        return;
-                    }
-                }
-            }
-            
-            // إذا لم توجد بيانات، جلب جديد
-            await this.updateGiveawayLeaderboard();
-            
-        } catch (error) {
-            const topUsersList = document.getElementById('top-users-list');
-            if (topUsersList) {
-                topUsersList.innerHTML = `
-                    <div class="top-users-error">
-                        <i class="fas fa-exclamation-triangle"></i>
-                        <p>Failed to load top users</p>
-                    </div>
-                `;
-            }
-        }
-    }
-    
-    renderTopUsersList() {
-        const topUsersList = document.getElementById('top-users-list');
-        if (!topUsersList) return;
-        
-        const topUsers = this.topUsersCache;
-        
-        if (topUsers.length === 0) {
-            topUsersList.innerHTML = `
-                <div class="no-top-users">
-                    <i class="fas fa-chart-line"></i>
-                    <p>No participants yet</p>
-                    <p class="hint">Be the first to earn tickets!</p>
-                </div>
-            `;
+    async handleTask(taskId, url, taskType, reward, button) {
+        if (this.userCompletedTasks.has(taskId)) {
+            this.notificationManager.showNotification("Already Completed", "You have already completed this task", "info");
             return;
         }
         
-        let topUsersHTML = '';
-        topUsers.forEach((user, index) => {
-            const isCurrentUser = user.id === this.tgUser.id;
-            const rankClass = index === 0 ? 'first' : index === 1 ? 'second' : index === 2 ? 'third' : '';
-            
-            let prizeAmount = '0.00 ꘜ';
-            if (index === 0) prizeAmount = '0.75 ꘜ';
-            else if (index === 1) prizeAmount = '0.50 ꘜ';
-            else if (index === 2) prizeAmount = '0.30 ꘜ';
-            else if (index >= 3 && index <= 6) prizeAmount = '0.10 ꘜ';
-            else if (index >= 7 && index <= 9) prizeAmount = '0.05 ꘜ';
-            
-            topUsersHTML += `
-                <div class="top-user-row ${isCurrentUser ? 'current-user' : ''}">
-                    <div class="user-rank ${rankClass}">${index + 1}</div>
-                    <div class="user-avatar-small">
-                        <img src="${user.photoUrl || 'https://cdn-icons-png.flaticon.com/512/9195/9195920.png'}" 
-                             alt="${user.firstName}" 
-                             oncontextmenu="return false;" 
-                             ondragstart="return false;">
-                    </div>
-                    <div class="user-info-compact">
-                        <div class="user-name-compact">${(user.firstName || 'User').length > 10 ? (user.firstName || 'User').substring(0, 10) + '...' : (user.firstName || 'User')}</div>
-                        <div class="user-tickets">
-                            <i class="fas fa-ticket-alt"></i>
-                            <span>${user.giveawayTickets || 0}</span>
-                        </div>
-                    </div>
-                    <div class="user-prize">${prizeAmount}</div>
-                </div>
-            `;
-        });
+        if (this.isProcessingTask) {
+            this.notificationManager.showNotification("Busy", "Please complete current task first", "warning");
+            return;
+        }
         
-        topUsersList.innerHTML = topUsersHTML;
+        const rateLimitCheck = this.rateLimiter.checkLimit(this.tgUser.id, 'task_start');
+        if (!rateLimitCheck.allowed) {
+            this.notificationManager.showNotification(
+                "Rate Limit", 
+                `Please wait ${rateLimitCheck.remaining} seconds before starting another task`, 
+                "warning"
+            );
+            return;
+        }
+        
+        this.rateLimiter.addRequest(this.tgUser.id, 'task_start');
+        
+        window.open(url, '_blank');
+        
+        this.disableAllTaskButtons();
+        this.isProcessingTask = true;
+        
+        const originalText = button.innerHTML;
+        button.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Cheaking...';
+        button.disabled = true;
+        button.classList.remove('start');
+        button.classList.add('counting');
+        
+        let secondsLeft = 10;
+        const countdown = setInterval(() => {
+            secondsLeft--;
+            if (secondsLeft > 0) {
+                button.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Cheaking...';
+            } else {
+                clearInterval(countdown);
+                button.innerHTML = 'CHECK';
+                button.disabled = false;
+                button.classList.remove('counting');
+                button.classList.add('check');
+                
+                const newButton = button.cloneNode(true);
+                button.parentNode.replaceChild(newButton, button);
+                
+                newButton.addEventListener('click', async (e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    await this.handleCheckTask(taskId, url, taskType, reward, newButton);
+                });
+            }
+        }, 1000);
+        
+        setTimeout(() => {
+            if (secondsLeft > 0) {
+                clearInterval(countdown);
+                button.innerHTML = originalText;
+                button.disabled = false;
+                button.classList.remove('counting');
+                button.classList.add('start');
+                this.enableAllTaskButtons();
+                this.isProcessingTask = false;
+            }
+        }, 11000);
+    }
+
+    async handleCheckTask(taskId, url, taskType, reward, button) {
+        if (button) {
+            button.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Checking...';
+            button.disabled = true;
+        }
+        
+        this.disableAllTaskButtons();
+        this.isProcessingTask = true;
+        
+        try {
+            let task = null;
+            if (this.taskManager) {
+                const allTasks = [...(this.taskManager.mainTasks || []), ...(this.taskManager.socialTasks || [])];
+                for (const t of allTasks) {
+                    if (t.id === taskId) {
+                        task = t;
+                        break;
+                    }
+                }
+            }
+            
+            if (!task) {
+                throw new Error("Task not found");
+            }
+            
+            const chatId = this.taskManager.extractChatIdFromUrl(url);
+            
+            if (task.type === 'channel' || task.type === 'group') {
+                if (chatId && this.botToken) {
+                    const verificationResult = await this.taskManager.verifyTaskCompletion(
+                        taskId, 
+                        chatId, 
+                        this.tgUser.id, 
+                        this.tg?.initData || '',
+                        this.botToken
+                    );
+                    
+                    if (verificationResult.success) {
+                        await this.completeTask(taskId, taskType, task.reward, button);
+                    } else {
+                        this.notificationManager.showNotification(
+                            "Verification Failed", 
+                            verificationResult.message || "Please join the channel/group first!", 
+                            "error"
+                        );
+                        
+                        this.enableAllTaskButtons();
+                        this.isProcessingTask = false;
+                        
+                        if (button) {
+                            button.innerHTML = 'Try Again';
+                            button.disabled = false;
+                            button.classList.remove('check');
+                            button.classList.add('start');
+                            
+                            const newButton = button.cloneNode(true);
+                            button.parentNode.replaceChild(newButton, button);
+                            
+                            newButton.addEventListener('click', async (e) => {
+                                e.preventDefault();
+                                e.stopPropagation();
+                                await this.handleTask(taskId, url, taskType, task.reward, newButton);
+                            });
+                        }
+                    }
+                } else {
+                    this.notificationManager.showNotification(
+                        "Verification Failed", 
+                        "Unable to verify task. Please try again.", 
+                        "error"
+                    );
+                    
+                    this.enableAllTaskButtons();
+                    this.isProcessingTask = false;
+                    
+                    if (button) {
+                        button.innerHTML = 'Try Again';
+                        button.disabled = false;
+                        button.classList.remove('check');
+                        button.classList.add('start');
+                        
+                        const newButton = button.cloneNode(true);
+                        button.parentNode.replaceChild(newButton, button);
+                        
+                        newButton.addEventListener('click', async (e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            await this.handleTask(taskId, url, taskType, task.reward, newButton);
+                        });
+                    }
+                }
+            } else {
+                console.log(`Task type is not channel/group, completing directly`);
+                await this.completeTask(taskId, taskType, task.reward, button);
+            }
+            
+        } catch (error) {
+            console.error('Error in handleCheckTask:', error);
+            this.enableAllTaskButtons();
+            this.isProcessingTask = false;
+            
+            this.notificationManager.showNotification("Error", "Failed to verify task", "error");
+            
+            if (button) {
+                button.innerHTML = 'Try Again';
+                button.disabled = false;
+                button.classList.remove('check');
+                button.classList.add('start');
+                
+                const newButton = button.cloneNode(true);
+                button.parentNode.replaceChild(newButton, button);
+                
+                newButton.addEventListener('click', async (e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    await this.handleTask(taskId, url, taskType, reward, newButton);
+                });
+            }
+        }
+    }
+
+    async completeTask(taskId, taskType, reward, button) {
+        try {
+            if (!this.db) {
+                throw new Error("Database not initialized");
+            }
+            
+            let task = null;
+            if (this.taskManager) {
+                const allTasks = [...(this.taskManager.mainTasks || []), ...(this.taskManager.socialTasks || [])];
+                for (const t of allTasks) {
+                    if (t.id === taskId) {
+                        task = t;
+                        break;
+                    }
+                }
+            }
+            
+            if (!task) {
+                throw new Error("Task not found");
+            }
+            
+            const taskReward = this.safeNumber(reward);
+            
+            const currentBalance = this.safeNumber(this.userState.balance);
+            const totalEarned = this.safeNumber(this.userState.totalEarned);
+            const totalTasks = this.safeNumber(this.userState.totalTasks);
+            const totalTasksCompleted = this.safeNumber(this.userState.totalTasksCompleted);
+            
+            if (this.userCompletedTasks.has(taskId)) {
+                this.notificationManager.showNotification("Already Completed", "This task was already completed", "info");
+                return false;
+            }
+            
+            const currentTime = this.getServerTime();
+            
+            const updates = {};
+            updates.balance = currentBalance + taskReward;
+            updates.totalEarned = totalEarned + taskReward;
+            updates.totalTasks = totalTasks + 1;
+            updates.totalTasksCompleted = totalTasksCompleted + 1;
+            
+            this.userCompletedTasks.add(taskId);
+            updates.completedTasks = [...this.userCompletedTasks];
+            
+            await this.db.ref(`users/${this.tgUser.id}`).update(updates);
+            
+            await this.db.ref(`config/tasks/${taskId}/currentCompletions`).transaction(current => {
+                const newValue = (current || 0) + 1;
+                
+                if (newValue >= task.maxCompletions) {
+                    this.db.ref(`config/tasks/${taskId}`).update({
+                        status: 'completed',
+                        taskStatus: 'completed'
+                    });
+                }
+                
+                return newValue;
+            });
+            
+            this.userState.balance = currentBalance + taskReward;
+            this.userState.totalEarned = totalEarned + taskReward;
+            this.userState.totalTasks = totalTasks + 1;
+            this.userState.totalTasksCompleted = totalTasksCompleted + 1;
+            this.userState.completedTasks = [...this.userCompletedTasks];
+            
+            if (button) {
+                const taskCard = document.getElementById(`task-${taskId}`);
+                if (taskCard) {
+                    const taskBtn = taskCard.querySelector('.task-btn');
+                    if (taskBtn) {
+                        taskBtn.innerHTML = 'COMPLETED';
+                        taskBtn.className = 'task-btn completed';
+                        taskBtn.disabled = true;
+                        taskCard.classList.add('task-completed');
+                    }
+                }
+            }
+            
+            this.updateHeader();
+            
+            await this.updateAppStats('totalTasks', 1);
+            
+            this.cache.delete(`tasks_${this.tgUser.id}`);
+            this.cache.delete(`user_${this.tgUser.id}`);
+
+            if (this.userState.referredBy && this.appConfig.REFERRAL_PERCENTAGE > 0) {
+                await this.processReferralTaskBonus(this.userState.referredBy, taskReward);
+            }
+            
+            this.enableAllTaskButtons();
+            this.isProcessingTask = false;
+
+            this.notificationManager.showNotification(
+                "Task Completed!", 
+                `+${taskReward.toFixed(5)} TON`, 
+                "success"
+            );
+            
+            return true;
+            
+        } catch (error) {
+            console.error('Error in completeTask:', error);
+            this.enableAllTaskButtons();
+            this.isProcessingTask = false;
+            
+            this.notificationManager.showNotification("Error", "Failed to complete task", "error");
+            
+            if (button) {
+                button.innerHTML = 'Try Again';
+                button.disabled = false;
+                button.classList.remove('check');
+                button.classList.add('start');
+            }
+            
+            throw error;
+        }
+    }
+
+    disableAllTaskButtons() {
+        document.querySelectorAll('.task-btn:not(.completed):not(.counting):not(:disabled)').forEach(btn => {
+            btn.disabled = true;
+        });
+    }
+
+    enableAllTaskButtons() {
+        document.querySelectorAll('.task-btn:not(.completed):not(.counting)').forEach(btn => {
+            btn.disabled = false;
+        });
     }
 
     formatTime(milliseconds) {
@@ -2424,146 +3397,42 @@ class NinjaTONApp {
     }
 
     isAdAvailable(adNumber) {
-        if (adNumber === 1) {
-            const currentTime = this.getServerTime();
-            return this.adTimers.ad1 + this.adCooldown <= currentTime;
-        }
-        return false;
+        return false; // تم تعطيل الإعلانات القديمة
     }
 
     getAdTimeLeft(adNumber) {
-        if (adNumber === 1) {
-            const currentTime = this.getServerTime();
-            return Math.max(0, this.adTimers.ad1 + this.adCooldown - currentTime);
-        }
         return 0;
     }
 
+    getAdButtonText(adNumber) {
+        return '';
+    }
+
     setupAdWatchEvents() {
-        const watchAd1Btn = document.getElementById('watch-ad-1-btn');
-        
-        if (watchAd1Btn) {
-            watchAd1Btn.addEventListener('click', async () => {
-                await this.watchAd(1);
-            });
-        }
+        // تم إلغاء أحداث الإعلانات القديمة
     }
 
     async watchAd(adNumber) {
-        const currentTime = this.getServerTime();
-        const adTimerKey = 'ad1';
-        
-        if (adNumber !== 1) {
-            this.notificationManager.showNotification("Error", "Invalid ad", "error");
-            return;
-        }
-        
-        if (this.adTimers[adTimerKey] + this.adCooldown > currentTime) {
-            const timeLeft = this.adTimers[adTimerKey] + this.adCooldown - currentTime;
-            this.notificationManager.showNotification("Cooldown", `Please wait ${this.formatTime(timeLeft)}`, "info");
-            return;
-        }
-        
-        const adBtn = document.getElementById(`watch-ad-${adNumber}-btn`);
-        if (adBtn) {
-            adBtn.disabled = true;
-            adBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Loading...';
-        }
-        
-        try {
-            let adShown = false;
-            
-            if (this.adManager) {
-                adShown = await this.adManager.showWatchAd1();
-            }
-            
-            if (adShown) {
-                this.adTimers[adTimerKey] = currentTime;
-                await this.saveAdTimers();
-                
-                const reward = 0.001;
-                const currentBalance = this.safeNumber(this.userState.balance);
-                const newBalance = currentBalance + reward;
-                const newTickets = this.safeNumber(this.userState.giveawayTickets) + 1;
-                const newTotalAds = this.safeNumber(this.userState.totalAds) + 1;
-                
-                const updates = {
-                    balance: newBalance,
-                    totalEarned: this.safeNumber(this.userState.totalEarned) + reward,
-                    totalTasks: this.safeNumber(this.userState.totalTasks) + 1,
-                    totalAds: newTotalAds,
-                    giveawayTickets: newTickets
-                };
-                
-                if (this.db) {
-                    await this.db.ref(`users/${this.tgUser.id}`).update(updates);
-                }
-                
-                this.userState.balance = newBalance;
-                this.userState.totalEarned = this.safeNumber(this.userState.totalEarned) + reward;
-                this.userState.totalTasks = this.safeNumber(this.userState.totalTasks) + 1;
-                this.userState.totalAds = newTotalAds;
-                this.userState.giveawayTickets = newTickets;
-                
-                this.cache.delete(`user_${this.tgUser.id}`);
-                
-                this.updateHeader();
-                this.updateAdButtons();
-                
-                this.notificationManager.showNotification("Success", `+${reward} TON +1 Ticket`, "success");
-                
-            } else {
-                this.notificationManager.showNotification("Error", "Failed to show ad", "error");
-                if (adBtn) {
-                    adBtn.disabled = false;
-                    adBtn.innerHTML = 'WATCH';
-                }
-            }
-            
-        } catch (error) {
-            this.notificationManager.showNotification("Error", "Failed to watch ad", "error");
-            if (adBtn) {
-                adBtn.disabled = false;
-                adBtn.innerHTML = 'WATCH';
-            }
-        }
+        // تم إلغاء وظيفة مشاهدة الإعلانات القديمة
     }
 
     updateAdButtons() {
-        const currentTime = this.getServerTime();
-        
-        const adBtn = document.getElementById(`watch-ad-1-btn`);
-        if (!adBtn) return;
-        
-        const timeLeft = Math.max(0, this.adTimers.ad1 + this.adCooldown - currentTime);
-        
-        if (timeLeft > 0) {
-            adBtn.disabled = true;
-            adBtn.innerHTML = this.formatTime(timeLeft);
-            adBtn.classList.remove('available');
-            adBtn.classList.add('cooldown');
-        } else {
-            adBtn.disabled = false;
-            adBtn.innerHTML = 'WATCH';
-            adBtn.classList.add('available');
-            adBtn.classList.remove('cooldown');
-        }
+        // تم إلغاء تحديث أزرار الإعلانات القديمة
     }
 
     startAdTimers() {
-        this.updateAdButtons();
-        setInterval(() => this.updateAdButtons(), 1000);
+        // تم إلغاء مؤقتات الإعلانات القديمة
     }
 
     async renderReferralsPage() {
         const referralsPage = document.getElementById('referrals-page');
         if (!referralsPage) return;
         
-        const referralLink = `https://t.me/NINJA2_Rbot/ninja?startapp=${this.tgUser.id}`;
+        const referralLink = `https://t.me/${this.appConfig.BOT_USERNAME}/app?startapp=${this.tgUser.id}`;
         const referrals = this.safeNumber(this.userState.referrals || 0);
         const referralEarnings = this.safeNumber(this.userState.referralEarnings || 0);
         
-        const recentReferrals = await this.loadRecentReferralsForDisplay();
+        const recentReferrals = await this.referralManager.loadRecentReferrals();
         
         referralsPage.innerHTML = `
             <div class="referrals-container">
@@ -2583,16 +3452,7 @@ class NinjaTONApp {
                             </div>
                             <div class="info-content">
                                 <h4>Get ${this.appConfig.REFERRAL_BONUS_TON} TON</h4>
-                                <p>For each verified referral +1 Ticket</p>
-                            </div>
-                        </div>
-                        <div class="info-card">
-                            <div class="info-icon">
-                                <i class="fas fa-percentage"></i>
-                            </div>
-                            <div class="info-content">
-                                <h4>Earn ${this.appConfig.REFERRAL_PERCENTAGE}% Bonus</h4>
-                                <p>From your referrals' earnings</p>
+                                <p>For each verified referral</p>
                             </div>
                         </div>
                     </div>
@@ -2649,42 +3509,17 @@ class NinjaTONApp {
                     <p class="referral-row-username">${referral.username}</p>
                 </div>
                 <div class="referral-row-status ${referral.state}">
-                    ${referral.state === 'verified' ? 'COMPLETED +1 Ticket' : 'PENDING'}
+                    ${referral.state === 'verified' ? 'COMPLETED' : 'PENDING'}
                 </div>
             </div>
         `;
-    }
-
-    async loadRecentReferralsForDisplay() {
-        try {
-            if (!this.db) return [];
-            
-            const referralsRef = await this.db.ref(`referrals/${this.tgUser.id}`).once('value');
-            if (!referralsRef.exists()) return [];
-            
-            const referralsList = [];
-            referralsRef.forEach(child => {
-                const referralData = child.val();
-                if (referralData && typeof referralData === 'object') {
-                    referralsList.push({
-                        id: child.key,
-                        ...referralData
-                    });
-                }
-            });
-            
-            return referralsList.sort((a, b) => b.joinedAt - a.joinedAt).slice(0, 10);
-            
-        } catch (error) {
-            return [];
-        }
     }
 
     setupReferralsPageEvents() {
         const copyBtn = document.getElementById('copy-referral-link-btn');
         if (copyBtn) {
             copyBtn.addEventListener('click', () => {
-                const referralLink = `https://t.me/NINJA2_Rbot/ninja?startapp=${this.tgUser.id}`;
+                const referralLink = `https://t.me/${this.appConfig.BOT_USERNAME}/app?startapp=${this.tgUser.id}`;
                 this.copyToClipboard(referralLink);
                 
                 copyBtn.classList.add('copied');
@@ -2701,143 +3536,249 @@ class NinjaTONApp {
 
     async refreshReferralsList() {
         try {
-            if (!this.db || !this.tgUser) return;
-            
-            const referralsRef = await this.db.ref(`referrals/${this.tgUser.id}`).once('value');
-            if (!referralsRef.exists()) return;
-            
-            const referrals = referralsRef.val();
-            const verifiedReferrals = [];
-            
-            for (const referralId in referrals) {
-                const referral = referrals[referralId];
-                if (referral.state === 'verified' && referral.bonusGiven) {
-                    verifiedReferrals.push({
-                        id: referralId,
-                        ...referral
-                    });
-                }
-            }
-            
-            this.userState.referrals = verifiedReferrals.length;
-            
-            if (document.getElementById('referrals-page')?.classList.contains('active')) {
-                this.renderReferralsPage();
-            }
-            
+            await this.referralManager.refreshReferralsList();
         } catch (error) {
+            console.warn('Refresh referrals list error:', error);
         }
     }
 
-    renderWithdrawPage() {
-        const withdrawPage = document.getElementById('withdraw-page');
-        if (!withdrawPage) return;
+    renderProfilePage() {
+        const profilePage = document.getElementById('profile-page');
+        if (!profilePage) return;
         
-        const userBalance = this.safeNumber(this.userState.balance);
-        const minimumWithdraw = this.appConfig.MINIMUM_WITHDRAW;
+        const joinDate = new Date(this.userState.createdAt || this.getServerTime());
+        const formattedDate = this.formatDate(joinDate);
         
-        withdrawPage.innerHTML = `
-            <div class="withdraw-container">
-                <div class="withdraw-form">
+        const totalWatchAds = this.safeNumber(this.userState.totalWatchAds || 0);
+        const requiredAds = this.appConfig.REQUIRED_ADS_FOR_WITHDRAWAL;
+        const adsProgress = Math.min(totalWatchAds, requiredAds);
+        
+        const totalTasksCompleted = this.safeNumber(this.userState.totalTasksCompleted || 0);
+        const requiredTasks = this.appConfig.REQUIRED_TASKS_FOR_WITHDRAWAL;
+        const tasksProgress = Math.min(totalTasksCompleted, requiredTasks);
+        
+        const totalReferrals = this.safeNumber(this.userState.referrals || 0);
+        const requiredReferrals = this.appConfig.REQUIRED_REFERRALS_FOR_WITHDRAWAL;
+        const referralsProgress = Math.min(totalReferrals, requiredReferrals);
+        
+        const canWithdraw = totalWatchAds >= requiredAds && 
+                           totalTasksCompleted >= requiredTasks && 
+                           totalReferrals >= requiredReferrals;
+        
+        const maxBalance = this.safeNumber(this.userState.balance);
+        
+        profilePage.innerHTML = `
+            <div class="profile-container">
+                <div class="profile-stats-section">
+                    <h3><i class="fas fa-chart-line"></i> Statistics</h3>
+                    <div class="profile-stats-grid compact">
+                        <div class="stat-card">
+                            <div class="stat-icon">
+                                <i class="fas fa-coins"></i>
+                            </div>
+                            <div class="stat-info">
+                                <h4>Total Earnings</h4>
+                                <p class="stat-value">${this.safeNumber(this.userState.totalEarned).toFixed(5)} TON</p>
+                            </div>
+                        </div>
+                        
+                        <div class="stat-card">
+                            <div class="stat-icon">
+                                <i class="fas fa-users"></i>
+                            </div>
+                            <div class="stat-info">
+                                <h4>Total Referrals</h4>
+                                <p class="stat-value">${this.userState.referrals || 0}</p>
+                            </div>
+                        </div>
+                        
+                        <div class="stat-card">
+                            <div class="stat-icon">
+                                <i class="fas fa-tasks"></i>
+                            </div>
+                            <div class="stat-info">
+                                <h4>Total Tasks</h4>
+                                <p class="stat-value">${totalTasksCompleted}</p>
+                            </div>
+                        </div>
+                        
+                        <div class="stat-card">
+                            <div class="stat-icon">
+                                <i class="fas fa-paper-plane"></i>
+                            </div>
+                            <div class="stat-info">
+                                <h4>Total Withdrawals</h4>
+                                <p class="stat-value">${this.userState.totalWithdrawals || 0}</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="withdraw-card">
+                    <div class="withdraw-info">
+                        <h3><i class="fas fa-wallet"></i> Withdraw TON</h3>
+                    </div>
+                    
+                    <div class="requirements-section">
+                        <div class="requirement-item">
+                            <div class="requirement-header">
+                                <span><i class="fas fa-ad"></i> Watch Ads</span>
+                                <span class="requirement-count">${adsProgress}/${requiredAds}</span>
+                            </div>
+                            <div class="progress-bar">
+                                <div class="progress-fill" style="width: ${(adsProgress/requiredAds)*100}%"></div>
+                            </div>
+                        </div>
+                        
+                        <div class="requirement-item">
+                            <div class="requirement-header">
+                                <span><i class="fas fa-tasks"></i> Complete Tasks</span>
+                                <span class="requirement-count">${tasksProgress}/${requiredTasks}</span>
+                            </div>
+                            <div class="progress-bar">
+                                <div class="progress-fill" style="width: ${(tasksProgress/requiredTasks)*100}%"></div>
+                            </div>
+                        </div>
+                        
+                        <div class="requirement-item">
+                            <div class="requirement-header">
+                                <span><i class="fas fa-users"></i> Invite Friends</span>
+                                <span class="requirement-count">${referralsProgress}/${requiredReferrals}</span>
+                            </div>
+                            <div class="progress-bar">
+                                <div class="progress-fill" style="width: ${(referralsProgress/requiredReferrals)*100}%"></div>
+                            </div>
+                        </div>
+                    </div>
+                    
                     <div class="form-group">
-                        <label class="form-label" for="wallet-input">
+                        <label class="form-label" for="profile-wallet-input">
                             <i class="fas fa-wallet"></i> TON Wallet Address
                         </label>
-                        <input type="text" id="wallet-input" class="form-input" 
+                        <input type="text" id="profile-wallet-input" class="form-input" 
                                placeholder="Enter your TON wallet address (UQ...)"
                                required>
                     </div>
                     
-                    <div class="form-group">
-                        <label class="form-label" for="amount-input">
+                    <div class="form-group amount-group">
+                        <label class="form-label" for="profile-amount-input">
                             <i class="fas fa-gem"></i> Withdrawal Amount
                         </label>
-                        <input type="number" id="amount-input" class="form-input" 
-                               step="0.00001" min="${minimumWithdraw}" max="${userBalance}"
-                               placeholder="Minimum: ${minimumWithdraw} TON"
-                               required>
+                        <div class="amount-input-container">
+                            <input type="number" id="profile-amount-input" class="form-input" 
+                                   step="0.00001" min="${this.appConfig.MINIMUM_WITHDRAW}" 
+                                   max="${maxBalance}"
+                                   placeholder="Minimum: ${this.appConfig.MINIMUM_WITHDRAW.toFixed(3)} TON"
+                                   required>
+                            <button type="button" class="max-btn" id="max-btn">MAX</button>
+                        </div>
                     </div>
                     
                     <div class="withdraw-minimum-info">
                         <i class="fas fa-info-circle"></i>
-                        <span>Minimum Withdrawal: <strong>${minimumWithdraw.toFixed(3)} TON</strong></span>
+                        <span>Minimum Withdrawal: <strong>${this.appConfig.MINIMUM_WITHDRAW.toFixed(3)} TON</strong></span>
                     </div>
                     
-                    <button id="withdraw-btn" class="withdraw-btn" 
-                            ${userBalance < minimumWithdraw ? 'disabled' : ''}>
-                        <i class="fas fa-paper-plane"></i> WITHDRAW NOW
+                    <button id="profile-withdraw-btn" class="withdraw-btn" 
+                            ${!canWithdraw || maxBalance < this.appConfig.MINIMUM_WITHDRAW ? 'disabled' : ''}>
+                        <i class="fas fa-paper-plane"></i> 
+                        ${canWithdraw ? 'WITHDRAW NOW' : this.getWithdrawButtonText(adsProgress, tasksProgress, referralsProgress)}
                     </button>
-                </div>
-                
-                <div class="history-section">
-                    <h3><i class="fas fa-history"></i> Withdrawal History</h3>
-                    <div class="history-list" id="withdrawal-history-list">
-                        ${this.userWithdrawals.length > 0 ? 
-                            this.renderWithdrawalHistory() : 
-                            '<div class="no-history"><i class="fas fa-history"></i><p>No withdrawal history</p></div>'
-                        }
-                    </div>
                 </div>
             </div>
         `;
         
-        this.setupWithdrawPageEvents();
+        this.setupProfilePageEvents();
     }
 
-    renderWithdrawalHistory() {
-        return this.userWithdrawals.slice(0, 5).map(transaction => {
-            const date = new Date(transaction.createdAt || transaction.timestamp);
-            const formattedDate = this.formatDate(date);
-            const formattedTime = this.formatTime24(date);
-            
-            const amount = this.safeNumber(transaction.tonAmount || transaction.amount || 0);
-            const status = transaction.status || 'pending';
-            const wallet = transaction.walletAddress || '';
-            const shortWallet = wallet.length > 10 ? 
-                `${wallet.substring(0, 5)}...${wallet.substring(wallet.length - 5)}` : 
-                wallet;
-            
-            const transactionLink = transaction.transaction_link || `https://tonviewer.com/${wallet}`;
-            
+    getWithdrawButtonText(adsProgress, tasksProgress, referralsProgress) {
+        const requiredAds = this.appConfig.REQUIRED_ADS_FOR_WITHDRAWAL;
+        const requiredTasks = this.appConfig.REQUIRED_TASKS_FOR_WITHDRAWAL;
+        const requiredReferrals = this.appConfig.REQUIRED_REFERRALS_FOR_WITHDRAWAL;
+        
+        if (adsProgress < requiredAds) {
+            return `NEED ${requiredAds - adsProgress} MORE ADS`;
+        }
+        if (tasksProgress < requiredTasks) {
+            return `NEED ${requiredTasks - tasksProgress} MORE TASKS`;
+        }
+        if (referralsProgress < requiredReferrals) {
+            return `NEED ${requiredReferrals - referralsProgress} MORE FRIENDS`;
+        }
+        return 'WITHDRAW NOW';
+    }
+
+    renderWithdrawalsHistory() {
+        if (!this.userWithdrawals || this.userWithdrawals.length === 0) {
             return `
-                <div class="history-item">
-                    <div class="history-top">
-                        <div class="history-title">
-                            <i class="fas fa-gem"></i>
-                            <span>TON Withdrawal</span>
-                        </div>
-                        <span class="history-status ${status}">${status.toUpperCase()}</span>
+                <div class="no-data">
+                    <i class="fas fa-history"></i>
+                    <p>No withdrawal history</p>
+                    <p class="hint">Your withdrawals will appear here</p>
+                </div>
+            `;
+        }
+        
+        return this.userWithdrawals.map(withdrawal => `
+            <div class="withdrawal-item">
+                <div class="withdrawal-header">
+                    <span class="withdrawal-amount">${withdrawal.amount?.toFixed(5)} TON</span>
+                    <span class="withdrawal-status ${withdrawal.status}">${withdrawal.status.toUpperCase()}</span>
+                </div>
+                <div class="withdrawal-details">
+                    <div class="withdrawal-detail">
+                        <i class="fas fa-wallet"></i>
+                        <span class="withdrawal-wallet">${this.truncateAddress(withdrawal.walletAddress)}</span>
                     </div>
-                    <div class="history-details">
-                        <div class="history-row">
-                            <span class="detail-label">Amount:</span>
-                            <span class="detail-value">${amount.toFixed(5)} TON</span>
-                        </div>
-                        <div class="history-row">
-                            <span class="detail-label">Wallet:</span>
-                            <span class="detail-value wallet-address" title="${wallet}">${shortWallet}</span>
-                        </div>
-                        <div class="history-row">
-                            <span class="detail-label">Date:</span>
-                            <span class="detail-value">${formattedDate} ${formattedTime}</span>
-                        </div>
+                    <div class="withdrawal-detail">
+                        <i class="fas fa-clock"></i>
+                        <span>${this.formatDateTime(withdrawal.createdAt || withdrawal.timestamp)}</span>
                     </div>
-                    ${status === 'completed' ? `
-                        <div class="history-explorer">
-                            <a href="${transactionLink}" target="_blank" class="explorer-link">
-                                <i class="fas fa-external-link-alt"></i> View on Explorer
-                            </a>
+                    ${withdrawal.status === 'completed' && withdrawal.transactionLink ? `
+                        <div class="withdrawal-detail">
+                            <i class="fas fa-link"></i>
+                            <a href="${withdrawal.transactionLink}" target="_blank" class="transaction-link">View Transaction</a>
                         </div>
                     ` : ''}
                 </div>
-            `;
-        }).join('');
+            </div>
+        `).join('');
     }
 
-    setupWithdrawPageEvents() {
-        const walletInput = document.getElementById('wallet-input');
-        const amountInput = document.getElementById('amount-input');
-        const withdrawBtn = document.getElementById('withdraw-btn');
+    truncateAddress(address) {
+        if (!address) return 'N/A';
+        if (address.length <= 15) return address;
+        return address.substring(0, 6) + '...' + address.substring(address.length - 4);
+    }
+
+    formatDateTime(timestamp) {
+        const date = new Date(timestamp);
+        const day = date.getDate().toString().padStart(2, '0');
+        const month = (date.getMonth() + 1).toString().padStart(2, '0');
+        const year = date.getFullYear();
+        const hours = date.getHours().toString().padStart(2, '0');
+        const minutes = date.getMinutes().toString().padStart(2, '0');
+        return `${day}.${month}.${year} ${hours}:${minutes}`;
+    }
+
+    setupProfilePageEvents() {
+        const withdrawBtn = document.getElementById('profile-withdraw-btn');
+        const walletInput = document.getElementById('profile-wallet-input');
+        const amountInput = document.getElementById('profile-amount-input');
+        const maxBtn = document.getElementById('max-btn');
+        
+        if (maxBtn) {
+            maxBtn.addEventListener('click', () => {
+                const max = this.safeNumber(this.userState.balance);
+                amountInput.value = max.toFixed(5);
+            });
+        }
+        
+        if (withdrawBtn) {
+            withdrawBtn.addEventListener('click', async () => {
+                await this.handleProfileWithdrawal(walletInput, amountInput, withdrawBtn);
+            });
+        }
         
         if (amountInput) {
             amountInput.addEventListener('input', () => {
@@ -2849,25 +3790,21 @@ class NinjaTONApp {
                 }
             });
         }
-        
-        if (withdrawBtn) {
-            withdrawBtn.addEventListener('click', async () => {
-                await this.handleWithdrawal();
-            });
-        }
     }
-
-    async handleWithdrawal() {
-        const walletInput = document.getElementById('wallet-input');
-        const amountInput = document.getElementById('amount-input');
-        const withdrawBtn = document.getElementById('withdraw-btn');
-        
+    
+    async handleProfileWithdrawal(walletInput, amountInput, withdrawBtn) {
         if (!walletInput || !amountInput || !withdrawBtn) return;
         
         const walletAddress = walletInput.value.trim();
         const amount = parseFloat(amountInput.value);
         const userBalance = this.safeNumber(this.userState.balance);
         const minimumWithdraw = this.appConfig.MINIMUM_WITHDRAW;
+        const totalWatchAds = this.safeNumber(this.userState.totalWatchAds || 0);
+        const requiredAds = this.appConfig.REQUIRED_ADS_FOR_WITHDRAWAL;
+        const totalTasksCompleted = this.safeNumber(this.userState.totalTasksCompleted || 0);
+        const requiredTasks = this.appConfig.REQUIRED_TASKS_FOR_WITHDRAWAL;
+        const totalReferrals = this.safeNumber(this.userState.referrals || 0);
+        const requiredReferrals = this.appConfig.REQUIRED_REFERRALS_FOR_WITHDRAWAL;
         
         if (!walletAddress || walletAddress.length < 20) {
             this.notificationManager.showNotification("Error", "Please enter a valid TON wallet address", "error");
@@ -2884,69 +3821,54 @@ class NinjaTONApp {
             return;
         }
         
+        if (totalWatchAds < requiredAds) {
+            const adsNeeded = requiredAds - totalWatchAds;
+            this.notificationManager.showNotification("Ads Required", `You need to watch ${adsNeeded} more ads to withdraw`, "error");
+            return;
+        }
+        
+        if (totalTasksCompleted < requiredTasks) {
+            const tasksNeeded = requiredTasks - totalTasksCompleted;
+            this.notificationManager.showNotification("Tasks Required", `You need to complete ${tasksNeeded} more tasks to withdraw`, "error");
+            return;
+        }
+        
+        if (totalReferrals < requiredReferrals) {
+            const referralsNeeded = requiredReferrals - totalReferrals;
+            this.notificationManager.showNotification("Referrals Required", `You need to invite ${referralsNeeded} more friend${referralsNeeded > 1 ? 's' : ''} to withdraw`, "error");
+            return;
+        }
+        
         const rateLimitCheck = this.rateLimiter.checkLimit(this.tgUser.id, 'withdrawal');
         if (!rateLimitCheck.allowed) {
-            const hours = Math.floor(rateLimitCheck.remaining / 3600);
-            const minutes = Math.floor((rateLimitCheck.remaining % 3600) / 60);
-            let timeMessage = '';
-            if (hours > 0) {
-                timeMessage = `${hours} hour${hours > 1 ? 's' : ''}`;
-                if (minutes > 0) {
-                    timeMessage += ` and ${minutes} minute${minutes > 1 ? 's' : ''}`;
-                }
-            } else {
-                timeMessage = `${minutes} minute${minutes > 1 ? 's' : ''}`;
-            }
             this.notificationManager.showNotification(
-                "Withdrawal Limit!", 
-                `You can withdraw only one time every day. Please wait ${timeMessage}.`, 
-                "error"
+                "Rate Limit", 
+                `Please wait ${rateLimitCheck.remaining} seconds before another withdrawal`, 
+                "warning"
             );
             return;
         }
         
         this.rateLimiter.addRequest(this.tgUser.id, 'withdrawal');
         
-        if (this.userState.lastWithdrawalDate) {
-            const lastWithdrawal = new Date(this.userState.lastWithdrawalDate);
-            const now = new Date(this.getServerTime());
-            const diffMs = now - lastWithdrawal;
-            const diffHours = diffMs / (1000 * 60 * 60);
-            
-            if (diffHours < 24) {
-                const remainingHours = 24 - diffHours;
-                this.notificationManager.showNotification(
-                    "Withdrawal Limit!",
-                    `You can withdrawal only one time every day. Please wait ${Math.ceil(remainingHours)} hours.`,
-                    "error"
-                );
-                return;
-            }
-        }
-        
         const originalText = withdrawBtn.innerHTML;
         withdrawBtn.disabled = true;
         withdrawBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Processing...';
         
         try {
-            if (this.adManager) {
-                const adShown = await this.adManager.showWithdrawalAd();
-                if (!adShown) {
-                    this.notificationManager.showNotification("Ad Required", "Please watch the ad to process withdrawal", "info");
-                    withdrawBtn.disabled = false;
-                    withdrawBtn.innerHTML = originalText;
-                    return;
-                }
-                await new Promise(resolve => setTimeout(resolve, 1000));
-            }
-            
             const newBalance = userBalance - amount;
             const currentTime = this.getServerTime();
+            const newTotalWithdrawnAmount = this.safeNumber(this.userState.totalWithdrawnAmount) + amount;
+            const newTotalWatchAds = this.safeNumber(this.userState.totalWatchAds) - requiredAds;
+            const newTotalTasksCompleted = this.safeNumber(this.userState.totalTasksCompleted) - requiredTasks;
             
             if (this.db) {
                 await this.db.ref(`users/${this.tgUser.id}`).update({
+                    totalWatchAds: newTotalWatchAds,
+                    totalTasksCompleted: newTotalTasksCompleted, 
                     balance: newBalance,
                     totalWithdrawals: this.safeNumber(this.userState.totalWithdrawals) + 1,
+                    totalWithdrawnAmount: newTotalWithdrawnAmount,
                     lastWithdrawalDate: currentTime
                 });
                 
@@ -2957,14 +3879,17 @@ class NinjaTONApp {
                     walletAddress: walletAddress,
                     amount: amount,
                     status: 'pending',
-                    createdAt: currentTime
+                    createdAt: currentTime,
+                    timestamp: currentTime
                 };
                 
                 await this.db.ref('withdrawals/pending').push(requestData);
             }
-            
+            this.userState.totalWatchAds = newTotalWatchAds;
+            this.userState.totalTasksCompleted = newTotalTasksCompleted;
             this.userState.balance = newBalance;
             this.userState.totalWithdrawals = this.safeNumber(this.userState.totalWithdrawals) + 1;
+            this.userState.totalWithdrawnAmount = newTotalWithdrawnAmount;
             this.userState.lastWithdrawalDate = currentTime;
             
             this.cache.delete(`user_${this.tgUser.id}`);
@@ -2978,13 +3903,13 @@ class NinjaTONApp {
             amountInput.value = '';
             
             this.updateHeader();
-            this.renderWithdrawPage();
+            this.renderProfilePage();
             
             this.notificationManager.showNotification("Success", "Withdrawal request submitted!", "success");
             
         } catch (error) {
-            this.notificationManager.showNotification("Error", "Failed to process withdrawal", "error");
-        } finally {
+            console.error('Handle withdrawal error:', error);
+            this.notificationManager.showNotification("Error", `Failed to process withdrawal`, "error");
             withdrawBtn.disabled = false;
             withdrawBtn.innerHTML = originalText;
         }
@@ -3034,15 +3959,6 @@ class NinjaTONApp {
         }
     }
 
-    generateReferralCode() {
-        const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
-        let code = '';
-        for (let i = 0; i < 7; i++) {
-            code += chars.charAt(Math.floor(Math.random() * chars.length));
-        }
-        return `NINJA${code}`;
-    }
-
     safeNumber(value) {
         if (value === null || value === undefined) return 0;
         const num = Number(value);
@@ -3069,7 +3985,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     <div class="error-icon">
                         <i class="fab fa-telegram"></i>
                     </div>
-                    <h2>Ninja TON</h2>
+                    <h2>Tornado</h2>
                     <p>Please open from Telegram Mini App</p>
                 </div>
             </div>
@@ -3077,7 +3993,7 @@ document.addEventListener('DOMContentLoaded', () => {
         return;
     }
     
-    window.app = new NinjaTONApp();
+    window.app = new TornadoApp();
     
     setTimeout(() => {
         if (window.app && typeof window.app.initialize === 'function') {

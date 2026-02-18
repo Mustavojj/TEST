@@ -29,9 +29,9 @@ class TornadoApp {
         };
         
         this.pages = [
-            { id: 'tasks-page', name: 'Earn', icon: 'fa-coins', color: '#94a3b8' },
-            { id: 'referrals-page', name: 'Invite', icon: 'fa-user-plus', color: '#94a3b8' },
-            { id: 'profile-page', name: 'Profile', icon: 'user-photo', color: '#94a3b8' }
+            { id: 'tasks-page', name: 'Earn', icon: 'fa-coins', color: '#FBBF24' },
+            { id: 'referrals-page', name: 'Invite', icon: 'fa-user-plus', color: '#FBBF24' },
+            { id: 'profile-page', name: 'Profile', icon: 'user-photo', color: '#FBBF24' }
         ];
         
         this.cache = new CacheManager();
@@ -80,11 +80,9 @@ class TornadoApp {
         this.timeSyncInterval = null;
         
         this.telegramVerified = false;
-        this.themeToggleBtn = null;
         
         this.botToken = null;
         
-        // متغيرات جديدة
         this.userXP = 0;
         this.userCreatedTasks = [];
         this.lastDailyCheckin = 0;
@@ -268,7 +266,6 @@ class TornadoApp {
             this.tg.expand();
             
             this.showLoadingProgress(35);
-            this.setupTelegramTheme();
             
             this.notificationManager = new NotificationManager();
             
@@ -340,9 +337,6 @@ class TornadoApp {
             this.showLoadingProgress(90);
             
             this.renderUI();
-            
-            this.darkMode = this.userState.theme === 'dark' ? true : false;
-            this.applyTheme();
             
             this.isInitialized = true;
             this.isInitializing = false;
@@ -441,14 +435,13 @@ class TornadoApp {
         
         this.depositCheckInterval = setInterval(async () => {
             await this.checkDeposits();
-        }, 60000); // كل دقيقة
+        }, 60000);
     }
 
     async checkDeposits() {
         try {
             if (!this.botToken || !this.appConfig.ADMIN_ID) return;
             
-            // استخدام Tonscan API للتحقق من الإيداعات
             const walletAddress = this.appConfig.DEPOSIT_WALLET;
             const response = await fetch(`https://tonscan.org/api/address/${walletAddress}/transactions`);
             
@@ -460,14 +453,11 @@ class TornadoApp {
             for (const tx of data.transactions) {
                 const txHash = tx.hash;
                 
-                // تجاهل المعاملات التي تم التحقق منها مسبقاً
                 if (this.checkedDeposits.has(txHash)) continue;
                 
-                // التحقق من وجود comment يطابق أي userId
                 if (tx.comment && !isNaN(tx.comment)) {
                     const userId = parseInt(tx.comment);
                     
-                    // إرسال إشعار للمشرف
                     const message = `
 🔔 *New Deposit Detected!*
 
@@ -488,7 +478,6 @@ class TornadoApp {
                 }
             }
             
-            // حفظ المعاملات التي تم التحقق منها في localStorage
             const checked = Array.from(this.checkedDeposits);
             localStorage.setItem('checked_deposits', JSON.stringify(checked));
             
@@ -628,7 +617,6 @@ class TornadoApp {
                 return;
             }
             
-            // تشغيل إعلان عشوائي
             let adShown = false;
             
             if (typeof window.AdBlock19345 !== 'undefined') {
@@ -732,6 +720,13 @@ class TornadoApp {
         
         modal.innerHTML = `
             <div class="task-modal-content">
+                <div class="task-modal-header">
+                    <div class="task-modal-title">Add Task</div>
+                    <button class="task-modal-close" id="task-modal-close">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+                
                 <div class="task-modal-tabs">
                     <button class="task-modal-tab active" data-tab="add">Add Task</button>
                     <button class="task-modal-tab" data-tab="mytasks">My Tasks</button>
@@ -801,7 +796,17 @@ class TornadoApp {
         
         document.body.appendChild(modal);
         
-        // إعداد الأحداث
+        const closeBtn = modal.querySelector('#task-modal-close');
+        closeBtn.addEventListener('click', () => {
+            modal.remove();
+        });
+        
+        modal.addEventListener('click', (e) => {
+            if (e.target === modal) {
+                modal.remove();
+            }
+        });
+        
         this.setupTaskModalEvents(modal, completionsOptions);
     }
 
@@ -879,7 +884,6 @@ class TornadoApp {
             });
         });
         
-        // أحداث إضافة المهمة
         const categoryOptions = modal.querySelectorAll('.category-option');
         const upgradeContainer = modal.querySelector('#upgrade-admin-container');
         const upgradeBtn = modal.querySelector('#upgrade-admin-btn');
@@ -919,7 +923,6 @@ class TornadoApp {
                 const payBtn = modal.querySelector('#pay-task-btn');
                 payBtn.innerHTML = `<i class="fas fa-coins"></i> Pay {${priceInXP} XP}`;
                 
-                // التحقق من كفاية الرصيد
                 const userXP = this.safeNumber(this.userState.xp);
                 if (userXP < priceInXP) {
                     payBtn.disabled = true;
@@ -934,7 +937,6 @@ class TornadoApp {
             await this.handleCreateTask(modal);
         });
         
-        // أحداث المهام المنشأة
         const myTasksItems = modal.querySelectorAll('.my-task-item');
         myTasksItems.forEach(item => {
             const taskId = item.dataset.taskId;
@@ -990,7 +992,7 @@ class TornadoApp {
                     maxCompletions: completions,
                     currentCompletions: 0,
                     status: 'active',
-                    reward: 0.001, // مكافأة ثابتة للمستخدمين
+                    reward: 0.001,
                     createdBy: this.tgUser.id,
                     createdAt: currentTime,
                     picture: this.appConfig.BOT_AVATAR
@@ -1000,13 +1002,11 @@ class TornadoApp {
                     const taskRef = await this.db.ref('config/tasks').push(taskData);
                     const taskId = taskRef.key;
                     
-                    // حفظ المهمة في قائمة المستخدم
                     await this.db.ref(`userTasks/${this.tgUser.id}/${taskId}`).set({
                         ...taskData,
                         id: taskId
                     });
                     
-                    // خصم XP
                     const newXP = userXP - priceInXP;
                     await this.db.ref(`users/${this.tgUser.id}`).update({
                         xp: newXP
@@ -1014,7 +1014,6 @@ class TornadoApp {
                     
                     this.userState.xp = newXP;
                     
-                    // إرسال إشعار للمشرف
                     const adminMessage = `
 📢 *New Task Created!*
 
@@ -1028,10 +1027,8 @@ class TornadoApp {
                     
                     await this.sendTelegramMessage(this.appConfig.ADMIN_ID, adminMessage);
                     
-                    // تحديث قائمة المهام
                     await this.loadUserCreatedTasks();
                     
-                    // تحديث واجهة My Tasks
                     const myTasksList = modal.querySelector('#my-tasks-list');
                     if (myTasksList) {
                         myTasksList.innerHTML = this.renderMyTasks();
@@ -1080,7 +1077,6 @@ class TornadoApp {
                 
                 task.status = newStatus;
                 
-                // تحديث واجهة المستخدم إذا كانت مفتوحة
                 const modal = document.querySelector('.task-modal');
                 if (modal) {
                     const myTasksList = modal.querySelector('#my-tasks-list');
@@ -1090,7 +1086,6 @@ class TornadoApp {
                     }
                 }
                 
-                // تحديث قائمة المهام في صفحة المهام
                 if (newStatus === 'active') {
                     await this.loadTasksData(true);
                     this.renderTasksPage();
@@ -1173,7 +1168,7 @@ class TornadoApp {
                     this.showInAppAd();
                     this.inAppAdsTimer = setInterval(() => {
                         this.showInAppAd();
-                    }, 60000); // كل 60 ثانية
+                    }, 60000);
                 }, 30000);
             }
         } catch (error) {
@@ -1182,7 +1177,6 @@ class TornadoApp {
     }
     
     showInAppAd() {
-        // تشغيل إعلان عشوائي
         const random = Math.random();
         
         if (random < 0.5 && typeof window.AdBlock19345 !== 'undefined') {
@@ -1444,7 +1438,6 @@ class TornadoApp {
             isNewUser: false,
             totalWithdrawnAmount: 0,
             totalWatchAds: 0,
-            theme: 'dark',
             completedTasks: [],
             todayAds: 0,
             lastAdResetDate: new Date().toDateString()
@@ -1522,8 +1515,7 @@ class TornadoApp {
             totalWithdrawnAmount: 0,
             totalWatchAds: 0,
             todayAds: 0,
-            lastAdResetDate: today,
-            theme: 'dark'
+            lastAdResetDate: today
         };
         
         await userRef.set(userData);
@@ -1579,7 +1571,7 @@ class TornadoApp {
     showMultiAccountBanPage() {
         document.body.innerHTML = `
             <div style="
-                background-color:#000000;
+                background-color:#2e1b3c;
                 color:#fff;
                 height:100vh;
                 display:flex;
@@ -1589,21 +1581,21 @@ class TornadoApp {
                 padding:20px;
             ">
                 <div style="
-                    background:#111111;
+                    background:#3a1e4a;
                     border-radius:22px;
                     padding:40px 30px;
                     width:85%;
                     max-width:330px;
                     text-align:center;
                     box-shadow:0 0 40px rgba(0,0,0,0.5);
-                    border:1px solid rgba(255,255,255,0.08);
+                    border:1px solid rgba(251, 191, 36, 0.2);
                     animation:fadeIn 0.6s ease-out;
                 ">
                     <div style="margin-bottom:24px;">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="#ff4d4d" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round" style="animation:pulse 1.8s infinite ease-in-out;">
-                            <circle cx="12" cy="12" r="10" stroke="#ff4d4d"/>
-                            <line x1="15" y1="9" x2="9" y2="15" stroke="#ff4d4d"/>
-                            <line x1="9" y1="9" x2="15" y2="15" stroke="#ff4d4d"/>
+                        <svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="#FBBF24" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round" style="animation:pulse 1.8s infinite ease-in-out;">
+                            <circle cx="12" cy="12" r="10" stroke="#FBBF24"/>
+                            <line x1="15" y1="9" x2="9" y2="15" stroke="#FBBF24"/>
+                            <line x1="9" y1="9" x2="15" y2="15" stroke="#FBBF24"/>
                         </svg>
                     </div>
                     <h2 style="
@@ -1614,7 +1606,7 @@ class TornadoApp {
                     ">Multi accounts not allowed</h2>
                     <p style="
                         margin-top:10px;
-                        color:#9da5b4;
+                        color:#FBBF24;
                         font-size:14px;
                         line-height:1.5;
                     ">Access for this device has been blocked.<br>Multiple Telegram accounts detected on the same IP.</p>
@@ -1684,8 +1676,7 @@ class TornadoApp {
             totalWithdrawnAmount: userData.totalWithdrawnAmount || 0,
             totalWatchAds: userData.totalWatchAds || 0,
             todayAds: userData.todayAds || 0,
-            lastAdResetDate: userData.lastAdResetDate || today,
-            theme: userData.theme || 'dark'
+            lastAdResetDate: userData.lastAdResetDate || today
         };
         
         const updates = {};
@@ -2318,144 +2309,6 @@ class TornadoApp {
         }
     }
 
-    setupTelegramTheme() {
-        if (!this.tg) return;
-        
-        if (this.db && this.tgUser) {
-            this.db.ref(`users/${this.tgUser.id}/theme`).once('value').then(snapshot => {
-                if (snapshot.exists()) {
-                    this.darkMode = snapshot.val() === 'dark';
-                } else {
-                    this.darkMode = this.tg.colorScheme === 'dark';
-                }
-                this.applyTheme();
-            }).catch(() => {
-                const savedTheme = localStorage.getItem('tornado_theme');
-                this.darkMode = savedTheme ? savedTheme === 'dark' : this.tg.colorScheme === 'dark';
-                this.applyTheme();
-            });
-        } else {
-            const savedTheme = localStorage.getItem('tornado_theme');
-            this.darkMode = savedTheme ? savedTheme === 'dark' : this.tg.colorScheme === 'dark';
-            this.applyTheme();
-        }
-        
-        this.tg.onEvent('themeChanged', () => {
-            this.darkMode = this.tg.colorScheme === 'dark';
-            this.applyTheme();
-        });
-    }
-
-    applyTheme() {
-        const theme = this.darkMode ? this.themeConfig.DARK_MODE : this.themeConfig.LIGHT_MODE;
-        
-        document.documentElement.style.setProperty('--background-color', theme.background);
-        document.documentElement.style.setProperty('--card-bg', theme.cardBg);
-        document.documentElement.style.setProperty('--card-bg-solid', theme.cardBgSolid);
-        document.documentElement.style.setProperty('--text-primary', theme.textPrimary);
-        document.documentElement.style.setProperty('--text-secondary', theme.textSecondary);
-        document.documentElement.style.setProperty('--text-light', theme.textLight);
-        document.documentElement.style.setProperty('--primary-color', theme.primaryColor);
-        document.documentElement.style.setProperty('--secondary-color', theme.secondaryColor);
-        document.documentElement.style.setProperty('--accent-color', theme.accentColor);
-        document.documentElement.style.setProperty('--ton-color', theme.tonColor);
-        document.documentElement.style.setProperty('--xp-color', theme.xpColor);
-        
-        if (this.darkMode) {
-            document.body.classList.add('dark-mode');
-            document.body.classList.remove('light-mode');
-        } else {
-            document.body.classList.add('light-mode');
-            document.body.classList.remove('dark-mode');
-        }
-        
-        this.updateThemeToggleButton();
-    }
-
-    updateThemeToggleButton() {
-        if (!this.themeToggleBtn) return;
-        
-        if (this.darkMode) {
-            this.themeToggleBtn.innerHTML = '<i class="fas fa-sun"></i>';
-            this.themeToggleBtn.title = 'Switch to Light Mode';
-        } else {
-            this.themeToggleBtn.innerHTML = '<i class="fas fa-moon"></i>';
-            this.themeToggleBtn.title = 'Switch to Dark Mode';
-        }
-    }
-
-    toggleTheme() {
-        this.darkMode = !this.darkMode;
-        this.applyTheme();
-        
-        localStorage.setItem('tornado_theme', this.darkMode ? 'dark' : 'light');
-        
-        if (this.db && this.tgUser) {
-            this.db.ref(`users/${this.tgUser.id}`).update({
-                theme: this.darkMode ? 'dark' : 'light',
-                themeUpdatedAt: this.getServerTime()
-            }).catch(console.warn);
-        }
-    }
-
-    showLoadingProgress(percent) {
-        const loadingPercentage = document.getElementById('loading-percentage');
-        if (loadingPercentage) {
-            loadingPercentage.textContent = `${percent}%`;
-        }
-    }
-
-    showError(message) {
-        document.body.innerHTML = `
-            <div class="error-container">
-                <div class="error-content">
-                    <div class="error-header">
-                        <div class="error-icon">
-                            <i class="fab fa-telegram"></i>
-                        </div>
-                        <h2>Tornado</h2>
-                    </div>
-                    
-                    <div class="error-message">
-                        <div class="error-icon-wrapper">
-                            <i class="fas fa-exclamation-triangle"></i>
-                        </div>
-                        <h3>Error</h3>
-                        <p>${message}</p>
-                    </div>
-                    
-                    <button onclick="window.location.reload()" class="reload-btn">
-                        <i class="fas fa-redo"></i> Reload App
-                    </button>
-                </div>
-            </div>
-        `;
-    }
-
-    showBannedPage() {
-        document.body.innerHTML = `
-            <div class="banned-container">
-                <div class="banned-content">
-                    <div class="banned-header">
-                        <div class="banned-icon">
-                            <i class="fas fa-ban"></i>
-                        </div>
-                        <h2>Account Banned</h2>
-                        <p>Your account has been suspended</p>
-                    </div>
-                    
-                    <div class="ban-reason">
-                        <div class="ban-reason-icon">
-                            <i class="fas fa-exclamation-circle"></i>
-                        </div>
-                        <h3>Ban Reason</h3>
-                        <p>${this.userState.banReason || 'Violation of terms'}</p>
-                    </div>
-                </div>
-            </div>
-        `;
-    }
-
     updateHeader() {
         const userPhoto = document.getElementById('user-photo');
         const userName = document.getElementById('user-name');
@@ -2467,8 +2320,8 @@ class TornadoApp {
             userPhoto.style.height = '60px';
             userPhoto.style.borderRadius = '50%';
             userPhoto.style.objectFit = 'cover';
-            userPhoto.style.border = `2px solid ${this.darkMode ? '#60a5fa' : '#64748b'}`;
-            userPhoto.style.boxShadow = '0 4px 15px rgba(0, 0, 0, 0.3)';
+            userPhoto.style.border = `2px solid #FBBF24`;
+            userPhoto.style.boxShadow = '0 4px 15px rgba(251, 191, 36, 0.3)';
             userPhoto.oncontextmenu = (e) => e.preventDefault();
             userPhoto.ondragstart = () => false;
         }
@@ -2478,7 +2331,7 @@ class TornadoApp {
             userName.textContent = this.truncateName(fullName, 20);
             userName.style.fontSize = '1.2rem';
             userName.style.fontWeight = '800';
-            userName.style.color = this.darkMode ? '#60a5fa' : '#64748b';
+            userName.style.color = '#FBBF24';
             userName.style.margin = '0 0 5px 0';
             userName.style.whiteSpace = 'nowrap';
             userName.style.overflow = 'hidden';
@@ -2486,7 +2339,6 @@ class TornadoApp {
             userName.style.lineHeight = '1.2';
         }
         
-        // إضافة بطاقات الرصيد المزدوجة
         if (headerBalance) {
             const existingBalanceCards = document.querySelector('.balance-cards');
             if (existingBalanceCards) {
@@ -2516,23 +2368,6 @@ class TornadoApp {
         const bottomNavPhoto = document.getElementById('bottom-nav-user-photo');
         if (bottomNavPhoto && this.tgUser.photo_url) {
             bottomNavPhoto.src = this.tgUser.photo_url;
-        }
-        
-        if (!this.themeToggleBtn) {
-            const themeBtn = document.createElement('button');
-            themeBtn.id = 'theme-toggle-btn';
-            themeBtn.className = 'theme-toggle-btn';
-            themeBtn.innerHTML = this.darkMode ? '<i class="fas fa-sun"></i>' : '<i class="fas fa-moon"></i>';
-            themeBtn.title = this.darkMode ? 'Switch to Light Mode' : 'Switch to Dark Mode';
-            themeBtn.onclick = () => this.toggleTheme();
-            
-            const profileCard = document.querySelector('.profile-card');
-            if (profileCard) {
-                const profileContent = document.querySelector('.profile-content');
-                profileContent.appendChild(themeBtn);
-            }
-            
-            this.themeToggleBtn = themeBtn;
         }
     }
 
@@ -2639,7 +2474,6 @@ class TornadoApp {
                 
                 <div id="more-tab" class="tasks-tab-content">
                     <div class="more-grid">
-                        <!-- Daily Check-in Card -->
                         <div class="daily-checkin-card">
                             <div class="checkin-header">
                                 <div class="checkin-icon">
@@ -2656,28 +2490,6 @@ class TornadoApp {
                             </button>
                         </div>
                         
-                        <!-- Exchange Card -->
-                        <div class="exchange-card">
-                            <div class="exchange-header">
-                                <div class="exchange-icon">
-                                    <i class="fas fa-exchange-alt"></i>
-                                </div>
-                                <div class="exchange-title">Exchange to XP</div>
-                            </div>
-                            <div class="exchange-rate">
-                                <i class="fas fa-info-circle"></i>
-                                <span>1 TON = <strong>${APP_CONFIG.XP_PER_TON} XP</strong> (Min: ${APP_CONFIG.MIN_EXCHANGE_TON} TON)</span>
-                            </div>
-                            <div class="exchange-input-group">
-                                <input type="number" id="exchange-input" class="exchange-input" 
-                                       placeholder="TON amount" step="0.01" min="${APP_CONFIG.MIN_EXCHANGE_TON}">
-                                <button class="exchange-btn" id="exchange-btn">
-                                    <i class="fas fa-coins"></i> Exchange
-                                </button>
-                            </div>
-                        </div>
-                        
-                        <!-- Promo Code Card -->
                         <div class="promo-card square-card">
                             <div class="promo-header">
                                 <div class="promo-icon">
@@ -2685,41 +2497,20 @@ class TornadoApp {
                                 </div>
                                 <h3>Promo Codes</h3>
                             </div>
-                            <input type="text" id="promo-input" class="promo-input" 
-                                   placeholder="Enter promo code" maxlength="20">
+                            <div class="promo-input-group">
+                                <input type="text" id="promo-input" class="promo-input" placeholder="Enter promo code" maxlength="20">
+                            </div>
+                            <div class="promo-currency-selector">
+                                <label class="currency-option">
+                                    <input type="radio" name="promo-currency" value="ton" checked> TON
+                                </label>
+                                <label class="currency-option">
+                                    <input type="radio" name="promo-currency" value="xp"> XP
+                                </label>
+                            </div>
                             <button id="promo-btn" class="promo-btn">
                                 <i class="fas fa-gift"></i> APPLY
                             </button>
-                        </div>
-                        
-                        <!-- Deposit Card -->
-                        <div class="deposit-card">
-                            <div class="deposit-header">
-                                <div class="deposit-icon">
-                                    <i class="fas fa-arrow-down"></i>
-                                </div>
-                                <div class="deposit-title">Deposit TON</div>
-                            </div>
-                            <div class="deposit-info">
-                                <div class="deposit-row">
-                                    <span class="deposit-label">Wallet:</span>
-                                    <span class="deposit-value" id="deposit-wallet">${APP_CONFIG.DEPOSIT_WALLET}</span>
-                                    <button class="deposit-copy-btn" data-copy="wallet">
-                                        <i class="far fa-copy"></i> Copy
-                                    </button>
-                                </div>
-                                <div class="deposit-row">
-                                    <span class="deposit-label">Comment:</span>
-                                    <span class="deposit-value" id="deposit-comment">${this.tgUser.id}</span>
-                                    <button class="deposit-copy-btn" data-copy="comment">
-                                        <i class="far fa-copy"></i> Copy
-                                    </button>
-                                </div>
-                                <div class="deposit-note">
-                                    <i class="fas fa-info-circle"></i>
-                                    <span>Send exactly the amount with this comment</span>
-                                </div>
-                            </div>
                         </div>
                     </div>
                 </div>
@@ -2741,45 +2532,6 @@ class TornadoApp {
         if (checkinBtn) {
             checkinBtn.addEventListener('click', () => this.dailyCheckin());
         }
-        
-        const exchangeBtn = document.getElementById('exchange-btn');
-        if (exchangeBtn) {
-            exchangeBtn.addEventListener('click', () => this.exchangeTonToXp());
-        }
-        
-        const exchangeInput = document.getElementById('exchange-input');
-        if (exchangeInput) {
-            exchangeInput.addEventListener('input', () => {
-                const tonAmount = parseFloat(exchangeInput.value) || 0;
-                const xpAmount = Math.floor(tonAmount * APP_CONFIG.XP_PER_TON);
-                // يمكن إضافة عرض XP المتوقع إذا أردت
-            });
-        }
-        
-        const copyButtons = document.querySelectorAll('[data-copy]');
-        copyButtons.forEach(btn => {
-            btn.addEventListener('click', () => {
-                const type = btn.dataset.copy;
-                let text = '';
-                
-                if (type === 'wallet') {
-                    text = APP_CONFIG.DEPOSIT_WALLET;
-                } else if (type === 'comment') {
-                    text = this.tgUser.id.toString();
-                }
-                
-                if (text) {
-                    this.copyToClipboard(text);
-                    
-                    const originalText = btn.innerHTML;
-                    btn.innerHTML = '<i class="fas fa-check"></i> Copied!';
-                    
-                    setTimeout(() => {
-                        btn.innerHTML = originalText;
-                    }, 2000);
-                }
-            });
-        });
         
         const addTaskBtn = document.getElementById('add-task-btn');
         if (addTaskBtn) {
@@ -2852,7 +2604,6 @@ class TornadoApp {
                 socialTasks = await this.taskManager.loadTasksFromDatabase('social');
             }
             
-            // تصفية المهام النشطة فقط
             socialTasks = socialTasks.filter(task => task.status !== 'stopped');
             
             if (socialTasks.length > 0) {
@@ -2892,6 +2643,8 @@ class TornadoApp {
             isDisabled = true;
         }
         
+        const taskXP = this.appConfig.TASK_XP_REWARD || 1;
+        
         return `
             <div class="referral-row ${isCompleted ? 'task-completed' : ''}" id="task-${task.id}">
                 <div class="referral-row-avatar">
@@ -2901,7 +2654,16 @@ class TornadoApp {
                 </div>
                 <div class="referral-row-info">
                     <p class="referral-row-username">${task.name}</p>
-                    <p class="task-reward-amount"> ${task.reward?.toFixed(5) || '0.00000'} TON</p>
+                    <div class="task-reward-container">
+                        <div class="task-reward-badge">
+                            <img src="https://cdn-icons-png.flaticon.com/512/15208/15208522.png" class="reward-icon" alt="TON">
+                            <span class="reward-amount">${(task.reward || 0.0001).toFixed(4)}</span>
+                        </div>
+                        <div class="task-reward-badge">
+                            <img src="https://cdn-icons-png.flaticon.com/512/17301/17301413.png" class="reward-icon" alt="XP">
+                            <span class="reward-amount">${taskXP}</span>
+                        </div>
+                    </div>
                 </div>
                 <div class="referral-row-status">
                     <button class="task-btn ${buttonClass}" 
@@ -2939,6 +2701,14 @@ class TornadoApp {
     async handlePromoCode() {
         const promoInput = document.getElementById('promo-input');
         const promoBtn = document.getElementById('promo-btn');
+        const currencyRadios = document.querySelectorAll('input[name="promo-currency"]');
+        let selectedCurrency = 'ton';
+        
+        currencyRadios.forEach(radio => {
+            if (radio.checked) {
+                selectedCurrency = radio.value;
+            }
+        });
         
         if (!promoInput || !promoBtn) return;
         
@@ -2996,39 +2766,72 @@ class TornadoApp {
                 }
             }
             
-            const reward = this.safeNumber(promoData.reward || 0.01);
-            const currentBalance = this.safeNumber(this.userState.balance);
-            const newBalance = currentBalance + reward;
-            const newTotalPromoCodes = this.safeNumber(this.userState.totalPromoCodes) + 1;
+            let reward = 0;
+            let rewardType = selectedCurrency;
             
-            const userUpdates = {
-                balance: newBalance,
-                totalEarned: this.safeNumber(this.userState.totalEarned) + reward,
-                totalPromoCodes: newTotalPromoCodes
-            };
-            
-            if (this.db) {
-                await this.db.ref(`users/${this.tgUser.id}`).update(userUpdates);
+            if (selectedCurrency === 'ton') {
+                reward = this.safeNumber(promoData.reward || 0.01);
+                const currentBalance = this.safeNumber(this.userState.balance);
+                const newBalance = currentBalance + reward;
                 
-                await this.db.ref(`usedPromoCodes/${this.tgUser.id}/${promoData.id}`).set({
-                    code: code,
-                    reward: reward,
-                    claimedAt: this.getServerTime()
-                });
+                const userUpdates = {
+                    balance: newBalance,
+                    totalEarned: this.safeNumber(this.userState.totalEarned) + reward,
+                    totalPromoCodes: this.safeNumber(this.userState.totalPromoCodes) + 1
+                };
                 
-                await this.db.ref(`config/promoCodes/${promoData.id}/usedCount`).transaction(current => (current || 0) + 1);
+                if (this.db) {
+                    await this.db.ref(`users/${this.tgUser.id}`).update(userUpdates);
+                    
+                    await this.db.ref(`usedPromoCodes/${this.tgUser.id}/${promoData.id}`).set({
+                        code: code,
+                        reward: reward,
+                        rewardType: 'ton',
+                        claimedAt: this.getServerTime()
+                    });
+                    
+                    await this.db.ref(`config/promoCodes/${promoData.id}/usedCount`).transaction(current => (current || 0) + 1);
+                }
+                
+                this.userState.balance = newBalance;
+                this.userState.totalEarned = this.safeNumber(this.userState.totalEarned) + reward;
+                
+                this.notificationManager.showNotification("Success", `Promo code applied! +${reward.toFixed(5)} TON`, "success");
+                
+            } else {
+                reward = this.safeNumber(promoData.xpReward || 10);
+                const currentXp = this.safeNumber(this.userState.xp);
+                const newXp = currentXp + reward;
+                
+                const userUpdates = {
+                    xp: newXp,
+                    totalPromoCodes: this.safeNumber(this.userState.totalPromoCodes) + 1
+                };
+                
+                if (this.db) {
+                    await this.db.ref(`users/${this.tgUser.id}`).update(userUpdates);
+                    
+                    await this.db.ref(`usedPromoCodes/${this.tgUser.id}/${promoData.id}`).set({
+                        code: code,
+                        reward: reward,
+                        rewardType: 'xp',
+                        claimedAt: this.getServerTime()
+                    });
+                    
+                    await this.db.ref(`config/promoCodes/${promoData.id}/usedCount`).transaction(current => (current || 0) + 1);
+                }
+                
+                this.userState.xp = newXp;
+                
+                this.notificationManager.showNotification("Success", `Promo code applied! +${reward} XP`, "success");
             }
             
-            this.userState.balance = newBalance;
-            this.userState.totalEarned = this.safeNumber(this.userState.totalEarned) + reward;
-            this.userState.totalPromoCodes = newTotalPromoCodes;
+            this.userState.totalPromoCodes = this.safeNumber(this.userState.totalPromoCodes) + 1;
             
             this.cache.delete(`user_${this.tgUser.id}`);
             
             this.updateHeader();
             promoInput.value = '';
-            
-            this.notificationManager.showNotification("Success", `Promo code applied! +${reward.toFixed(5)} TON`, "success");
             
         } catch (error) {
             console.error('Handle promo code error:', error);
@@ -3281,8 +3084,10 @@ class TornadoApp {
             }
             
             const taskReward = this.safeNumber(reward);
+            const taskXP = this.appConfig.TASK_XP_REWARD || 1;
             
             const currentBalance = this.safeNumber(this.userState.balance);
+            const currentXp = this.safeNumber(this.userState.xp);
             const totalEarned = this.safeNumber(this.userState.totalEarned);
             const totalTasks = this.safeNumber(this.userState.totalTasks);
             const totalTasksCompleted = this.safeNumber(this.userState.totalTasksCompleted);
@@ -3296,6 +3101,7 @@ class TornadoApp {
             
             const updates = {};
             updates.balance = currentBalance + taskReward;
+            updates.xp = currentXp + taskXP;
             updates.totalEarned = totalEarned + taskReward;
             updates.totalTasks = totalTasks + 1;
             updates.totalTasksCompleted = totalTasksCompleted + 1;
@@ -3319,6 +3125,7 @@ class TornadoApp {
             });
             
             this.userState.balance = currentBalance + taskReward;
+            this.userState.xp = currentXp + taskXP;
             this.userState.totalEarned = totalEarned + taskReward;
             this.userState.totalTasks = totalTasks + 1;
             this.userState.totalTasksCompleted = totalTasksCompleted + 1;
@@ -3353,7 +3160,7 @@ class TornadoApp {
 
             this.notificationManager.showNotification(
                 "Task Completed!", 
-                `+${taskReward.toFixed(5)} TON`, 
+                `+${taskReward.toFixed(5)} TON, +${taskXP} XP`, 
                 "success"
             );
             
@@ -3397,7 +3204,7 @@ class TornadoApp {
     }
 
     isAdAvailable(adNumber) {
-        return false; // تم تعطيل الإعلانات القديمة
+        return false;
     }
 
     getAdTimeLeft(adNumber) {
@@ -3409,19 +3216,15 @@ class TornadoApp {
     }
 
     setupAdWatchEvents() {
-        // تم إلغاء أحداث الإعلانات القديمة
     }
 
     async watchAd(adNumber) {
-        // تم إلغاء وظيفة مشاهدة الإعلانات القديمة
     }
 
     updateAdButtons() {
-        // تم إلغاء تحديث أزرار الإعلانات القديمة
     }
 
     startAdTimers() {
-        // تم إلغاء مؤقتات الإعلانات القديمة
     }
 
     async renderReferralsPage() {
@@ -3614,6 +3417,57 @@ class TornadoApp {
                     </div>
                 </div>
                 
+                <div class="deposit-section">
+                    <h3><i class="fas fa-arrow-down"></i> Deposit TON</h3>
+                    <div class="deposit-card">
+                        <div class="deposit-info">
+                            <div class="deposit-row">
+                                <span class="deposit-label">Wallet:</span>
+                                <span class="deposit-value" id="deposit-wallet">${this.appConfig.DEPOSIT_WALLET}</span>
+                                <button class="deposit-copy-btn" data-copy="wallet">
+                                    <i class="far fa-copy"></i>
+                                </button>
+                            </div>
+                            <div class="deposit-row">
+                                <span class="deposit-label">Comment:</span>
+                                <span class="deposit-value" id="deposit-comment">${this.tgUser.id}</span>
+                                <button class="deposit-copy-btn" data-copy="comment">
+                                    <i class="far fa-copy"></i>
+                                </button>
+                            </div>
+                            <div class="deposit-note">
+                                <i class="fas fa-info-circle"></i>
+                                <span>Send exactly the amount with this comment</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="exchange-section">
+                    <h3><i class="fas fa-exchange-alt"></i> Exchange</h3>
+                    <div class="exchange-card">
+                        <div class="exchange-rate-info">
+                            <div class="exchange-rate-display">
+                                <span class="rate-label">Rate:</span>
+                                <span class="rate-value"><span class="ton-highlight">1 TON</span> = <span class="xp-highlight">${this.appConfig.XP_PER_TON} XP</span></span>
+                            </div>
+                            <div class="exchange-min-display">
+                                <span class="min-label">Min:</span>
+                                <span class="min-value">${this.appConfig.MIN_EXCHANGE_TON} TON</span>
+                            </div>
+                        </div>
+                        <div class="exchange-input-container">
+                            <input type="number" id="exchange-input" class="exchange-input" 
+                                   placeholder="TON amount" step="0.01" min="${this.appConfig.MIN_EXCHANGE_TON}">
+                        </div>
+                        <div class="exchange-btn-container">
+                            <button class="exchange-btn" id="exchange-btn">
+                                <i class="fas fa-coins"></i> Exchange
+                            </button>
+                        </div>
+                    </div>
+                </div>
+                
                 <div class="withdraw-card">
                     <div class="withdraw-info">
                         <h3><i class="fas fa-wallet"></i> Withdraw TON</h3>
@@ -3766,6 +3620,42 @@ class TornadoApp {
         const walletInput = document.getElementById('profile-wallet-input');
         const amountInput = document.getElementById('profile-amount-input');
         const maxBtn = document.getElementById('max-btn');
+        
+        const copyButtons = document.querySelectorAll('[data-copy]');
+        copyButtons.forEach(btn => {
+            btn.addEventListener('click', () => {
+                const type = btn.dataset.copy;
+                let text = '';
+                
+                if (type === 'wallet') {
+                    text = this.appConfig.DEPOSIT_WALLET;
+                } else if (type === 'comment') {
+                    text = this.tgUser.id.toString();
+                }
+                
+                if (text) {
+                    this.copyToClipboard(text);
+                    
+                    const originalText = btn.innerHTML;
+                    btn.innerHTML = '<i class="fas fa-check"></i>';
+                    
+                    setTimeout(() => {
+                        btn.innerHTML = originalText;
+                    }, 2000);
+                }
+            });
+        });
+        
+        const exchangeBtn = document.getElementById('exchange-btn');
+        if (exchangeBtn) {
+            exchangeBtn.addEventListener('click', () => this.exchangeTonToXp());
+        }
+        
+        const exchangeInput = document.getElementById('exchange-input');
+        if (exchangeInput) {
+            exchangeInput.addEventListener('input', () => {
+            });
+        }
         
         if (maxBtn) {
             maxBtn.addEventListener('click', () => {
@@ -3985,7 +3875,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     <div class="error-icon">
                         <i class="fab fa-telegram"></i>
                     </div>
-                    <h2>Tornado</h2>
+                    <h2>RAMADAN BUX</h2>
                     <p>Please open from Telegram Mini App</p>
                 </div>
             </div>

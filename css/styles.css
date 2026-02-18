@@ -1,52 +1,37 @@
 :root {
-    --primary-color: #94a3b8;
-    --secondary-color: #cbd5e1;
-    --accent-color: #64748b;
-    --accent-light: #94a3b8;
+    --primary-color: #FBBF24;
+    --secondary-color: #F59E0B;
+    --accent-color: #D97706;
+    --accent-light: #FBBF24;
     --success-color: #16a34a;
     --warning-color: #f59e0b;
     --error-color: #dc2626;
     --info-color: #0ea5e9;
-    --ton-color: #60a5fa;
-    --xp-color: #fbbf24;
+    --ton-color: #FBBF24;
+    --xp-color: #F59E0B;
     
-    --background-color: #000000;
-    --card-bg: #111111;
-    --card-bg-solid: #1a1a1a;
-    --card-border: rgba(148, 163, 184, 0.3);
+    --background-color: #2e1b3c;
+    --card-bg: rgba(58, 28, 74, 0.8);
+    --card-bg-solid: #3a1e4a;
+    --card-border: rgba(251, 191, 36, 0.2);
     --text-primary: #ffffff;
     --text-secondary: #cbd5e1;
     --text-light: #94a3b8;
     
-    --shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
-    --shadow-light: 0 2px 8px rgba(0, 0, 0, 0.2);
-    --border-radius: 16px;
-    --border-radius-sm: 12px;
-    --border-radius-xs: 8px;
+    --shadow: 0 4px 15px rgba(251, 191, 36, 0.2);
+    --shadow-light: 0 2px 8px rgba(251, 191, 36, 0.1);
+    --border-radius: 22px;
+    --border-radius-sm: 18px;
+    --border-radius-xs: 14px;
     --font-primary: 'Poppins', sans-serif;
     
-    /* أحجام ثابتة لجميع الأجهزة */
     --header-height: 80px;
     --nav-height: 70px;
-    --card-padding: 16px;
+    --card-padding: 18px;
     --font-size-small: 14px;
     --font-size-normal: 16px;
     --font-size-large: 18px;
     --font-size-xlarge: 22px;
-}
-
-body.light-mode {
-    --background-color: #f8fafc;
-    --card-bg: #f1f5f9;
-    --card-bg-solid: #e2e8f0;
-    --card-border: rgba(148, 163, 184, 0.2);
-    --text-primary: #334155;
-    --text-secondary: #475569;
-    --text-light: #64748b;
-    --ton-color: #3b82f6;
-    --xp-color: #f59e0b;
-    --shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
-    --shadow-light: 0 2px 8px rgba(0, 0, 0, 0.05);
 }
 
 * {
@@ -60,7 +45,7 @@ body.light-mode {
 }
 
 html, body {
-    font-size: 16px; /* حجم أساسي ثابت */
+    font-size: 16px;
 }
 
 body {
@@ -72,6 +57,7 @@ body {
     padding: 0;
     min-height: 100vh;
     overflow-x: hidden;
+    background: linear-gradient(145deg, #2e1b3c 0%, #4a2660 100%);
 }
 
 .app-background {
@@ -99,8 +85,9 @@ body {
     width: 90%;
     max-width: 280px;
     text-align: center;
-    border: 1px solid var(--card-border);
+    border: 2px solid var(--card-border);
     box-shadow: var(--shadow);
+    backdrop-filter: blur(10px);
 }
 
 .loading-card-header {
@@ -113,7 +100,7 @@ body {
     margin: 0 auto 15px;
     border-radius: 20px;
     overflow: hidden;
-    border: 2px solid var(--accent-color);
+    border: 3px solid var(--primary-color);
 }
 
 .loading-card-logo {
@@ -125,9 +112,10 @@ body {
 .loading-card-title {
     font-size: 1.8rem;
     font-weight: 800;
-    color: var(--accent-color);
+    color: var(--primary-color);
     margin: 0;
     letter-spacing: 1px;
+    text-shadow: 0 2px 10px rgba(251, 191, 36, 0.3);
 }
 
 .loading-card-body {
@@ -156,7 +144,7 @@ body {
 .loading-percentage {
     font-size: 1rem;
     font-weight: 700;
-    color: var(--accent-color);
+    color: var(--primary-color);
     font-family: monospace;
     margin: 0;
 }
@@ -187,13 +175,14 @@ body {
 .profile-card {
     background: var(--card-bg);
     border-radius: var(--border-radius);
-    padding: 15px;
+    padding: 18px;
     display: flex;
     align-items: center;
     justify-content: space-between;
-    border: 1px solid var(--card-border);
+    border: 2px solid var(--card-border);
     margin-bottom: 20px;
     box-shadow: var(--shadow);
+    backdrop-filter: blur(10px);
 }
 
 .profile-content {
@@ -221,7 +210,8 @@ body {
     height: 100%;
     border-radius: 50%;
     object-fit: cover;
-    border: 2px solid var(--accent-color);
+    border: 3px solid var(--primary-color);
+    box-shadow: 0 0 20px rgba(251, 191, 36, 0.3);
 }
 
 .user-info-left {
@@ -231,14 +221,14 @@ body {
 .user-name {
     font-size: 1.2rem;
     font-weight: 700;
-    color: var(--accent-color);
+    color: var(--primary-color);
     margin: 0 0 5px 0;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
+    text-shadow: 0 2px 5px rgba(0, 0, 0, 0.3);
 }
 
-/* بطاقات الرصيد المزدوجة */
 .balance-cards {
     display: flex;
     gap: 8px;
@@ -249,10 +239,11 @@ body {
     display: flex;
     align-items: center;
     gap: 5px;
-    background: var(--card-bg-solid);
+    background: rgba(0, 0, 0, 0.3);
     border-radius: 30px;
     padding: 5px 12px;
     border: 1px solid var(--card-border);
+    backdrop-filter: blur(5px);
 }
 
 .balance-icon {
@@ -276,22 +267,6 @@ body {
     font-family: monospace;
 }
 
-.theme-toggle-btn {
-    width: 40px;
-    height: 40px;
-    border-radius: 50%;
-    background: linear-gradient(135deg, var(--primary-color), var(--accent-color));
-    border: none;
-    color: white;
-    font-size: 1.1rem;
-    cursor: pointer;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    margin-left: 10px;
-    box-shadow: var(--shadow-light);
-}
-
 .page {
     display: none;
     min-height: 90vh;
@@ -311,11 +286,12 @@ body {
     max-width: 450px;
     background: var(--card-bg);
     display: flex;
-    padding: 10px;
+    padding: 12px;
     z-index: 100;
     border-radius: var(--border-radius);
-    border: 1px solid var(--card-border);
+    border: 2px solid var(--card-border);
     box-shadow: var(--shadow);
+    backdrop-filter: blur(10px);
 }
 
 .nav-btn {
@@ -342,19 +318,19 @@ body {
     height: 26px;
     border-radius: 50%;
     object-fit: cover;
-    border: 2px solid var(--accent-color);
+    border: 2px solid var(--primary-color);
 }
 
 .nav-btn.active {
-    color: var(--accent-color);
+    color: var(--primary-color);
 }
 
 .nav-btn.active i {
-    color: var(--accent-color);
+    color: var(--primary-color);
 }
 
 .nav-btn.active.user-photo-btn img {
-    border-color: var(--accent-color);
+    border-color: var(--primary-color);
 }
 
 .nav-btn:active {
@@ -367,8 +343,9 @@ body {
     border-radius: var(--border-radius-sm);
     padding: 4px;
     margin: 0 0 20px;
-    border: 1px solid var(--card-border);
+    border: 2px solid var(--card-border);
     box-shadow: var(--shadow-light);
+    backdrop-filter: blur(10px);
 }
 
 .tab-btn {
@@ -376,7 +353,7 @@ body {
     padding: 12px 8px;
     background: transparent;
     border: none;
-    border-radius: 8px;
+    border-radius: 12px;
     color: var(--text-secondary);
     font-weight: 600;
     font-size: 0.9rem;
@@ -390,8 +367,9 @@ body {
 
 .tab-btn.active {
     background: linear-gradient(135deg, var(--primary-color), var(--accent-color));
-    color: white;
-    box-shadow: var(--shadow-light);
+    color: #2e1b3c;
+    font-weight: 700;
+    box-shadow: 0 4px 10px rgba(251, 191, 36, 0.3);
 }
 
 .tab-btn:active {
@@ -411,8 +389,9 @@ body {
     background: var(--card-bg);
     border-radius: var(--border-radius);
     padding: 20px;
-    border: 1px solid var(--card-border);
+    border: 2px solid var(--card-border);
     box-shadow: var(--shadow);
+    backdrop-filter: blur(10px);
 }
 
 .task-category-header {
@@ -435,7 +414,7 @@ body {
 }
 
 .task-category-title i {
-    color: var(--accent-color);
+    color: var(--primary-color);
     font-size: 1rem;
 }
 
@@ -444,7 +423,7 @@ body {
     border: none;
     border-radius: 30px;
     padding: 8px 16px;
-    color: white;
+    color: #2e1b3c;
     font-weight: 700;
     font-size: 0.85rem;
     cursor: pointer;
@@ -452,11 +431,12 @@ body {
     align-items: center;
     gap: 6px;
     transition: all 0.15s ease;
+    box-shadow: 0 4px 10px rgba(251, 191, 36, 0.3);
 }
 
 .add-task-btn:hover {
     transform: translateY(-1px);
-    box-shadow: var(--shadow-light);
+    box-shadow: 0 6px 15px rgba(251, 191, 36, 0.4);
 }
 
 .add-task-btn:active {
@@ -466,28 +446,29 @@ body {
 .more-grid {
     display: grid;
     grid-template-columns: 1fr;
-    gap: 12px;
+    gap: 15px;
     margin-top: 10px;
 }
 
 .square-card {
     background: var(--card-bg);
     border-radius: var(--border-radius);
-    padding: 16px;
-    border: 1px solid var(--card-border);
-    box-shadow: var(--shadow-light);
+    padding: 18px;
+    border: 2px solid var(--card-border);
+    box-shadow: var(--shadow);
+    backdrop-filter: blur(10px);
     display: flex;
     flex-direction: column;
-    min-height: 140px;
+    min-height: 160px;
 }
 
-/* Daily Check-in Card */
 .daily-checkin-card {
     background: var(--card-bg);
     border-radius: var(--border-radius);
-    padding: 16px;
-    border: 1px solid var(--card-border);
-    box-shadow: var(--shadow-light);
+    padding: 18px;
+    border: 2px solid var(--card-border);
+    box-shadow: var(--shadow);
+    backdrop-filter: blur(10px);
     display: flex;
     flex-direction: column;
     gap: 12px;
@@ -502,12 +483,12 @@ body {
 .checkin-icon {
     width: 40px;
     height: 40px;
-    background: linear-gradient(135deg, var(--ton-color), var(--accent-color));
+    background: linear-gradient(135deg, var(--primary-color), var(--accent-color));
     border-radius: var(--border-radius-xs);
     display: flex;
     align-items: center;
     justify-content: center;
-    color: white;
+    color: #2e1b3c;
     font-size: 1.2rem;
     flex-shrink: 0;
 }
@@ -522,10 +503,11 @@ body {
     display: flex;
     align-items: center;
     gap: 8px;
-    background: var(--background-color);
+    background: rgba(0, 0, 0, 0.3);
     padding: 10px 12px;
     border-radius: var(--border-radius-xs);
     border: 1px solid var(--card-border);
+    backdrop-filter: blur(5px);
 }
 
 .checkin-reward img {
@@ -547,7 +529,7 @@ body {
     background: linear-gradient(135deg, var(--primary-color), var(--accent-color));
     border: none;
     border-radius: var(--border-radius-xs);
-    color: white;
+    color: #2e1b3c;
     font-weight: 700;
     font-size: 0.9rem;
     cursor: pointer;
@@ -556,191 +538,71 @@ body {
     justify-content: center;
     gap: 8px;
     transition: all 0.15s ease;
+    box-shadow: 0 4px 10px rgba(251, 191, 36, 0.3);
 }
 
 .checkin-btn.completed {
-    background: var(--background-color);
+    background: rgba(0, 0, 0, 0.3);
     color: var(--text-light);
     cursor: not-allowed;
     border: 1px solid var(--card-border);
+    box-shadow: none;
 }
 
 .checkin-btn:hover:not(:disabled) {
     transform: translateY(-1px);
-    box-shadow: var(--shadow);
+    box-shadow: 0 6px 15px rgba(251, 191, 36, 0.4);
 }
 
 .checkin-btn:active:not(:disabled) {
     transform: scale(0.98);
 }
 
-/* Exchange Card */
-.exchange-card {
-    background: var(--card-bg);
-    border-radius: var(--border-radius);
-    padding: 16px;
-    border: 1px solid var(--card-border);
-    box-shadow: var(--shadow-light);
-    display: flex;
-    flex-direction: column;
-    gap: 12px;
+.deposit-section, .exchange-section {
+    margin-bottom: 20px;
 }
 
-.exchange-header {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-}
-
-.exchange-icon {
-    width: 40px;
-    height: 40px;
-    background: linear-gradient(135deg, var(--xp-color), #d97706);
-    border-radius: var(--border-radius-xs);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    color: white;
-    font-size: 1.2rem;
-    flex-shrink: 0;
-}
-
-.exchange-title {
-    font-weight: 700;
-    color: var(--text-primary);
+.deposit-section h3, .exchange-section h3, .withdraw-card h3, .profile-stats-section h3 {
+    color: var(--primary-color);
     font-size: 1.1rem;
-}
-
-.exchange-rate {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    background: var(--background-color);
-    padding: 10px 12px;
-    border-radius: var(--border-radius-xs);
-    border: 1px solid var(--card-border);
-    font-size: 0.9rem;
-    color: var(--text-secondary);
-}
-
-.exchange-rate i {
-    color: var(--accent-color);
-}
-
-.exchange-rate strong {
-    color: var(--xp-color);
     font-weight: 700;
-}
-
-.exchange-input-group {
-    display: flex;
-    gap: 8px;
-    align-items: center;
-}
-
-.exchange-input {
-    flex: 1;
-    padding: 14px;
-    background: var(--background-color);
-    border: 1px solid var(--card-border);
-    border-radius: var(--border-radius-xs);
-    font-size: 0.9rem;
-    color: var(--text-primary);
-    font-family: monospace;
-    outline: none;
-    transition: all 0.2s ease;
-}
-
-.exchange-input:focus {
-    border-color: var(--accent-color);
-    box-shadow: 0 0 0 2px rgba(100, 116, 139, 0.2);
-}
-
-.exchange-btn {
-    width: 100%;
-    padding: 14px;
-    background: linear-gradient(135deg, var(--xp-color), #d97706);
-    border: none;
-    border-radius: var(--border-radius-xs);
-    color: white;
-    font-weight: 700;
-    font-size: 0.9rem;
-    cursor: pointer;
+    margin-bottom: 15px;
     display: flex;
     align-items: center;
-    justify-content: center;
-    gap: 8px;
-    transition: all 0.15s ease;
+    gap: 10px;
+    border-bottom: 2px solid var(--card-border);
+    padding-bottom: 10px;
 }
 
-.exchange-btn:disabled {
-    background: var(--background-color);
-    color: var(--text-light);
-    cursor: not-allowed;
-    border: 1px solid var(--card-border);
+.deposit-section h3 i, .exchange-section h3 i, .withdraw-card h3 i, .profile-stats-section h3 i {
+    color: var(--primary-color);
 }
 
-.exchange-btn:hover:not(:disabled) {
-    transform: translateY(-1px);
-    box-shadow: var(--shadow);
-}
-
-.exchange-btn:active:not(:disabled) {
-    transform: scale(0.98);
-}
-
-/* Deposit Card */
 .deposit-card {
     background: var(--card-bg);
     border-radius: var(--border-radius);
-    padding: 16px;
-    border: 1px solid var(--card-border);
-    box-shadow: var(--shadow-light);
-    display: flex;
-    flex-direction: column;
-    gap: 12px;
-}
-
-.deposit-header {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-}
-
-.deposit-icon {
-    width: 40px;
-    height: 40px;
-    background: linear-gradient(135deg, var(--ton-color), var(--accent-color));
-    border-radius: var(--border-radius-xs);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    color: white;
-    font-size: 1.2rem;
-    flex-shrink: 0;
-}
-
-.deposit-title {
-    font-weight: 700;
-    color: var(--text-primary);
-    font-size: 1.1rem;
+    padding: 18px;
+    border: 2px solid var(--card-border);
+    box-shadow: var(--shadow);
+    backdrop-filter: blur(10px);
 }
 
 .deposit-info {
     display: flex;
     flex-direction: column;
-    gap: 10px;
+    gap: 12px;
 }
 
 .deposit-row {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    background: var(--background-color);
-    padding: 12px;
+    background: rgba(0, 0, 0, 0.3);
+    padding: 14px;
     border-radius: var(--border-radius-xs);
     border: 1px solid var(--card-border);
     gap: 10px;
+    backdrop-filter: blur(5px);
 }
 
 .deposit-label {
@@ -751,10 +613,10 @@ body {
 }
 
 .deposit-value {
-    color: var(--text-primary);
+    color: var(--primary-color);
     font-size: 0.85rem;
     font-family: monospace;
-    font-weight: 600;
+    font-weight: 700;
     word-break: break-all;
     flex: 1;
 }
@@ -764,8 +626,8 @@ body {
     border: none;
     border-radius: var(--border-radius-xs);
     padding: 8px 12px;
-    color: white;
-    font-weight: 600;
+    color: #2e1b3c;
+    font-weight: 700;
     font-size: 0.75rem;
     cursor: pointer;
     display: flex;
@@ -777,7 +639,7 @@ body {
 
 .deposit-copy-btn:hover {
     transform: translateY(-1px);
-    box-shadow: var(--shadow-light);
+    box-shadow: 0 4px 10px rgba(251, 191, 36, 0.3);
 }
 
 .deposit-copy-btn:active {
@@ -794,29 +656,160 @@ body {
     color: #f59e0b;
     font-size: 0.8rem;
     font-weight: 500;
+    border: 1px solid rgba(245, 158, 11, 0.3);
 }
 
 .deposit-note i {
     color: #f59e0b;
 }
 
-/* Task Modal */
+.exchange-card {
+    background: var(--card-bg);
+    border-radius: var(--border-radius);
+    padding: 20px;
+    border: 2px solid var(--card-border);
+    box-shadow: var(--shadow);
+    backdrop-filter: blur(10px);
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+}
+
+.exchange-rate-info {
+    background: rgba(0, 0, 0, 0.3);
+    border-radius: var(--border-radius-xs);
+    padding: 12px;
+    border: 1px solid var(--card-border);
+    backdrop-filter: blur(5px);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.exchange-rate-display {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.rate-label {
+    color: var(--text-secondary);
+    font-size: 0.9rem;
+}
+
+.rate-value {
+    color: var(--text-primary);
+    font-size: 0.95rem;
+    font-weight: 600;
+}
+
+.ton-highlight {
+    color: var(--ton-color);
+    font-weight: 700;
+}
+
+.xp-highlight {
+    color: var(--xp-color);
+    font-weight: 700;
+}
+
+.exchange-min-display {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+}
+
+.min-label {
+    color: var(--text-secondary);
+    font-size: 0.85rem;
+}
+
+.min-value {
+    color: var(--text-primary);
+    font-size: 0.9rem;
+    font-weight: 600;
+    background: rgba(0, 0, 0, 0.2);
+    padding: 3px 8px;
+    border-radius: 12px;
+}
+
+.exchange-input-container {
+    width: 100%;
+}
+
+.exchange-input {
+    width: 100%;
+    padding: 14px;
+    background: rgba(0, 0, 0, 0.3);
+    border: 1px solid var(--card-border);
+    border-radius: var(--border-radius-xs);
+    font-size: 0.9rem;
+    color: var(--text-primary);
+    font-family: monospace;
+    outline: none;
+    transition: all 0.2s ease;
+    backdrop-filter: blur(5px);
+}
+
+.exchange-input:focus {
+    border-color: var(--primary-color);
+    box-shadow: 0 0 0 2px rgba(251, 191, 36, 0.2);
+}
+
+.exchange-btn-container {
+    width: 100%;
+    display: flex;
+    justify-content: center;
+}
+
+.exchange-btn {
+    width: 80%;
+    padding: 14px;
+    background: linear-gradient(135deg, var(--primary-color), var(--accent-color));
+    border: none;
+    border-radius: 40px;
+    color: #2e1b3c;
+    font-weight: 700;
+    font-size: 1rem;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    transition: all 0.15s ease;
+    box-shadow: 0 4px 15px rgba(251, 191, 36, 0.3);
+}
+
+.exchange-btn:disabled {
+    background: rgba(0, 0, 0, 0.3);
+    color: var(--text-light);
+    cursor: not-allowed;
+    border: 1px solid var(--card-border);
+    box-shadow: none;
+}
+
+.exchange-btn:hover:not(:disabled) {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 20px rgba(251, 191, 36, 0.4);
+}
+
+.exchange-btn:active:not(:disabled) {
+    transform: scale(0.98);
+}
+
 .task-modal {
     position: fixed;
     top: 0;
     left: 0;
     width: 100%;
     height: 100%;
-    background: rgba(0, 0, 0, 0.9);
+    background: rgba(46, 27, 60, 0.95);
     display: flex;
     align-items: center;
     justify-content: center;
     z-index: 10001;
     padding: 20px;
-}
-
-body.light-mode .task-modal {
-    background: rgba(255, 255, 255, 0.95);
+    backdrop-filter: blur(10px);
 }
 
 .task-modal-content {
@@ -825,13 +818,47 @@ body.light-mode .task-modal {
     padding: 25px 20px;
     max-width: 400px;
     width: 100%;
-    border: 1px solid var(--accent-color);
+    border: 2px solid var(--primary-color);
     box-shadow: var(--shadow);
+    backdrop-filter: blur(10px);
+    position: relative;
+}
+
+.task-modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 15px;
+}
+
+.task-modal-title {
+    color: var(--primary-color);
+    font-size: 1.3rem;
+    font-weight: 700;
+}
+
+.task-modal-close {
+    width: 36px;
+    height: 36px;
+    background: linear-gradient(135deg, var(--primary-color), var(--accent-color));
+    border: none;
+    border-radius: 50%;
+    color: #2e1b3c;
+    font-size: 1.1rem;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.15s ease;
+}
+
+.task-modal-close:hover {
+    transform: rotate(90deg);
 }
 
 .task-modal-tabs {
     display: flex;
-    background: var(--background-color);
+    background: rgba(0, 0, 0, 0.3);
     border-radius: var(--border-radius-sm);
     padding: 4px;
     margin-bottom: 20px;
@@ -853,7 +880,8 @@ body.light-mode .task-modal {
 
 .task-modal-tab.active {
     background: linear-gradient(135deg, var(--primary-color), var(--accent-color));
-    color: white;
+    color: #2e1b3c;
+    font-weight: 700;
 }
 
 .task-modal-body {
@@ -861,7 +889,6 @@ body.light-mode .task-modal {
     overflow-y: auto;
 }
 
-/* My Tasks List */
 .my-tasks-list {
     display: flex;
     flex-direction: column;
@@ -869,10 +896,11 @@ body.light-mode .task-modal {
 }
 
 .my-task-item {
-    background: var(--card-bg-solid);
+    background: rgba(0, 0, 0, 0.3);
     border-radius: var(--border-radius-sm);
     padding: 12px;
     border: 1px solid var(--card-border);
+    backdrop-filter: blur(5px);
     display: flex;
     flex-direction: column;
     gap: 10px;
@@ -890,6 +918,7 @@ body.light-mode .task-modal {
     border-radius: var(--border-radius-xs);
     overflow: hidden;
     flex-shrink: 0;
+    border: 2px solid var(--primary-color);
 }
 
 .my-task-avatar img {
@@ -941,7 +970,7 @@ body.light-mode .task-modal {
 
 .progress-fill {
     height: 100%;
-    background: linear-gradient(90deg, var(--accent-color), var(--primary-color));
+    background: linear-gradient(90deg, var(--primary-color), var(--accent-color));
     transition: width 0.3s ease;
 }
 
@@ -953,7 +982,7 @@ body.light-mode .task-modal {
 }
 
 .progress-stats span {
-    color: var(--accent-color);
+    color: var(--primary-color);
     font-weight: 700;
 }
 
@@ -995,14 +1024,13 @@ body.light-mode .task-modal {
 
 .my-task-action-btn:hover {
     transform: translateY(-1px);
-    box-shadow: var(--shadow-light);
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.3);
 }
 
 .my-task-action-btn:active {
     transform: scale(0.98);
 }
 
-/* Add Task Form */
 .add-task-form {
     display: flex;
     flex-direction: column;
@@ -1024,14 +1052,14 @@ body.light-mode .task-modal {
 }
 
 .form-label i {
-    color: var(--accent-color);
+    color: var(--primary-color);
     font-size: 0.9rem;
 }
 
 .form-input {
     width: 100%;
     padding: 12px 14px;
-    background: var(--background-color);
+    background: rgba(0, 0, 0, 0.3);
     border: 1px solid var(--card-border);
     border-radius: var(--border-radius-xs);
     font-size: 0.9rem;
@@ -1039,11 +1067,12 @@ body.light-mode .task-modal {
     font-family: var(--font-primary);
     outline: none;
     transition: all 0.2s ease;
+    backdrop-filter: blur(5px);
 }
 
 .form-input:focus {
-    border-color: var(--accent-color);
-    box-shadow: 0 0 0 2px rgba(100, 116, 139, 0.2);
+    border-color: var(--primary-color);
+    box-shadow: 0 0 0 2px rgba(251, 191, 36, 0.2);
 }
 
 .category-selector {
@@ -1054,7 +1083,7 @@ body.light-mode .task-modal {
 .category-option {
     flex: 1;
     padding: 12px;
-    background: var(--background-color);
+    background: rgba(0, 0, 0, 0.3);
     border: 1px solid var(--card-border);
     border-radius: var(--border-radius-xs);
     color: var(--text-secondary);
@@ -1063,11 +1092,12 @@ body.light-mode .task-modal {
     cursor: pointer;
     text-align: center;
     transition: all 0.15s ease;
+    backdrop-filter: blur(5px);
 }
 
 .category-option.active {
     background: linear-gradient(135deg, var(--primary-color), var(--accent-color));
-    color: white;
+    color: #2e1b3c;
     border-color: transparent;
 }
 
@@ -1075,9 +1105,9 @@ body.light-mode .task-modal {
     width: 100%;
     padding: 12px;
     background: transparent;
-    border: 1px solid var(--accent-color);
+    border: 2px solid var(--primary-color);
     border-radius: var(--border-radius-xs);
-    color: var(--accent-color);
+    color: var(--primary-color);
     font-weight: 600;
     font-size: 0.85rem;
     cursor: pointer;
@@ -1090,8 +1120,8 @@ body.light-mode .task-modal {
 }
 
 .upgrade-admin-btn:hover {
-    background: var(--accent-color);
-    color: white;
+    background: var(--primary-color);
+    color: #2e1b3c;
 }
 
 .completions-selector {
@@ -1102,7 +1132,7 @@ body.light-mode .task-modal {
 
 .completion-option {
     padding: 12px 5px;
-    background: var(--background-color);
+    background: rgba(0, 0, 0, 0.3);
     border: 1px solid var(--card-border);
     border-radius: var(--border-radius-xs);
     color: var(--text-secondary);
@@ -1111,16 +1141,17 @@ body.light-mode .task-modal {
     cursor: pointer;
     text-align: center;
     transition: all 0.15s ease;
+    backdrop-filter: blur(5px);
 }
 
 .completion-option.active {
     background: linear-gradient(135deg, var(--primary-color), var(--accent-color));
-    color: white;
+    color: #2e1b3c;
     border-color: transparent;
 }
 
 .price-info {
-    background: var(--background-color);
+    background: rgba(0, 0, 0, 0.3);
     border-radius: var(--border-radius-xs);
     padding: 12px;
     border: 1px solid var(--card-border);
@@ -1128,6 +1159,7 @@ body.light-mode .task-modal {
     justify-content: space-between;
     align-items: center;
     font-size: 0.9rem;
+    backdrop-filter: blur(5px);
 }
 
 .price-label {
@@ -1136,7 +1168,7 @@ body.light-mode .task-modal {
 }
 
 .price-value {
-    color: var(--accent-color);
+    color: var(--primary-color);
     font-weight: 700;
     font-size: 1rem;
     font-family: monospace;
@@ -1145,10 +1177,10 @@ body.light-mode .task-modal {
 .pay-task-btn {
     width: 100%;
     padding: 16px;
-    background: linear-gradient(135deg, var(--xp-color), #d97706);
+    background: linear-gradient(135deg, var(--primary-color), var(--accent-color));
     border: none;
     border-radius: var(--border-radius-xs);
-    color: white;
+    color: #2e1b3c;
     font-weight: 700;
     font-size: 1rem;
     cursor: pointer;
@@ -1157,37 +1189,39 @@ body.light-mode .task-modal {
     justify-content: center;
     gap: 8px;
     transition: all 0.15s ease;
+    box-shadow: 0 4px 15px rgba(251, 191, 36, 0.3);
 }
 
 .pay-task-btn:disabled {
-    background: var(--background-color);
+    background: rgba(0, 0, 0, 0.3);
     color: var(--text-light);
     cursor: not-allowed;
     border: 1px solid var(--card-border);
+    box-shadow: none;
 }
 
 .pay-task-btn:hover:not(:disabled) {
     transform: translateY(-1px);
-    box-shadow: var(--shadow);
+    box-shadow: 0 6px 20px rgba(251, 191, 36, 0.4);
 }
 
 .pay-task-btn:active:not(:disabled) {
     transform: scale(0.98);
 }
 
-/* Confirm Delete Modal */
 .confirm-modal {
     position: fixed;
     top: 0;
     left: 0;
     width: 100%;
     height: 100%;
-    background: rgba(0, 0, 0, 0.9);
+    background: rgba(46, 27, 60, 0.95);
     display: flex;
     align-items: center;
     justify-content: center;
     z-index: 10002;
     padding: 20px;
+    backdrop-filter: blur(10px);
 }
 
 .confirm-content {
@@ -1197,7 +1231,8 @@ body.light-mode .task-modal {
     max-width: 320px;
     width: 100%;
     text-align: center;
-    border: 1px solid var(--error-color);
+    border: 2px solid var(--error-color);
+    backdrop-filter: blur(10px);
 }
 
 .confirm-icon {
@@ -1234,7 +1269,7 @@ body.light-mode .task-modal {
 .confirm-cancel {
     flex: 1;
     padding: 14px;
-    background: var(--background-color);
+    background: rgba(0, 0, 0, 0.3);
     border: 1px solid var(--card-border);
     border-radius: var(--border-radius-xs);
     color: var(--text-secondary);
@@ -1242,6 +1277,7 @@ body.light-mode .task-modal {
     font-size: 0.9rem;
     cursor: pointer;
     transition: all 0.15s ease;
+    backdrop-filter: blur(5px);
 }
 
 .confirm-delete {
@@ -1263,7 +1299,7 @@ body.light-mode .task-modal {
 
 .confirm-delete:hover {
     transform: translateY(-1px);
-    box-shadow: var(--shadow);
+    box-shadow: 0 4px 15px rgba(220, 38, 38, 0.3);
 }
 
 .confirm-delete:active {
@@ -1285,7 +1321,7 @@ body.light-mode .task-modal {
     display: flex;
     align-items: center;
     justify-content: center;
-    color: white;
+    color: #2e1b3c;
     font-size: 1.2rem;
     flex-shrink: 0;
 }
@@ -1297,10 +1333,14 @@ body.light-mode .task-modal {
     margin: 0;
 }
 
+.promo-input-group {
+    margin-bottom: 10px;
+}
+
 .promo-input {
     width: 100%;
     padding: 12px 14px;
-    background: var(--background-color);
+    background: rgba(0, 0, 0, 0.3);
     border: 1px solid var(--card-border);
     border-radius: var(--border-radius-xs);
     font-size: 0.9rem;
@@ -1309,20 +1349,43 @@ body.light-mode .task-modal {
     margin-bottom: 12px;
     box-sizing: border-box;
     transition: all 0.2s ease;
+    backdrop-filter: blur(5px);
 }
 
 .promo-input:focus {
-    border-color: var(--accent-color);
-    box-shadow: 0 0 0 2px rgba(100, 116, 139, 0.2);
+    border-color: var(--primary-color);
+    box-shadow: 0 0 0 2px rgba(251, 191, 36, 0.2);
+}
+
+.promo-currency-selector {
+    display: flex;
+    gap: 15px;
+    margin-bottom: 15px;
+    justify-content: center;
+}
+
+.currency-option {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    color: var(--text-secondary);
+    font-size: 0.9rem;
+    cursor: pointer;
+}
+
+.currency-option input[type="radio"] {
+    accent-color: var(--primary-color);
+    width: 16px;
+    height: 16px;
 }
 
 .promo-btn {
     width: 100%;
-    padding: 12px;
+    padding: 14px;
     background: linear-gradient(135deg, var(--primary-color), var(--accent-color));
     border: none;
     border-radius: var(--border-radius-xs);
-    color: white;
+    color: #2e1b3c;
     font-weight: 700;
     font-size: 0.9rem;
     cursor: pointer;
@@ -1332,6 +1395,7 @@ body.light-mode .task-modal {
     gap: 8px;
     transition: all 0.15s ease;
     margin-top: auto;
+    box-shadow: 0 4px 10px rgba(251, 191, 36, 0.3);
 }
 
 .promo-btn:disabled {
@@ -1341,7 +1405,7 @@ body.light-mode .task-modal {
 
 .promo-btn:hover:not(:disabled) {
     transform: translateY(-1px);
-    box-shadow: var(--shadow);
+    box-shadow: 0 6px 15px rgba(251, 191, 36, 0.4);
 }
 
 .promo-btn:active:not(:disabled) {
@@ -1359,10 +1423,11 @@ body.light-mode .task-modal {
     display: flex;
     align-items: center;
     gap: 12px;
-    background: var(--card-bg-solid);
+    background: rgba(0, 0, 0, 0.3);
     border-radius: var(--border-radius-sm);
     padding: 12px;
     border: 1px solid var(--card-border);
+    backdrop-filter: blur(5px);
 }
 
 .referral-row-avatar {
@@ -1371,6 +1436,7 @@ body.light-mode .task-modal {
     border-radius: var(--border-radius-xs);
     overflow: hidden;
     flex-shrink: 0;
+    border: 2px solid var(--primary-color);
 }
 
 .referral-row-avatar img {
@@ -1395,12 +1461,33 @@ body.light-mode .task-modal {
     margin: 0 0 4px 0;
 }
 
-.task-reward-amount {
-    font-size: 0.85rem;
-    color: var(--accent-color);
+.task-reward-container {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+}
+
+.task-reward-badge {
+    display: flex;
+    align-items: center;
+    gap: 3px;
+    background: rgba(0, 0, 0, 0.3);
+    padding: 3px 8px;
+    border-radius: 20px;
+    border: 1px solid var(--card-border);
+}
+
+.reward-icon {
+    width: 16px;
+    height: 16px;
+    object-fit: contain;
+}
+
+.reward-amount {
+    font-size: 0.8rem;
     font-weight: 700;
+    color: var(--text-primary);
     font-family: monospace;
-    margin: 0;
 }
 
 .task-btn {
@@ -1417,23 +1504,26 @@ body.light-mode .task-modal {
 
 .task-btn.start {
     background: linear-gradient(135deg, var(--primary-color), var(--accent-color));
-    color: white;
+    color: #2e1b3c;
+    box-shadow: 0 4px 10px rgba(251, 191, 36, 0.3);
 }
 
 .task-btn.check {
     background: linear-gradient(135deg, #f59e0b, #d97706);
     color: white;
+    box-shadow: 0 4px 10px rgba(245, 158, 11, 0.3);
 }
 
 .task-btn.completed {
     background: linear-gradient(135deg, var(--success-color), #15803d);
     color: white;
     cursor: not-allowed;
+    box-shadow: 0 4px 10px rgba(22, 163, 74, 0.3);
 }
 
 .task-btn.counting {
     background: linear-gradient(135deg, var(--primary-color), var(--accent-color));
-    color: white;
+    color: #2e1b3c;
 }
 
 .task-btn:disabled {
@@ -1443,7 +1533,7 @@ body.light-mode .task-modal {
 
 .task-btn:hover:not(:disabled) {
     transform: translateY(-1px);
-    box-shadow: var(--shadow-light);
+    box-shadow: 0 6px 15px rgba(251, 191, 36, 0.4);
 }
 
 .task-btn:active:not(:disabled) {
@@ -1453,15 +1543,16 @@ body.light-mode .task-modal {
 .no-tasks {
     text-align: center;
     padding: 25px 15px;
-    background: var(--card-bg-solid);
+    background: rgba(0, 0, 0, 0.3);
     border-radius: var(--border-radius-sm);
     border: 1px solid var(--card-border);
     margin: 10px 0;
+    backdrop-filter: blur(5px);
 }
 
 .no-tasks i {
     font-size: 1.8rem;
-    color: var(--accent-color);
+    color: var(--primary-color);
     margin-bottom: 10px;
 }
 
@@ -1482,27 +1573,29 @@ body.light-mode .task-modal {
     background: var(--card-bg);
     border-radius: var(--border-radius);
     padding: 20px;
-    border: 1px solid var(--card-border);
+    border: 2px solid var(--card-border);
     box-shadow: var(--shadow);
+    backdrop-filter: blur(10px);
 }
 
 .referral-link-box {
-    background: var(--background-color);
+    background: rgba(0, 0, 0, 0.3);
     border-radius: var(--border-radius-sm);
     padding: 15px;
     margin-bottom: 20px;
     border: 1px solid var(--card-border);
+    backdrop-filter: blur(5px);
 }
 
 .link-label {
     font-size: 0.85rem;
-    color: var(--accent-color);
+    color: var(--primary-color);
     margin-bottom: 10px;
     font-weight: 600;
 }
 
 .link-display {
-    background: var(--card-bg-solid);
+    background: rgba(0, 0, 0, 0.3);
     border-radius: var(--border-radius-xs);
     padding: 12px;
     font-family: monospace;
@@ -1512,6 +1605,7 @@ body.light-mode .task-modal {
     margin-bottom: 15px;
     border: 1px solid var(--card-border);
     line-height: 1.4;
+    backdrop-filter: blur(5px);
 }
 
 .copy-btn {
@@ -1520,7 +1614,7 @@ body.light-mode .task-modal {
     background: linear-gradient(135deg, var(--primary-color), var(--accent-color));
     border: none;
     border-radius: var(--border-radius-xs);
-    color: white;
+    color: #2e1b3c;
     font-weight: 700;
     font-size: 0.9rem;
     cursor: pointer;
@@ -1529,11 +1623,12 @@ body.light-mode .task-modal {
     justify-content: center;
     gap: 8px;
     transition: all 0.15s ease;
+    box-shadow: 0 4px 10px rgba(251, 191, 36, 0.3);
 }
 
 .copy-btn:hover {
     transform: translateY(-1px);
-    box-shadow: var(--shadow);
+    box-shadow: 0 6px 15px rgba(251, 191, 36, 0.4);
 }
 
 .copy-btn:active {
@@ -1542,13 +1637,13 @@ body.light-mode .task-modal {
 
 .referral-info {
     display: grid;
-    grid-template-columns: 1fr 1fr;
+    grid-template-columns: 1fr;
     gap: 12px;
     margin-bottom: 20px;
 }
 
 .info-card {
-    background: var(--card-bg-solid);
+    background: rgba(0, 0, 0, 0.3);
     border-radius: var(--border-radius-sm);
     padding: 15px;
     border: 1px solid var(--card-border);
@@ -1556,6 +1651,7 @@ body.light-mode .task-modal {
     align-items: center;
     gap: 10px;
     box-shadow: var(--shadow-light);
+    backdrop-filter: blur(5px);
 }
 
 .info-icon {
@@ -1566,7 +1662,7 @@ body.light-mode .task-modal {
     display: flex;
     align-items: center;
     justify-content: center;
-    color: white;
+    color: #2e1b3c;
     font-size: 1.1rem;
     flex-shrink: 0;
 }
@@ -1593,8 +1689,9 @@ body.light-mode .task-modal {
     background: var(--card-bg);
     border-radius: var(--border-radius);
     padding: 20px;
-    border: 1px solid var(--card-border);
+    border: 2px solid var(--card-border);
     box-shadow: var(--shadow);
+    backdrop-filter: blur(10px);
 }
 
 .referral-stats-section h3 {
@@ -1617,12 +1714,13 @@ body.light-mode .task-modal {
 }
 
 .stat-card {
-    background: var(--card-bg-solid);
+    background: rgba(0, 0, 0, 0.3);
     border-radius: var(--border-radius-sm);
     padding: 15px;
     border: 1px solid var(--card-border);
     text-align: center;
     box-shadow: var(--shadow-light);
+    backdrop-filter: blur(5px);
 }
 
 .stat-icon {
@@ -1633,14 +1731,14 @@ body.light-mode .task-modal {
     display: flex;
     align-items: center;
     justify-content: center;
-    color: white;
+    color: #2e1b3c;
     font-size: 1.1rem;
     margin: 0 auto 8px;
 }
 
 .stat-info h4 {
     font-size: 0.85rem;
-    color: var(--accent-color);
+    color: var(--primary-color);
     font-weight: 600;
     margin-bottom: 5px;
 }
@@ -1674,16 +1772,17 @@ body.light-mode .task-modal {
     text-align: center;
     padding: 40px 20px;
     color: var(--text-secondary);
-    background: var(--card-bg-solid);
+    background: rgba(0, 0, 0, 0.3);
     border-radius: var(--border-radius-sm);
     border: 1px solid var(--card-border);
     box-shadow: var(--shadow-light);
+    backdrop-filter: blur(5px);
 }
 
 .no-data i {
     font-size: 2.5rem;
     margin-bottom: 15px;
-    color: var(--accent-color);
+    color: var(--primary-color);
 }
 
 .no-data p {
@@ -1708,8 +1807,9 @@ body.light-mode .task-modal {
     background: var(--card-bg);
     border-radius: var(--border-radius);
     padding: 20px;
-    border: 1px solid var(--card-border);
+    border: 2px solid var(--card-border);
     box-shadow: var(--shadow);
+    backdrop-filter: blur(10px);
 }
 
 .profile-stats-section h3 {
@@ -1740,8 +1840,9 @@ body.light-mode .task-modal {
     background: var(--card-bg);
     border-radius: var(--border-radius);
     padding: 20px;
-    border: 1px solid var(--card-border);
+    border: 2px solid var(--card-border);
     box-shadow: var(--shadow);
+    backdrop-filter: blur(10px);
 }
 
 .withdraw-info {
@@ -1761,7 +1862,7 @@ body.light-mode .task-modal {
 }
 
 .current-balance {
-    color: var(--accent-color);
+    color: var(--primary-color);
     font-size: 1rem;
     font-weight: 700;
     font-family: monospace;
@@ -1803,6 +1904,27 @@ body.light-mode .task-modal {
     font-weight: 600;
 }
 
+.requirements-section {
+    margin-bottom: 20px;
+}
+
+.requirement-item {
+    margin-bottom: 12px;
+}
+
+.requirement-header {
+    display: flex;
+    justify-content: space-between;
+    color: var(--text-secondary);
+    font-size: 0.85rem;
+    margin-bottom: 4px;
+}
+
+.requirement-count {
+    color: var(--primary-color);
+    font-weight: 600;
+}
+
 .form-group {
     margin-bottom: 15px;
 }
@@ -1828,14 +1950,14 @@ body.light-mode .task-modal {
 }
 
 .form-label i {
-    color: var(--accent-color);
+    color: var(--primary-color);
     font-size: 1rem;
 }
 
 .form-input {
     width: 100%;
     padding: 14px;
-    background: var(--background-color);
+    background: rgba(0, 0, 0, 0.3);
     border: 1px solid var(--card-border);
     border-radius: var(--border-radius-xs);
     font-size: 0.9rem;
@@ -1846,11 +1968,12 @@ body.light-mode .task-modal {
     box-sizing: border-box;
     transition: all 0.2s ease;
     padding-right: 70px;
+    backdrop-filter: blur(5px);
 }
 
 .form-input:focus {
-    border-color: var(--accent-color);
-    box-shadow: 0 0 0 2px rgba(100, 116, 139, 0.2);
+    border-color: var(--primary-color);
+    box-shadow: 0 0 0 2px rgba(251, 191, 36, 0.2);
 }
 
 .max-btn {
@@ -1860,7 +1983,7 @@ body.light-mode .task-modal {
     background: linear-gradient(135deg, var(--primary-color), var(--accent-color));
     border: none;
     border-radius: var(--border-radius-xs);
-    color: white;
+    color: #2e1b3c;
     font-weight: 700;
     font-size: 0.8rem;
     cursor: pointer;
@@ -1870,7 +1993,7 @@ body.light-mode .task-modal {
 
 .max-btn:hover {
     transform: translateY(-1px);
-    box-shadow: var(--shadow-light);
+    box-shadow: 0 4px 10px rgba(251, 191, 36, 0.3);
 }
 
 .max-btn:active {
@@ -1878,7 +2001,7 @@ body.light-mode .task-modal {
 }
 
 .withdraw-minimum-info {
-    background: var(--background-color);
+    background: rgba(0, 0, 0, 0.3);
     border-radius: var(--border-radius-xs);
     padding: 12px;
     margin-bottom: 15px;
@@ -1889,6 +2012,7 @@ body.light-mode .task-modal {
     color: var(--warning-color);
     font-size: 0.9rem;
     font-weight: 600;
+    backdrop-filter: blur(5px);
 }
 
 .withdraw-minimum-info i {
@@ -1906,7 +2030,7 @@ body.light-mode .task-modal {
     background: linear-gradient(135deg, var(--primary-color), var(--accent-color));
     border: none;
     border-radius: var(--border-radius-xs);
-    color: white;
+    color: #2e1b3c;
     font-weight: 700;
     font-size: 1rem;
     cursor: pointer;
@@ -1916,18 +2040,20 @@ body.light-mode .task-modal {
     gap: 10px;
     margin-top: 10px;
     transition: all 0.15s ease;
+    box-shadow: 0 4px 15px rgba(251, 191, 36, 0.3);
 }
 
 .withdraw-btn:disabled {
-    background: var(--background-color);
+    background: rgba(0, 0, 0, 0.3);
     color: var(--text-light);
     cursor: not-allowed;
     border: 1px solid var(--card-border);
+    box-shadow: none;
 }
 
 .withdraw-btn:hover:not(:disabled) {
     transform: translateY(-1px);
-    box-shadow: var(--shadow);
+    box-shadow: 0 6px 20px rgba(251, 191, 36, 0.4);
 }
 
 .withdraw-btn:active:not(:disabled) {
@@ -1940,16 +2066,13 @@ body.light-mode .task-modal {
     left: 0;
     width: 100%;
     height: 100%;
-    background: rgba(0, 0, 0, 0.9);
+    background: rgba(46, 27, 60, 0.95);
     display: flex;
     align-items: center;
     justify-content: center;
     z-index: 10001;
     padding: 20px;
-}
-
-body.light-mode .welcome-tasks-modal {
-    background: rgba(255, 255, 255, 0.95);
+    backdrop-filter: blur(10px);
 }
 
 .welcome-tasks-content {
@@ -1959,8 +2082,9 @@ body.light-mode .welcome-tasks-modal {
     max-width: 380px;
     width: 100%;
     text-align: center;
-    border: 1px solid var(--accent-color);
+    border: 2px solid var(--primary-color);
     box-shadow: var(--shadow);
+    backdrop-filter: blur(10px);
 }
 
 .welcome-header {
@@ -1975,13 +2099,13 @@ body.light-mode .welcome-tasks-modal {
     display: flex;
     align-items: center;
     justify-content: center;
-    color: white;
+    color: #2e1b3c;
     font-size: 1.5rem;
     margin: 0 auto 15px;
 }
 
 .welcome-header h3 {
-    color: var(--accent-color);
+    color: var(--primary-color);
     font-size: 1.2rem;
     font-weight: 800;
     margin-bottom: 8px;
@@ -2005,9 +2129,10 @@ body.light-mode .welcome-tasks-modal {
     align-items: center;
     justify-content: space-between;
     padding: 12px 15px;
-    background: var(--background-color);
+    background: rgba(0, 0, 0, 0.3);
     border-radius: var(--border-radius-xs);
     border: 1px solid var(--card-border);
+    backdrop-filter: blur(5px);
 }
 
 .welcome-task-info {
@@ -2027,7 +2152,7 @@ body.light-mode .welcome-tasks-modal {
     background: linear-gradient(135deg, var(--primary-color), var(--accent-color));
     border: none;
     border-radius: var(--border-radius-xs);
-    color: white;
+    color: #2e1b3c;
     font-weight: 700;
     font-size: 0.85rem;
     cursor: pointer;
@@ -2037,16 +2162,19 @@ body.light-mode .welcome-tasks-modal {
     white-space: nowrap;
     min-width: 85px;
     transition: all 0.15s ease;
+    box-shadow: 0 4px 10px rgba(251, 191, 36, 0.3);
 }
 
 .welcome-task-btn.completed {
     background: linear-gradient(135deg, var(--success-color), #15803d);
+    color: white;
     cursor: not-allowed;
+    box-shadow: 0 4px 10px rgba(22, 163, 74, 0.3);
 }
 
 .welcome-task-btn:hover:not(.completed) {
     transform: translateY(-1px);
-    box-shadow: var(--shadow-light);
+    box-shadow: 0 6px 15px rgba(251, 191, 36, 0.4);
 }
 
 .welcome-task-btn:active:not(.completed) {
@@ -2056,7 +2184,7 @@ body.light-mode .welcome-tasks-modal {
 .check-welcome-btn {
     width: 100%;
     padding: 14px;
-    background: var(--background-color);
+    background: rgba(0, 0, 0, 0.3);
     border: none;
     border-radius: var(--border-radius-xs);
     color: var(--text-light);
@@ -2073,8 +2201,9 @@ body.light-mode .welcome-tasks-modal {
 
 .check-welcome-btn:not(:disabled) {
     background: linear-gradient(135deg, var(--primary-color), var(--accent-color));
-    color: white;
+    color: #2e1b3c;
     cursor: pointer;
+    box-shadow: 0 4px 10px rgba(251, 191, 36, 0.3);
 }
 
 .check-welcome-btn:disabled {
@@ -2083,7 +2212,7 @@ body.light-mode .welcome-tasks-modal {
 
 .check-welcome-btn:hover:not(:disabled) {
     transform: translateY(-1px);
-    box-shadow: var(--shadow);
+    box-shadow: 0 6px 15px rgba(251, 191, 36, 0.4);
 }
 
 .check-welcome-btn:active:not(:disabled) {
@@ -2111,8 +2240,9 @@ body.light-mode .welcome-tasks-modal {
     max-width: 340px;
     width: 100%;
     text-align: center;
-    border: 1px solid var(--accent-color);
+    border: 2px solid var(--primary-color);
     box-shadow: var(--shadow);
+    backdrop-filter: blur(10px);
 }
 
 .error-header {
@@ -2127,7 +2257,7 @@ body.light-mode .welcome-tasks-modal {
     display: flex;
     align-items: center;
     justify-content: center;
-    color: white;
+    color: #2e1b3c;
     font-size: 2.5rem;
     margin: 0 auto 15px;
 }
@@ -2135,16 +2265,17 @@ body.light-mode .welcome-tasks-modal {
 .error-header h2 {
     font-size: 1.8rem;
     font-weight: 800;
-    color: var(--accent-color);
+    color: var(--primary-color);
     margin: 0;
 }
 
 .error-message {
     margin-bottom: 25px;
     padding: 20px;
-    background: var(--background-color);
+    background: rgba(0, 0, 0, 0.3);
     border-radius: 12px;
     border: 1px solid var(--card-border);
+    backdrop-filter: blur(5px);
 }
 
 .error-icon-wrapper {
@@ -2180,7 +2311,7 @@ body.light-mode .welcome-tasks-modal {
     background: linear-gradient(135deg, var(--primary-color), var(--accent-color));
     border: none;
     border-radius: var(--border-radius-xs);
-    color: white;
+    color: #2e1b3c;
     font-weight: 700;
     font-size: 1rem;
     cursor: pointer;
@@ -2189,11 +2320,12 @@ body.light-mode .welcome-tasks-modal {
     justify-content: center;
     gap: 10px;
     transition: all 0.15s ease;
+    box-shadow: 0 4px 15px rgba(251, 191, 36, 0.3);
 }
 
 .reload-btn:hover {
     transform: translateY(-1px);
-    box-shadow: var(--shadow);
+    box-shadow: 0 6px 20px rgba(251, 191, 36, 0.4);
 }
 
 .reload-btn:active {
@@ -2220,9 +2352,10 @@ body.light-mode .welcome-tasks-modal {
     padding: 35px 25px;
     width: 100%;
     max-width: 360px;
-    border: 1px solid var(--error-color);
+    border: 2px solid var(--error-color);
     text-align: center;
     box-shadow: var(--shadow);
+    backdrop-filter: blur(10px);
 }
 
 .banned-header .banned-icon {
@@ -2251,11 +2384,12 @@ body.light-mode .welcome-tasks-modal {
 }
 
 .ban-reason {
-    background: var(--background-color);
+    background: rgba(0, 0, 0, 0.3);
     border-radius: 12px;
     padding: 20px;
     margin-top: 25px;
     border: 1px solid var(--error-color);
+    backdrop-filter: blur(5px);
 }
 
 .ban-reason-icon {
@@ -2295,12 +2429,13 @@ body.light-mode .welcome-tasks-modal {
     border-radius: var(--border-radius-sm);
     padding: 15px 18px;
     z-index: 10000;
-    border-left: 4px solid var(--accent-color);
+    border-left: 4px solid var(--primary-color);
     display: flex;
     align-items: center;
     gap: 12px;
     border: 1px solid var(--card-border);
     box-shadow: var(--shadow);
+    backdrop-filter: blur(10px);
 }
 
 .notification.info { 
@@ -2382,8 +2517,9 @@ body.light-mode .welcome-tasks-modal {
     max-width: 320px;
     width: 100%;
     text-align: center;
-    border: 1px solid var(--accent-color);
+    border: 2px solid var(--primary-color);
     box-shadow: var(--shadow);
+    backdrop-filter: blur(10px);
 }
 
 .telegram-error .error-header {
@@ -2393,12 +2529,12 @@ body.light-mode .welcome-tasks-modal {
 .telegram-error .error-icon {
     width: 70px;
     height: 70px;
-    background: var(--accent-color);
+    background: linear-gradient(135deg, var(--primary-color), var(--accent-color));
     border-radius: 16px;
     display: flex;
     align-items: center;
     justify-content: center;
-    color: white;
+    color: #2e1b3c;
     font-size: 2rem;
     margin: 0 auto 10px;
 }
@@ -2406,22 +2542,23 @@ body.light-mode .welcome-tasks-modal {
 .telegram-error .error-header h2 {
     font-size: 1.5rem;
     font-weight: 800;
-    color: var(--accent-color);
+    color: var(--primary-color);
     margin: 0;
 }
 
 .telegram-error .error-message {
     margin-bottom: 20px;
     padding: 15px;
-    background: var(--background-color);
+    background: rgba(0, 0, 0, 0.3);
     border-radius: var(--border-radius-xs);
     border: 1px solid var(--card-border);
+    backdrop-filter: blur(5px);
 }
 
 .telegram-error .error-icon-wrapper {
     width: 45px;
     height: 45px;
-    background: var(--accent-color);
+    background: linear-gradient(135deg, var(--error-color), #b91c1c);
     border-radius: var(--border-radius-xs);
     display: flex;
     align-items: center;
@@ -2434,7 +2571,7 @@ body.light-mode .welcome-tasks-modal {
 .telegram-error .error-message h3 {
     font-size: 1.1rem;
     font-weight: 700;
-    color: var(--accent-color);
+    color: var(--error-color);
     margin-bottom: 5px;
 }
 
@@ -2448,10 +2585,10 @@ body.light-mode .welcome-tasks-modal {
 .telegram-btn {
     width: 100%;
     padding: 12px;
-    background: var(--accent-color);
+    background: linear-gradient(135deg, var(--primary-color), var(--accent-color));
     border: none;
     border-radius: var(--border-radius-xs);
-    color: white;
+    color: #2e1b3c;
     font-weight: 700;
     font-size: 0.9rem;
     cursor: pointer;
@@ -2461,11 +2598,12 @@ body.light-mode .welcome-tasks-modal {
     gap: 8px;
     text-decoration: none;
     transition: all 0.15s ease;
+    box-shadow: 0 4px 10px rgba(251, 191, 36, 0.3);
 }
 
 .telegram-btn:hover {
     transform: translateY(-1px);
-    box-shadow: var(--shadow);
+    box-shadow: 0 6px 15px rgba(251, 191, 36, 0.4);
 }
 
 .telegram-btn:active {
@@ -2476,8 +2614,9 @@ body.light-mode .welcome-tasks-modal {
     background: var(--card-bg);
     border-radius: var(--border-radius);
     padding: 20px;
-    border: 1px solid var(--card-border);
+    border: 2px solid var(--card-border);
     box-shadow: var(--shadow);
+    backdrop-filter: blur(10px);
 }
 
 .last-referrals-section h3 {
@@ -2492,333 +2631,6 @@ body.light-mode .welcome-tasks-modal {
     padding-bottom: 10px;
 }
 
-/* Withdrawal Account Modal */
-.withdrawal-account-modal {
-    position: fixed;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    background: #000000;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    z-index: 10001;
-    padding: 20px;
-}
-
-.withdrawal-account-content {
-    background: #111111;
-    border-radius: 22px;
-    padding: 30px 25px;
-    max-width: 380px;
-    width: 100%;
-    border: 1px solid rgba(96, 165, 250, 0.3);
-    box-shadow: 0 0 40px rgba(0, 0, 0, 0.5);
-}
-
-.withdrawal-header {
-    text-align: center;
-    margin-bottom: 25px;
-}
-
-.withdrawal-icon {
-    width: 70px;
-    height: 70px;
-    background: linear-gradient(135deg, #60a5fa, #3b82f6);
-    border-radius: 20px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    color: white;
-    font-size: 1.8rem;
-    margin: 0 auto 15px;
-}
-
-.withdrawal-header h3 {
-    color: #60a5fa;
-    font-size: 1.4rem;
-    font-weight: 800;
-    margin-bottom: 8px;
-}
-
-.withdrawal-header p {
-    color: #94a3b8;
-    font-size: 0.9rem;
-    margin: 0;
-}
-
-.withdrawal-form {
-    display: flex;
-    flex-direction: column;
-    gap: 20px;
-}
-
-.withdrawal-form .form-group {
-    margin-bottom: 0;
-}
-
-.withdrawal-form .form-label {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    color: #f1f5f9;
-    font-size: 0.95rem;
-    font-weight: 600;
-    margin-bottom: 8px;
-}
-
-.withdrawal-form .form-label i {
-    color: #60a5fa;
-    font-size: 1rem;
-}
-
-.withdrawal-form .form-input {
-    width: 100%;
-    padding: 14px 16px;
-    background: #1e293b;
-    border: 1px solid rgba(96, 165, 250, 0.2);
-    border-radius: 14px;
-    font-size: 0.95rem;
-    color: #f1f5f9;
-    font-family: 'Poppins', sans-serif;
-    outline: none;
-    transition: all 0.2s ease;
-}
-
-.withdrawal-form .form-input:focus {
-    border-color: #60a5fa;
-    box-shadow: 0 0 0 2px rgba(96, 165, 250, 0.2);
-    background: #0f172a;
-}
-
-.withdrawal-form .form-input::placeholder {
-    color: #64748b;
-}
-
-.wallet-warning {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    margin-top: 8px;
-    padding: 8px 12px;
-    background: rgba(245, 158, 11, 0.1);
-    border-radius: 10px;
-    color: #f59e0b;
-    font-size: 0.85rem;
-    font-weight: 500;
-}
-
-.wallet-warning i {
-    color: #f59e0b;
-    font-size: 0.9rem;
-}
-
-.confirm-wallet-btn {
-    width: 100%;
-    padding: 16px;
-    background: linear-gradient(135deg, #60a5fa, #3b82f6);
-    border: none;
-    border-radius: 16px;
-    color: white;
-    font-weight: 700;
-    font-size: 1rem;
-    cursor: pointer;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 10px;
-    transition: all 0.2s ease;
-    margin-top: 10px;
-}
-
-.confirm-wallet-btn:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 8px 20px rgba(59, 130, 246, 0.3);
-}
-
-.confirm-wallet-btn:active {
-    transform: scale(0.98);
-}
-
-.confirm-wallet-btn.confirmed {
-    background: linear-gradient(135deg, #16a34a, #15803d);
-    pointer-events: none;
-}
-
-.password-requirements {
-    background: #1e293b;
-    border-radius: 16px;
-    padding: 16px;
-    margin-top: 5px;
-    border: 1px solid rgba(96, 165, 250, 0.1);
-}
-
-.password-requirements h4 {
-    color: #94a3b8;
-    font-size: 0.9rem;
-    font-weight: 600;
-    margin-bottom: 12px;
-}
-
-.password-requirements ul {
-    list-style: none;
-    padding: 0;
-    margin: 0 0 15px 0;
-}
-
-.password-requirements li {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    color: #cbd5e1;
-    font-size: 0.85rem;
-    margin-bottom: 8px;
-}
-
-.password-requirements li i {
-    color: #64748b;
-    font-size: 0.85rem;
-    width: 16px;
-}
-
-.password-requirements li .fa-check-circle {
-    color: #16a34a;
-}
-
-.warning-message {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    padding: 12px;
-    background: rgba(220, 38, 38, 0.1);
-    border-radius: 12px;
-    color: #ef4444;
-    font-size: 0.85rem;
-    font-weight: 600;
-    border: 1px solid rgba(239, 68, 68, 0.2);
-}
-
-.warning-message i {
-    color: #ef4444;
-    font-size: 1rem;
-}
-
-.wallet-error-message {
-    padding: 14px 16px;
-    background: rgba(220, 38, 38, 0.1);
-    border: 1px solid rgba(239, 68, 68, 0.3);
-    border-radius: 12px;
-    color: #ef4444;
-    font-size: 0.9rem;
-    font-weight: 600;
-    text-align: center;
-    margin-top: 10px;
-}
-
-.wallet-error-message.error {
-    display: block;
-    animation: fadeIn 0.3s ease;
-}
-
-.welcome-error-message {
-    padding: 12px 16px;
-    background: rgba(220, 38, 38, 0.1);
-    border: 1px solid rgba(239, 68, 68, 0.3);
-    border-radius: 12px;
-    color: #ef4444;
-    font-size: 0.9rem;
-    font-weight: 600;
-    text-align: center;
-    margin-top: 15px;
-}
-
-.welcome-error-message.error {
-    display: block;
-    animation: fadeIn 0.3s ease;
-}
-
-.wallet-info-display {
-    background: #1e293b;
-    border-radius: 14px;
-    padding: 16px;
-    margin-bottom: 20px;
-    border: 1px solid rgba(96, 165, 250, 0.2);
-}
-
-.wallet-info-item {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    margin-bottom: 10px;
-}
-
-.wallet-label {
-    color: #94a3b8;
-    font-size: 0.9rem;
-    font-weight: 600;
-    min-width: 100px;
-}
-
-.wallet-label i {
-    color: #60a5fa;
-    margin-right: 8px;
-}
-
-.wallet-value {
-    color: #f1f5f9;
-    font-size: 0.9rem;
-    font-family: monospace;
-    font-weight: 600;
-    word-break: break-all;
-    flex: 1;
-}
-
-.wallet-info-note {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    padding: 10px 12px;
-    background: rgba(245, 158, 11, 0.1);
-    border-radius: 10px;
-    color: #f59e0b;
-    font-size: 0.8rem;
-    font-weight: 500;
-}
-
-.wallet-info-note i {
-    color: #f59e0b;
-}
-
-.password-error-message {
-    padding: 12px 16px;
-    background: rgba(220, 38, 38, 0.1);
-    border: 1px solid rgba(239, 68, 68, 0.3);
-    border-radius: 12px;
-    color: #ef4444;
-    font-size: 0.9rem;
-    font-weight: 600;
-    text-align: center;
-    margin-bottom: 15px;
-}
-
-.password-error-message.error {
-    display: block;
-    animation: fadeIn 0.3s ease;
-}
-
-@keyframes fadeIn {
-    from {
-        opacity: 0;
-        transform: translateY(-5px);
-    }
-    to {
-        opacity: 1;
-        transform: translateY(0);
-    }
-}
-
-/* أحجام ثابتة للتطبيق */
 html {
     -webkit-text-size-adjust: 100%;
     text-size-adjust: 100%;
@@ -2827,12 +2639,12 @@ html {
 @media (max-width: 480px) {
     .more-grid {
         grid-template-columns: 1fr;
-        gap: 10px;
+        gap: 12px;
     }
     
     .square-card {
-        min-height: 130px;
-        padding: 14px;
+        min-height: 150px;
+        padding: 16px;
     }
     
     .promo-icon, .deposit-icon, .exchange-icon, .checkin-icon {
@@ -2852,12 +2664,6 @@ html {
     .stats-grid-two, .profile-stats-grid {
         grid-template-columns: 1fr;
         gap: 10px;
-    }
-    
-    .theme-toggle-btn {
-        width: 36px;
-        height: 36px;
-        font-size: 1rem;
     }
     
     .bottom-nav {
@@ -2913,6 +2719,10 @@ html {
         padding: 10px 3px;
         font-size: 0.75rem;
     }
+    
+    .exchange-btn {
+        width: 100%;
+    }
 }
 
 @media (max-width: 360px) {
@@ -2961,8 +2771,8 @@ html {
     }
     
     .square-card {
-        min-height: 120px;
-        padding: 12px;
+        min-height: 140px;
+        padding: 14px;
     }
     
     .max-btn {

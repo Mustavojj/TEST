@@ -45,7 +45,8 @@ export const CORE_CONFIG = {
         'withdrawal': { limit: 1, window: 1000 },
         'ad_reward': { limit: 10, window: 300000 },
         'promo_code': { limit: 5, window: 300000 },
-        'exchange': { limit: 3, window: 3600000 }
+        'exchange': { limit: 3, window: 3600000 },
+        'daily_checkin': { limit: 1, window: 86400000 }
     },
     NOTIFICATION_COOLDOWN: 2000,
     MAX_NOTIFICATION_QUEUE: 3,

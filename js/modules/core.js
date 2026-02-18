@@ -1,17 +1,4 @@
-const CORE_CONFIG = {
-    CACHE_TTL: 300000,
-    RATE_LIMITS: {
-        'task_start': { limit: 1, window: 3000 },
-        'withdrawal': { limit: 1, window: 86400000 },
-        'ad_reward': { limit: 10, window: 300000 },
-        'promo_code': { limit: 5, window: 300000 }
-    },
-    NOTIFICATION_COOLDOWN: 2000,
-    MAX_NOTIFICATION_QUEUE: 3,
-    AD_COOLDOWN: 3600000,
-    INITIAL_AD_DELAY: 30000,
-    INTERVAL_AD_DELAY: 150000
-};
+import { CORE_CONFIG, APP_CONFIG } from '../data.js';
 
 class CacheManager {
     constructor() {
@@ -138,24 +125,24 @@ class NotificationManager {
                     transform: translateX(-50%);
                     width: 85%;
                     max-width: 320px;
-                    background: #111111;
+                    background: var(--card-bg);
                     backdrop-filter: blur(20px);
                     border-radius: 20px;
                     padding: 15px 18px;
-                    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.15);
+                    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
                     z-index: 10000;
                     animation: notificationSlideIn 0.4s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
-                    border: 1px solid #333333;
+                    border: 1px solid var(--card-border);
                     overflow: hidden;
                     display: flex;
                     align-items: center;
                     gap: 15px;
                 }
                 
-                .notification.info { border-left: 6px solid #0ea5e9; }
-                .notification.success { border-left: 6px solid #16a34a; }
-                .notification.error { border-left: 6px solid #dc2626; }
-                .notification.warning { border-left: 6px solid #f59e0b; }
+                .notification.info { border-left: 6px solid var(--info-color); }
+                .notification.success { border-left: 6px solid var(--success-color); }
+                .notification.error { border-left: 6px solid var(--error-color); }
+                .notification.warning { border-left: 6px solid var(--warning-color); }
                 
                 .notification-icon {
                     width: 42px;
@@ -166,26 +153,24 @@ class NotificationManager {
                     justify-content: center;
                     font-size: 1.1rem;
                     flex-shrink: 0;
+                    background: var(--card-bg-solid);
+                    border: 1px solid var(--card-border);
                 }
                 
                 .notification.info .notification-icon {
-                    background: #222222;
-                    color: #0ea5e9;
+                    color: var(--info-color);
                 }
                 
                 .notification.success .notification-icon {
-                    background: #222222;
-                    color: #16a34a;
+                    color: var(--success-color);
                 }
                 
                 .notification.error .notification-icon {
-                    background: #222222;
-                    color: #dc2626;
+                    color: var(--error-color);
                 }
                 
                 .notification.warning .notification-icon {
-                    background: #222222;
-                    color: #f59e0b;
+                    color: var(--warning-color);
                 }
                 
                 .notification-content {
@@ -195,14 +180,14 @@ class NotificationManager {
                 
                 .notification-title {
                     font-weight: 700;
-                    color: #f1f5f9;
+                    color: var(--text-primary);
                     font-size: 0.95rem;
                     margin-bottom: 3px;
                     line-height: 1.2;
                 }
                 
                 .notification-body {
-                    color: #cbd5e1;
+                    color: var(--text-secondary);
                     font-size: 0.85rem;
                     line-height: 1.3;
                 }
@@ -213,12 +198,12 @@ class NotificationManager {
                     left: 0;
                     width: 100%;
                     height: 3px;
-                    background: rgba(0, 0, 0, 0.05);
+                    background: rgba(0, 0, 0, 0.1);
                 }
                 
                 .notification-progress-fill {
                     height: 100%;
-                    background: #1e40af;
+                    background: linear-gradient(90deg, var(--secondary-color), var(--accent-color));
                     animation: notificationProgress 4s linear forwards;
                 }
                 
@@ -228,10 +213,10 @@ class NotificationManager {
                     right: 8px;
                     width: 22px;
                     height: 22px;
-                    background: rgba(0, 0, 0, 0.05);
+                    background: rgba(255, 255, 255, 0.1);
                     border: none;
                     border-radius: 50%;
-                    color: #94a3b8;
+                    color: var(--text-light);
                     font-size: 0.8rem;
                     cursor: pointer;
                     display: flex;
@@ -243,7 +228,7 @@ class NotificationManager {
                 
                 .notification-close:hover {
                     opacity: 1;
-                    background: rgba(0, 0, 0, 0.1);
+                    background: rgba(255, 255, 255, 0.2);
                 }
             `;
             document.head.appendChild(style);
@@ -342,196 +327,6 @@ class SecurityManager {
     }
 }
 
-class AdManager {
-    constructor(app) {
-        this.app = app;
-        this.lastAdTime = 0;
-        this.adCooldown = CORE_CONFIG.AD_COOLDOWN;
-        this.isAdPlaying = false;
-        this.initialAdDelay = CORE_CONFIG.INITIAL_AD_DELAY;
-        this.intervalAdDelay = CORE_CONFIG.INTERVAL_AD_DELAY;
-        this.intervalAdTimer = null;
-        this.initialAdTimer = null;
-    }
-    
-    startAdTimers() {
-        this.initialAdTimer = setTimeout(() => {
-            this.showIntervalAd();
-        }, this.initialAdDelay);
-        
-        this.intervalAdTimer = setInterval(() => {
-            this.showIntervalAd();
-        }, this.intervalAdDelay);
-    }
-    
-    stopAdTimers() {
-        if (this.initialAdTimer) {
-            clearTimeout(this.initialAdTimer);
-            this.initialAdTimer = null;
-        }
-        
-        if (this.intervalAdTimer) {
-            clearInterval(this.intervalAdTimer);
-            this.intervalAdTimer = null;
-        }
-    }
-    
-    async showIntervalAd() {
-        if (this.isAdPlaying) return false;
-        
-        if (typeof window.AdBlock2 !== 'undefined' && typeof window.AdBlock2.show === 'function') {
-            return new Promise((resolve) => {
-                this.isAdPlaying = true;
-                window.AdBlock2.show().then((result) => {
-                    this.isAdPlaying = false;
-                    resolve(true);
-                }).catch((error) => {
-                    this.isAdPlaying = false;
-                    resolve(false);
-                });
-            });
-        }
-        
-        return false;
-    }
-    
-    async showQuestRewardAd() {
-        if (this.isAdPlaying) return false;
-        
-        if (window.AdBlock19345 && typeof window.AdBlock19345.show === 'function') {
-            return new Promise((resolve) => {
-                this.isAdPlaying = true;
-                window.AdBlock19345.show().then((result) => {
-                    this.isAdPlaying = false;
-                    resolve(true);
-                }).catch((error) => {
-                    this.isAdPlaying = false;
-                    resolve(false);
-                });
-            });
-        }
-        
-        return false;
-    }
-    
-    async showWithdrawalAd() {
-        if (this.isAdPlaying) return false;
-        
-        if (window.AdBlock19345 && typeof window.AdBlock19345.show === 'function') {
-            return new Promise((resolve) => {
-                this.isAdPlaying = true;
-                window.AdBlock19345.show().then((result) => {
-                    this.isAdPlaying = false;
-                    resolve(true);
-                }).catch((error) => {
-                    this.isAdPlaying = false;
-                    resolve(false);
-                });
-            });
-        }
-        
-        return false;
-    }
-    
-    async showPromoCodeAd() {
-        if (this.isAdPlaying) return false;
-        
-        if (window.AdBlock19345 && typeof window.AdBlock19345.show === 'function') {
-            return new Promise((resolve) => {
-                this.isAdPlaying = true;
-                window.AdBlock19345.show().then((result) => {
-                    this.isAdPlaying = false;
-                    resolve(true);
-                }).catch((error) => {
-                    this.isAdPlaying = false;
-                    resolve(false);
-                });
-            });
-        }
-        
-        return false;
-    }
-    
-    async showWatchAd1() {
-        if (this.isAdPlaying) return false;
-        
-        if (window.AdBlock19345 && typeof window.AdBlock19345.show === 'function') {
-            return new Promise((resolve) => {
-                this.isAdPlaying = true;
-                window.AdBlock19345.show().then((result) => {
-                    this.isAdPlaying = false;
-                    resolve(true);
-                }).catch((error) => {
-                    this.isAdPlaying = false;
-                    resolve(false);
-                });
-            });
-        }
-        
-        return false;
-    }
-    
-    async showDiceAd() {
-        if (this.isAdPlaying) return false;
-        
-        if (window.AdBlock19345 && typeof window.AdBlock19345.show === 'function') {
-            return new Promise((resolve) => {
-                this.isAdPlaying = true;
-                window.AdBlock19345.show().then((result) => {
-                    this.isAdPlaying = false;
-                    resolve(true);
-                }).catch((error) => {
-                    this.isAdPlaying = false;
-                    resolve(false);
-                });
-            });
-        }
-        
-        return false;
-    }
-    
-    async showDicePrizeAd() {
-        if (this.isAdPlaying) return false;
-        
-        if (window.AdBlock19345 && typeof window.AdBlock19345.show === 'function') {
-            return new Promise((resolve) => {
-                this.isAdPlaying = true;
-                window.AdBlock19345.show().then((result) => {
-                    this.isAdPlaying = false;
-                    resolve(true);
-                }).catch((error) => {
-                    this.isAdPlaying = false;
-                    resolve(false);
-                });
-            });
-        }
-        
-        return false;
-    }
-    
-    async showTaskAd() {
-        if (this.isAdPlaying) return false;
-        
-        if (window.AdBlock19345 && typeof window.AdBlock19345.show === 'function') {
-            return new Promise((resolve) => {
-                this.isAdPlaying = true;
-                window.AdBlock19345.show().then((result) => {
-                    this.isAdPlaying = false;
-                    resolve(true);
-                }).catch((error) => {
-                    this.isAdPlaying = false;
-                    resolve(false);
-                });
-            });
-        }
-        
-        return false;
-    }
-    
-    canShowAd() {
-        if (this.app.isProcessingTask || this.isAdPlaying) return false;
-        return true;
-    }
-}
+// تم إزالة AdManager بالكامل
 
-export { CacheManager, RateLimiter, NotificationManager, SecurityManager, AdManager };
+export { CacheManager, RateLimiter, NotificationManager, SecurityManager };

@@ -1,4 +1,4 @@
-import { APP_CONFIG, THEME_CONFIG } from './data.js';
+import { APP_CONFIG, THEME_CONFIG, FEATURES_CONFIG } from './data.js';
 import { CacheManager, NotificationManager, SecurityManager } from './modules/core.js';
 import { TaskManager, QuestManager, ReferralManager } from './modules/features.js';
 

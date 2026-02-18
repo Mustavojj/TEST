@@ -1,5 +1,5 @@
 export const APP_CONFIG = {
-    APP_NAME: "Tornado",
+    APP_NAME: "RAMADAN BUX",
     BOT_USERNAME: "Tornado_Rbot",
     MINIMUM_WITHDRAW: 0.20,
     REFERRAL_BONUS_TON: 0.01,
@@ -35,7 +35,8 @@ export const APP_CONFIG = {
     ADMIN_ID: "1891231976",
     XP_PER_TON: 1000,
     MIN_EXCHANGE_TON: 0.10,
-    TASK_PRICE_PER_100_COMPLETIONS: 100
+    TASK_PRICE_PER_100_COMPLETIONS: 100,
+    TASK_XP_REWARD: 1
 };
 
 export const CORE_CONFIG = {
@@ -73,23 +74,23 @@ export const THEME_CONFIG = {
         textPrimary: "#334155",
         textSecondary: "#475569",
         textLight: "#64748b",
-        primaryColor: "#94a3b8",
-        secondaryColor: "#cbd5e1",
-        accentColor: "#64748b",
-        tonColor: "#60a5fa",
-        xpColor: "#fbbf24"
+        primaryColor: "#FBBF24",
+        secondaryColor: "#F59E0B",
+        accentColor: "#D97706",
+        tonColor: "#FBBF24",
+        xpColor: "#F59E0B"
     },
     DARK_MODE: {
-        background: "#0f172a",
-        cardBg: "rgba(30, 41, 59, 0.8)",
-        cardBgSolid: "#1e293b",
+        background: "#2e1b3c",
+        cardBg: "rgba(58, 28, 74, 0.8)",
+        cardBgSolid: "#3a1e4a",
         textPrimary: "#f1f5f9",
         textSecondary: "#cbd5e1",
         textLight: "#94a3b8",
-        primaryColor: "#60a5fa",
-        secondaryColor: "#93c5fd",
-        accentColor: "#3b82f6",
-        tonColor: "#60a5fa",
-        xpColor: "#fbbf24"
+        primaryColor: "#FBBF24",
+        secondaryColor: "#F59E0B",
+        accentColor: "#D97706",
+        tonColor: "#FBBF24",
+        xpColor: "#F59E0B"
     }
 };

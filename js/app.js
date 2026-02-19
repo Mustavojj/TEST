@@ -2823,7 +2823,7 @@ class TornadoApp {
                     <div class="task-rewards">
                         <span class="reward-badge">
                             <img src="https://cdn-icons-png.flaticon.com/512/12114/12114247.png" class="reward-icon" alt="TON">
-                            ${task.reward.toFixed(5)}
+                            ${task.reward.toFixed(4)}
                         </span>
                         <span class="reward-badge">
                             <img src="https://cdn-icons-png.flaticon.com/512/17301/17301413.png" class="reward-icon" alt="XP">
@@ -3325,7 +3325,7 @@ class TornadoApp {
 
             this.notificationManager.showNotification(
                 "Task Completed!", 
-                `+${taskReward.toFixed(5)} TON, +${taskXpReward} XP`, 
+                `+${taskReward.toFixed(4)} TON, +${taskXpReward} XP`, 
                 "success"
             );
             

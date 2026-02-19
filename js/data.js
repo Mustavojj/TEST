@@ -9,9 +9,10 @@ export const APP_CONFIG = {
     MAX_DAILY_ADS: 20,
     AD_COOLDOWN: 180000,
     WATCH_AD_REWARD: 0.001,
-    REQUIRED_ADS_FOR_WITHDRAWAL: 5,
+    REQUIRED_ADS_FOR_WITHDRAWAL: 0, // لم يعد مستخدماً
     REQUIRED_TASKS_FOR_WITHDRAWAL: 10,
     REQUIRED_REFERRALS_FOR_WITHDRAWAL: 1,
+    REQUIRED_XP_FOR_WITHDRAWAL: 100,
     DEFAULT_USER_AVATAR: "https://i.ibb.co/gM8hnfwm/TORNADO-PIC.png",
     BOT_AVATAR: "https://i.ibb.co/gM8hnfwm/TORNADO-PIC.png",
     WELCOME_TASKS: [
@@ -37,14 +38,15 @@ export const APP_CONFIG = {
     MIN_EXCHANGE_TON: 0.10,
     TASK_PRICE_PER_100_COMPLETIONS: 100,
     IN_APP_AD_INTERVAL: 60000,
-    INITIAL_AD_DELAY: 30000
+    INITIAL_AD_DELAY: 30000,
+    WITHDRAWAL_LIMIT_PER_DAY: 1 // حد السحب اليومي
 };
 
 export const CORE_CONFIG = {
     CACHE_TTL: 300000,
     RATE_LIMITS: {
         'task_start': { limit: 1, window: 3000 },
-        'withdrawal': { limit: 1, window: 1000 },
+        'withdrawal': { limit: 1, window: 86400000 }, // مرة واحدة كل 24 ساعة
         'ad_reward': { limit: 10, window: 300000 },
         'promo_code': { limit: 5, window: 300000 },
         'exchange': { limit: 3, window: 3600000 },

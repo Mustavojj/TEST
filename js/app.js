@@ -681,7 +681,7 @@ class TornadoApp {
                 
                 this.notificationManager.showNotification(
                     "Daily Check-in",
-                    `+${this.formatReward(reward)} TON`,
+                    `+${reward.toFixed(5)} TON`,
                     "success"
                 );
                 
@@ -2490,7 +2490,7 @@ class TornadoApp {
             balanceCards.innerHTML = `
                 <div class="balance-card">
                     <img src="https://cdn-icons-png.flaticon.com/512/12114/12114247.png" class="balance-icon" alt="TON">
-                    <span class="balance-ton">${this.formatReward(tonBalance)}</span>
+                    <span class="balance-ton">${tonBalance.toFixed(3)}</span>
                 </div>
                 <div class="balance-card">
                     <img src="https://cdn-icons-png.flaticon.com/512/17301/17301413.png" class="balance-icon" alt="XP">
@@ -2505,15 +2505,6 @@ class TornadoApp {
         if (bottomNavPhoto && this.tgUser.photo_url) {
             bottomNavPhoto.src = this.tgUser.photo_url;
         }
-    }
-
-    formatReward(value) {
-        if (value === null || value === undefined) return '0';
-        const num = Number(value);
-        if (isNaN(num)) return '0';
-        
-        // إزالة الأصفار الزائدة
-        return num.toString().replace(/\.?0+$/, '');
     }
 
     renderUI() {
@@ -2630,7 +2621,7 @@ class TornadoApp {
                             <div class="card-divider"></div>
                             <div class="checkin-reward">
                                 <img src="https://cdn-icons-png.flaticon.com/512/15208/15208522.png" alt="TON">
-                                <span>Reward: ${this.formatReward(FEATURES_CONFIG.DAILY_CHECKIN_REWARD)} TON</span>
+                                <span>Reward: ${FEATURES_CONFIG.DAILY_CHECKIN_REWARD.toFixed(5)} TON</span>
                             </div>
                             <button class="checkin-btn" id="daily-checkin-btn">
                                 <i class="fas fa-calendar-check"></i> CHECK-IN
@@ -2666,11 +2657,11 @@ class TornadoApp {
                             <div class="exchange-mini-balance">
                                 <div class="mini-balance-item">
                                     <img src="https://cdn-icons-png.flaticon.com/512/12114/12114247.png" alt="TON">
-                                    <span>${this.formatReward(this.userState.balance)} TON</span>
+                                    <span>${this.safeNumber(this.userState.balance).toFixed(3)} TON</span>
                                 </div>
                                 <div class="mini-balance-item">
                                     <img src="https://cdn-icons-png.flaticon.com/512/17301/17301413.png" alt="XP">
-                                    <span>${Math.floor(this.userState.xp)} XP</span>
+                                    <span>${Math.floor(this.safeNumber(this.userState.xp))} XP</span>
                                 </div>
                             </div>
                             
@@ -2832,7 +2823,7 @@ class TornadoApp {
                     <div class="task-rewards">
                         <span class="reward-badge">
                             <img src="https://cdn-icons-png.flaticon.com/512/12114/12114247.png" class="reward-icon" alt="TON">
-                            ${this.formatReward(task.reward)}
+                            ${task.reward.toFixed(5)}
                         </span>
                         <span class="reward-badge">
                             <img src="https://cdn-icons-png.flaticon.com/512/17301/17301413.png" class="reward-icon" alt="XP">
@@ -3003,7 +2994,7 @@ class TornadoApp {
             
             this.notificationManager.showNotification(
                 "Success", 
-                `Promo code applied! +${this.formatReward(rewardAmount)} ${rewardType === 'ton' ? 'TON' : 'XP'}`, 
+                `Promo code applied! +${rewardAmount.toFixed(5)} ${rewardType === 'ton' ? 'TON' : 'XP'}`, 
                 "success"
             );
             
@@ -3334,7 +3325,7 @@ class TornadoApp {
 
             this.notificationManager.showNotification(
                 "Task Completed!", 
-                `+${this.formatReward(taskReward)} TON, +${taskXpReward} XP`, 
+                `+${taskReward.toFixed(5)} TON, +${taskXpReward} XP`, 
                 "success"
             );
             
@@ -3453,7 +3444,7 @@ class TornadoApp {
                             </div>
                             <div class="stat-info">
                                 <h4>Total Earnings</h4>
-                                <p class="stat-value">${this.formatReward(referralEarnings)} TON</p>
+                                <p class="stat-value">${referralEarnings.toFixed(3)} TON</p>
                             </div>
                         </div>
                     </div>
@@ -3646,7 +3637,7 @@ class TornadoApp {
                             <input type="number" id="profile-amount-input" class="form-input" 
                                    step="0.00001" min="${this.appConfig.MINIMUM_WITHDRAW}" 
                                    max="${maxBalance}"
-                                   placeholder="Min: ${this.formatReward(this.appConfig.MINIMUM_WITHDRAW)} TON"
+                                   placeholder="Min: ${this.appConfig.MINIMUM_WITHDRAW.toFixed(3)} TON"
                                    required>
                             <button type="button" class="max-btn" id="max-btn">MAX</button>
                         </div>
@@ -3654,7 +3645,7 @@ class TornadoApp {
                     
                     <div class="withdraw-minimum-info">
                         <i class="fas fa-info-circle"></i>
-                        <span>Minimum Withdrawal: <strong>${this.formatReward(this.appConfig.MINIMUM_WITHDRAW)} TON</strong></span>
+                        <span>Minimum Withdrawal: <strong>${this.appConfig.MINIMUM_WITHDRAW.toFixed(3)} TON</strong></span>
                     </div>
                     
                     <button id="profile-withdraw-btn" class="withdraw-btn" 
@@ -3696,7 +3687,7 @@ class TornadoApp {
         return this.userWithdrawals.map(withdrawal => `
             <div class="withdrawal-item">
                 <div class="withdrawal-header">
-                    <span class="withdrawal-amount">${this.formatReward(withdrawal.amount)} TON</span>
+                    <span class="withdrawal-amount">${withdrawal.amount?.toFixed(5)} TON</span>
                     <span class="withdrawal-status ${withdrawal.status}">${withdrawal.status.toUpperCase()}</span>
                 </div>
                 <div class="withdrawal-details">
@@ -3829,7 +3820,7 @@ class TornadoApp {
         }
         
         if (!amount || amount < minimumWithdraw) {
-            this.notificationManager.showNotification("Error", `Minimum withdrawal is ${this.formatReward(minimumWithdraw)} TON`, "error");
+            this.notificationManager.showNotification("Error", `Minimum withdrawal is ${minimumWithdraw.toFixed(3)} TON`, "error");
             return;
         }
         
@@ -4018,13 +4009,13 @@ class TornadoApp {
                 // تحديث الرصيد المصغر في بطاقة Exchange
                 const miniBalanceItems = document.querySelectorAll('.mini-balance-item');
                 if (miniBalanceItems.length >= 2) {
-                    miniBalanceItems[0].querySelector('span').textContent = `${this.formatReward(newTonBalance)} TON`;
+                    miniBalanceItems[0].querySelector('span').textContent = `${newTonBalance.toFixed(3)} TON`;
                     miniBalanceItems[1].querySelector('span').textContent = `${Math.floor(newXpBalance)} XP`;
                 }
                 
                 this.notificationManager.showNotification(
                     "Success",
-                    `Exchanged ${this.formatReward(tonAmount)} TON to ${xpAmount} XP`,
+                    `Exchanged ${tonAmount.toFixed(3)} TON to ${xpAmount} XP`,
                     "success"
                 );
                 

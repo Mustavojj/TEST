@@ -2800,3 +2800,339 @@ html {
     50% { transform: scale(1.05); opacity: 1; }
     100% { transform: scale(1); opacity: 0.8; }
 }
+
+/* Task Rewards */
+.task-rewards {
+    display: flex;
+    gap: 8px;
+    margin-top: 5px;
+    flex-wrap: wrap;
+}
+
+.reward-badge {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    background: var(--card-bg-solid);
+    border-radius: 30px;
+    padding: 4px 10px;
+    border: 1px solid var(--card-border);
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: var(--text-primary);
+}
+
+.reward-icon {
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    object-fit: cover;
+}
+
+/* Task Modal Close Button */
+.task-modal-close {
+    position: absolute;
+    top: 15px;
+    right: 15px;
+    width: 36px;
+    height: 36px;
+    background: var(--background-color);
+    border: 1px solid var(--card-border);
+    border-radius: 50%;
+    color: var(--text-primary);
+    font-size: 1.1rem;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.15s ease;
+    z-index: 10;
+}
+
+.task-modal-close:hover {
+    background: var(--accent-color);
+    color: var(--background-color);
+    transform: scale(1.1);
+}
+
+.task-modal-close:active {
+    transform: scale(0.95);
+}
+
+.task-modal-content {
+    position: relative;
+}
+
+/* Profile Cards */
+.profile-card-item {
+    margin-bottom: 20px;
+}
+
+/* Exchange Card Redesign */
+.exchange-card {
+    background: var(--card-bg);
+    border-radius: 24px;
+    padding: 24px 20px;
+    border: 1px solid rgba(255, 215, 0, 0.3);
+    box-shadow: 0 8px 32px rgba(255, 215, 0, 0.1);
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+.exchange-header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 5px;
+}
+
+.exchange-icon {
+    width: 48px;
+    height: 48px;
+    background: linear-gradient(135deg, #FFD700, #FFA500);
+    border-radius: 16px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #0a0a0a;
+    font-size: 1.4rem;
+    flex-shrink: 0;
+}
+
+.exchange-title {
+    font-weight: 800;
+    color: var(--text-primary);
+    font-size: 1.3rem;
+}
+
+.exchange-rate {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: rgba(255, 215, 0, 0.1);
+    padding: 12px 16px;
+    border-radius: 16px;
+    border: 1px solid rgba(255, 215, 0, 0.2);
+    font-size: 0.95rem;
+    color: var(--text-secondary);
+}
+
+.exchange-rate i {
+    color: #FFD700;
+}
+
+.exchange-rate strong {
+    color: #FFD700;
+    font-weight: 800;
+}
+
+.exchange-input-group {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.exchange-input {
+    width: 100%;
+    padding: 16px;
+    background: var(--background-color);
+    border: 1px solid rgba(255, 215, 0, 0.2);
+    border-radius: 16px;
+    font-size: 1rem;
+    color: var(--text-primary);
+    font-family: monospace;
+    outline: none;
+    transition: all 0.2s ease;
+}
+
+.exchange-input:focus {
+    border-color: #FFD700;
+    box-shadow: 0 0 0 3px rgba(255, 215, 0, 0.2);
+}
+
+.exchange-btn {
+    width: 100%;
+    padding: 16px;
+    background: linear-gradient(135deg, #FFD700, #FFA500);
+    border: none;
+    border-radius: 16px;
+    color: #0a0a0a;
+    font-weight: 800;
+    font-size: 1rem;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    transition: all 0.15s ease;
+    margin-top: 5px;
+}
+
+.exchange-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.exchange-btn:hover:not(:disabled) {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 20px rgba(255, 215, 0, 0.3);
+}
+
+.exchange-btn:active:not(:disabled) {
+    transform: scale(0.98);
+}
+
+/* Deposit Card Redesign */
+.deposit-card {
+    background: var(--card-bg);
+    border-radius: 24px;
+    padding: 24px 20px;
+    border: 1px solid rgba(255, 215, 0, 0.3);
+    box-shadow: 0 8px 32px rgba(255, 215, 0, 0.1);
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+.deposit-header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 5px;
+}
+
+.deposit-icon {
+    width: 48px;
+    height: 48px;
+    background: linear-gradient(135deg, #FFD700, #FFA500);
+    border-radius: 16px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #0a0a0a;
+    font-size: 1.4rem;
+    flex-shrink: 0;
+}
+
+.deposit-title {
+    font-weight: 800;
+    color: var(--text-primary);
+    font-size: 1.3rem;
+}
+
+.deposit-info {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.deposit-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    background: rgba(255, 215, 0, 0.05);
+    padding: 14px 16px;
+    border-radius: 16px;
+    border: 1px solid rgba(255, 215, 0, 0.15);
+    gap: 10px;
+}
+
+.deposit-label {
+    color: var(--text-secondary);
+    font-size: 0.9rem;
+    font-weight: 600;
+    white-space: nowrap;
+}
+
+.deposit-value {
+    color: #FFD700;
+    font-size: 0.9rem;
+    font-family: monospace;
+    font-weight: 700;
+    word-break: break-all;
+    flex: 1;
+}
+
+.deposit-copy-btn {
+    background: linear-gradient(135deg, #FFD700, #FFA500);
+    border: none;
+    border-radius: 12px;
+    padding: 10px 16px;
+    color: #0a0a0a;
+    font-weight: 700;
+    font-size: 0.85rem;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    white-space: nowrap;
+    transition: all 0.15s ease;
+}
+
+.deposit-copy-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(255, 215, 0, 0.3);
+}
+
+.deposit-copy-btn:active {
+    transform: scale(0.95);
+}
+
+.deposit-note {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 12px 16px;
+    background: rgba(255, 215, 0, 0.1);
+    border-radius: 16px;
+    color: #FFD700;
+    font-size: 0.85rem;
+    font-weight: 500;
+    border: 1px solid rgba(255, 215, 0, 0.2);
+}
+
+.deposit-note i {
+    color: #FFD700;
+}
+
+/* Error Container Update */
+.error-container .error-header h2 {
+    color: #FFD700;
+}
+
+/* Navigation Update */
+.nav-btn.active {
+    color: #FFD700;
+}
+
+.nav-btn.active i {
+    color: #FFD700;
+}
+
+.nav-btn.active.user-photo-btn img {
+    border-color: #FFD700;
+}
+
+/* Profile Card Update */
+.profile-card {
+    border: 1px solid rgba(255, 215, 0, 0.3);
+    box-shadow: 0 8px 20px rgba(255, 215, 0, 0.1);
+}
+
+.user-name {
+    color: #FFD700;
+}
+
+/* Balance Cards Update */
+.balance-card {
+    border: 1px solid rgba(255, 215, 0, 0.3);
+}
+
+.balance-ton {
+    color: #FFD700;
+}
+
+.balance-xp {
+    color: #FFA500;
+    }

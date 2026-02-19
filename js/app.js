@@ -86,8 +86,38 @@ class TornadoApp {
         this.userXP = 0;
         this.userCreatedTasks = [];
         this.lastDailyCheckin = 0;
+        this.lastDailyCheckinDate = '';
         this.depositCheckInterval = null;
         this.checkedDeposits = new Set();
+        
+        // تحميل آخر تاريخ تسجيل يومي من التخزين المحلي
+        this.loadLastCheckinDate();
+    }
+
+    loadLastCheckinDate() {
+        try {
+            const saved = localStorage.getItem(`last_checkin_${this.tgUser?.id}`);
+            if (saved) {
+                const data = JSON.parse(saved);
+                this.lastDailyCheckin = data.timestamp || 0;
+                this.lastDailyCheckinDate = data.date || '';
+            }
+        } catch (error) {
+            console.warn('Load last checkin date error:', error);
+        }
+    }
+
+    saveLastCheckinDate() {
+        try {
+            if (!this.tgUser) return;
+            const data = {
+                timestamp: this.lastDailyCheckin,
+                date: new Date().toDateString()
+            };
+            localStorage.setItem(`last_checkin_${this.tgUser.id}`, JSON.stringify(data));
+        } catch (error) {
+            console.warn('Save last checkin date error:', error);
+        }
     }
 
     async getBotToken() {
@@ -144,12 +174,41 @@ class TornadoApp {
                 this.requests = new Map();
                 this.limits = {
                     'task_start': { limit: 1, window: 3000 },
-                    'withdrawal': { limit: 1, window: 86400000 },
+                    'withdrawal': { limit: APP_CONFIG.WITHDRAWAL_LIMIT_PER_DAY, window: 86400000 },
                     'ad_reward': { limit: 10, window: 300000 },
                     'promo_code': { limit: 5, window: 300000 },
                     'exchange': { limit: 3, window: 3600000 },
                     'daily_checkin': { limit: 1, window: 86400000 }
                 };
+                
+                // تحميل الطلبات المحفوظة
+                this.loadRequests();
+            }
+
+            loadRequests() {
+                try {
+                    const saved = localStorage.getItem('rateLimiter_requests');
+                    if (saved) {
+                        const parsed = JSON.parse(saved);
+                        Object.keys(parsed).forEach(key => {
+                            this.requests.set(key, parsed[key]);
+                        });
+                    }
+                } catch (error) {
+                    console.warn('Load rate limiter error:', error);
+                }
+            }
+
+            saveRequests() {
+                try {
+                    const obj = {};
+                    this.requests.forEach((value, key) => {
+                        obj[key] = value;
+                    });
+                    localStorage.setItem('rateLimiter_requests', JSON.stringify(obj));
+                } catch (error) {
+                    console.warn('Save rate limiter error:', error);
+                }
             }
 
             checkLimit(userId, action) {
@@ -183,6 +242,9 @@ class TornadoApp {
                 const userRequests = this.requests.get(key);
                 userRequests.push(now);
                 this.requests.set(key, userRequests);
+                
+                // حفظ التغييرات
+                this.saveRequests();
             }
 
             getServerTime() {
@@ -526,6 +588,22 @@ class TornadoApp {
             const checkinBtn = document.getElementById('daily-checkin-btn');
             if (!checkinBtn) return;
             
+            // التحقق من التاريخ الحالي
+            const today = new Date().toDateString();
+            
+            // التحقق من آخر تسجيل يومي
+            if (this.lastDailyCheckinDate === today) {
+                const timeLeft = this.getTimeUntilNextCheckin();
+                const hours = Math.floor(timeLeft / 3600000);
+                const minutes = Math.floor((timeLeft % 3600000) / 60000);
+                this.notificationManager.showNotification(
+                    "Already Checked In",
+                    `Next check-in in ${hours}h ${minutes}m`,
+                    "info"
+                );
+                return;
+            }
+            
             const rateLimitCheck = this.rateLimiter.checkLimit(this.tgUser.id, 'daily_checkin');
             if (!rateLimitCheck.allowed) {
                 const timeLeft = rateLimitCheck.remaining;
@@ -591,6 +669,11 @@ class TornadoApp {
                 this.userState.totalEarned = this.safeNumber(this.userState.totalEarned) + reward;
                 this.userState.lastDailyCheckin = currentTime;
                 
+                // تحديث آخر تاريخ تسجيل يومي
+                this.lastDailyCheckin = currentTime;
+                this.lastDailyCheckinDate = today;
+                this.saveLastCheckinDate();
+                
                 this.cache.delete(`user_${this.tgUser.id}`);
                 
                 this.updateHeader();
@@ -598,7 +681,7 @@ class TornadoApp {
                 
                 this.notificationManager.showNotification(
                     "Daily Check-in",
-                    `+${reward.toFixed(3)} TON`,
+                    `+${this.formatReward(reward)} TON`,
                     "success"
                 );
                 
@@ -614,10 +697,32 @@ class TornadoApp {
         }
     }
 
+    getTimeUntilNextCheckin() {
+        const now = new Date();
+        const tomorrow = new Date(now);
+        tomorrow.setDate(tomorrow.getDate() + 1);
+        tomorrow.setHours(0, 0, 0, 0);
+        return tomorrow - now;
+    }
+
     updateDailyCheckinButton() {
         const checkinBtn = document.getElementById('daily-checkin-btn');
         if (!checkinBtn) return;
         
+        const today = new Date().toDateString();
+        
+        // التحقق من آخر تسجيل يومي
+        if (this.lastDailyCheckinDate === today) {
+            const timeLeft = this.getTimeUntilNextCheckin();
+            const hours = Math.floor(timeLeft / 3600000);
+            const minutes = Math.floor((timeLeft % 3600000) / 60000);
+            checkinBtn.innerHTML = `<i class="fas fa-clock"></i> ${hours}h ${minutes}m`;
+            checkinBtn.classList.add('completed');
+            checkinBtn.disabled = true;
+            return;
+        }
+        
+        // التحقق من حد المعدل
         const rateLimitCheck = this.rateLimiter.checkLimit(this.tgUser.id, 'daily_checkin');
         
         if (!rateLimitCheck.allowed) {
@@ -646,9 +751,11 @@ class TornadoApp {
                     <i class="fas fa-times"></i>
                 </button>
                 
-                <div class="task-modal-tabs">
-                    <button class="task-modal-tab active" data-tab="add">Add Task</button>
-                    <button class="task-modal-tab" data-tab="mytasks">My Tasks</button>
+                <div class="task-modal-tabs-container">
+                    <div class="task-modal-tabs">
+                        <button class="task-modal-tab active" data-tab="add">Add Task</button>
+                        <button class="task-modal-tab" data-tab="mytasks">My Tasks</button>
+                    </div>
                 </div>
                 
                 <div id="add-task-tab" class="task-modal-body" style="display: block;">
@@ -1270,6 +1377,17 @@ class TornadoApp {
             if (cachedData) {
                 this.userState = cachedData;
                 this.userXP = this.safeNumber(cachedData.xp);
+                this.lastDailyCheckin = cachedData.lastDailyCheckin || 0;
+                
+                // التحقق من تاريخ آخر تسجيل يومي
+                if (cachedData.lastDailyCheckin) {
+                    const checkinDate = new Date(cachedData.lastDailyCheckin).toDateString();
+                    const today = new Date().toDateString();
+                    if (checkinDate === today) {
+                        this.lastDailyCheckinDate = today;
+                    }
+                }
+                
                 this.updateHeader();
                 return;
             }
@@ -1317,6 +1435,15 @@ class TornadoApp {
             this.userCompletedTasks = new Set(userData.completedTasks || []);
             this.todayAds = userData.todayAds || 0;
             this.lastDailyCheckin = userData.lastDailyCheckin || 0;
+            
+            // التحقق من تاريخ آخر تسجيل يومي
+            if (userData.lastDailyCheckin) {
+                const checkinDate = new Date(userData.lastDailyCheckin).toDateString();
+                const today = new Date().toDateString();
+                if (checkinDate === today) {
+                    this.lastDailyCheckinDate = today;
+                }
+            }
             
             this.cache.set(cacheKey, userData, 60000);
             this.updateHeader();
@@ -2363,7 +2490,7 @@ class TornadoApp {
             balanceCards.innerHTML = `
                 <div class="balance-card">
                     <img src="https://cdn-icons-png.flaticon.com/512/12114/12114247.png" class="balance-icon" alt="TON">
-                    <span class="balance-ton">${tonBalance.toFixed(3)}</span>
+                    <span class="balance-ton">${this.formatReward(tonBalance)}</span>
                 </div>
                 <div class="balance-card">
                     <img src="https://cdn-icons-png.flaticon.com/512/17301/17301413.png" class="balance-icon" alt="XP">
@@ -2378,6 +2505,15 @@ class TornadoApp {
         if (bottomNavPhoto && this.tgUser.photo_url) {
             bottomNavPhoto.src = this.tgUser.photo_url;
         }
+    }
+
+    formatReward(value) {
+        if (value === null || value === undefined) return '0';
+        const num = Number(value);
+        if (isNaN(num)) return '0';
+        
+        // إزالة الأصفار الزائدة
+        return num.toString().replace(/\.?0+$/, '');
     }
 
     renderUI() {
@@ -2485,15 +2621,16 @@ class TornadoApp {
                     <div class="more-grid">
                         <!-- Daily Check-in Card -->
                         <div class="daily-checkin-card">
-                            <div class="checkin-header">
-                                <div class="checkin-icon">
+                            <div class="card-header">
+                                <div class="card-icon">
                                     <i class="fas fa-calendar-check"></i>
                                 </div>
-                                <div class="checkin-title">Daily Check-in</div>
+                                <div class="card-title">Daily Check-in</div>
                             </div>
+                            <div class="card-divider"></div>
                             <div class="checkin-reward">
                                 <img src="https://cdn-icons-png.flaticon.com/512/15208/15208522.png" alt="TON">
-                                <span>Reward: ${FEATURES_CONFIG.DAILY_CHECKIN_REWARD.toFixed(3)} TON</span>
+                                <span>Reward: ${this.formatReward(FEATURES_CONFIG.DAILY_CHECKIN_REWARD)} TON</span>
                             </div>
                             <button class="checkin-btn" id="daily-checkin-btn">
                                 <i class="fas fa-calendar-check"></i> CHECK-IN
@@ -2502,17 +2639,54 @@ class TornadoApp {
                         
                         <!-- Promo Code Card -->
                         <div class="promo-card square-card">
-                            <div class="promo-header">
-                                <div class="promo-icon">
+                            <div class="card-header">
+                                <div class="card-icon">
                                     <i class="fas fa-gift"></i>
                                 </div>
-                                <h3>Promo Codes</h3>
+                                <h3 class="card-title">Promo Codes</h3>
                             </div>
+                            <div class="card-divider"></div>
                             <input type="text" id="promo-input" class="promo-input" 
                                    placeholder="Enter promo code" maxlength="20">
                             <button id="promo-btn" class="promo-btn">
                                 <i class="fas fa-gift"></i> APPLY
                             </button>
+                        </div>
+                        
+                        <!-- Exchange Card -->
+                        <div class="exchange-card square-card">
+                            <div class="card-header">
+                                <div class="card-icon">
+                                    <i class="fas fa-exchange-alt"></i>
+                                </div>
+                                <h3 class="card-title">Exchange</h3>
+                            </div>
+                            <div class="card-divider"></div>
+                            
+                            <div class="exchange-mini-balance">
+                                <div class="mini-balance-item">
+                                    <img src="https://cdn-icons-png.flaticon.com/512/12114/12114247.png" alt="TON">
+                                    <span>${this.formatReward(this.userState.balance)} TON</span>
+                                </div>
+                                <div class="mini-balance-item">
+                                    <img src="https://cdn-icons-png.flaticon.com/512/17301/17301413.png" alt="XP">
+                                    <span>${Math.floor(this.userState.xp)} XP</span>
+                                </div>
+                            </div>
+                            
+                            <div class="exchange-rate-info">
+                                <span class="rate-label">1 TON =</span>
+                                <span class="rate-value">${this.appConfig.XP_PER_TON} XP</span>
+                                <span class="rate-min">(Min: ${this.appConfig.MIN_EXCHANGE_TON} TON)</span>
+                            </div>
+                            
+                            <div class="exchange-input-group">
+                                <input type="number" id="exchange-input" class="exchange-input" 
+                                       placeholder="TON amount" step="0.01" min="${this.appConfig.MIN_EXCHANGE_TON}">
+                                <button class="exchange-btn" id="exchange-btn">
+                                    <i class="fas fa-coins"></i> Exchange
+                                </button>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -2526,6 +2700,7 @@ class TornadoApp {
             this.setupPromoCodeEvents();
             this.setupMoreTabEvents();
             this.updateDailyCheckinButton();
+            this.setupExchangeEvents();
         }, 100);
     }
 
@@ -2657,7 +2832,7 @@ class TornadoApp {
                     <div class="task-rewards">
                         <span class="reward-badge">
                             <img src="https://cdn-icons-png.flaticon.com/512/12114/12114247.png" class="reward-icon" alt="TON">
-                            ${task.reward?.toFixed(5) || '0.00000'}
+                            ${this.formatReward(task.reward)}
                         </span>
                         <span class="reward-badge">
                             <img src="https://cdn-icons-png.flaticon.com/512/17301/17301413.png" class="reward-icon" alt="XP">
@@ -2828,7 +3003,7 @@ class TornadoApp {
             
             this.notificationManager.showNotification(
                 "Success", 
-                `Promo code applied! +${rewardAmount} ${rewardType === 'ton' ? 'TON' : 'XP'}`, 
+                `Promo code applied! +${this.formatReward(rewardAmount)} ${rewardType === 'ton' ? 'TON' : 'XP'}`, 
                 "success"
             );
             
@@ -3159,7 +3334,7 @@ class TornadoApp {
 
             this.notificationManager.showNotification(
                 "Task Completed!", 
-                `+${taskReward.toFixed(5)} TON, +${taskXpReward} XP`, 
+                `+${this.formatReward(taskReward)} TON, +${taskXpReward} XP`, 
                 "success"
             );
             
@@ -3278,7 +3453,7 @@ class TornadoApp {
                             </div>
                             <div class="stat-info">
                                 <h4>Total Earnings</h4>
-                                <p class="stat-value">${referralEarnings.toFixed(5)} TON</p>
+                                <p class="stat-value">${this.formatReward(referralEarnings)} TON</p>
                             </div>
                         </div>
                     </div>
@@ -3352,82 +3527,43 @@ class TornadoApp {
         const formattedDate = this.formatDate(joinDate);
         
         const totalWatchAds = this.safeNumber(this.userState.totalWatchAds || 0);
-        const requiredAds = this.appConfig.REQUIRED_ADS_FOR_WITHDRAWAL;
-        const adsProgress = Math.min(totalWatchAds, requiredAds);
-        
         const totalTasksCompleted = this.safeNumber(this.userState.totalTasksCompleted || 0);
-        const requiredTasks = this.appConfig.REQUIRED_TASKS_FOR_WITHDRAWAL;
-        const tasksProgress = Math.min(totalTasksCompleted, requiredTasks);
-        
         const totalReferrals = this.safeNumber(this.userState.referrals || 0);
-        const requiredReferrals = this.appConfig.REQUIRED_REFERRALS_FOR_WITHDRAWAL;
-        const referralsProgress = Math.min(totalReferrals, requiredReferrals);
+        const totalXP = this.safeNumber(this.userState.xp || 0);
         
-        const canWithdraw = totalWatchAds >= requiredAds && 
-                           totalTasksCompleted >= requiredTasks && 
-                           totalReferrals >= requiredReferrals;
+        // شروط السحب الجديدة
+        const tasksRequired = this.appConfig.REQUIRED_TASKS_FOR_WITHDRAWAL;
+        const referralsRequired = this.appConfig.REQUIRED_REFERRALS_FOR_WITHDRAWAL;
+        const xpRequired = this.appConfig.REQUIRED_XP_FOR_WITHDRAWAL;
+        
+        const tasksProgress = Math.min(totalTasksCompleted, tasksRequired);
+        const referralsProgress = Math.min(totalReferrals, referralsRequired);
+        const xpProgress = Math.min(totalXP, xpRequired);
+        
+        const tasksCompleted = totalTasksCompleted >= tasksRequired;
+        const referralsCompleted = totalReferrals >= referralsRequired;
+        const xpCompleted = totalXP >= xpRequired;
+        
+        const canWithdraw = tasksCompleted && referralsCompleted && xpCompleted;
         
         const maxBalance = this.safeNumber(this.userState.balance);
         
         profilePage.innerHTML = `
             <div class="profile-container">
-                <div class="profile-stats-section">
-                    <h3><i class="fas fa-chart-line"></i> Statistics</h3>
-                    <div class="profile-stats-grid compact">
-                        <div class="stat-card">
-                            <div class="stat-icon">
-                                <i class="fas fa-coins"></i>
-                            </div>
-                            <div class="stat-info">
-                                <h4>Total Earnings</h4>
-                                <p class="stat-value">${this.safeNumber(this.userState.totalEarned).toFixed(5)} TON</p>
-                            </div>
-                        </div>
-                        
-                        <div class="stat-card">
-                            <div class="stat-icon">
-                                <i class="fas fa-users"></i>
-                            </div>
-                            <div class="stat-info">
-                                <h4>Total Referrals</h4>
-                                <p class="stat-value">${this.userState.referrals || 0}</p>
-                            </div>
-                        </div>
-                        
-                        <div class="stat-card">
-                            <div class="stat-icon">
-                                <i class="fas fa-tasks"></i>
-                            </div>
-                            <div class="stat-info">
-                                <h4>Total Tasks</h4>
-                                <p class="stat-value">${totalTasksCompleted}</p>
-                            </div>
-                        </div>
-                        
-                        <div class="stat-card">
-                            <div class="stat-icon">
-                                <i class="fas fa-paper-plane"></i>
-                            </div>
-                            <div class="stat-info">
-                                <h4>Total Withdrawals</h4>
-                                <p class="stat-value">${this.userState.totalWithdrawals || 0}</p>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-                
                 <!-- Deposit Card -->
                 <div class="deposit-card profile-card-item">
-                    <div class="deposit-header">
-                        <div class="deposit-icon">
+                    <div class="card-header">
+                        <div class="card-icon">
                             <i class="fas fa-arrow-down"></i>
                         </div>
-                        <div class="deposit-title">Deposit TON</div>
+                        <div class="card-title">Deposit TON</div>
                     </div>
+                    <div class="card-divider"></div>
+                    
                     <div class="deposit-info">
                         <div class="deposit-row">
                             <span class="deposit-label">Wallet:</span>
-                            <span class="deposit-value" id="deposit-wallet">${this.appConfig.DEPOSIT_WALLET}</span>
+                            <span class="deposit-value" id="deposit-wallet">${this.truncateAddress(this.appConfig.DEPOSIT_WALLET)}</span>
                             <button class="deposit-copy-btn" data-copy="wallet">
                                 <i class="far fa-copy"></i> Copy
                             </button>
@@ -3446,62 +3582,51 @@ class TornadoApp {
                     </div>
                 </div>
                 
-                <!-- Exchange Card -->
-                <div class="exchange-card profile-card-item">
-                    <div class="exchange-header">
-                        <div class="exchange-icon">
-                            <i class="fas fa-exchange-alt"></i>
-                        </div>
-                        <div class="exchange-title">Exchange</div>
-                    </div>
-                    <div class="exchange-rate">
-                        <i class="fas fa-info-circle"></i>
-                        <span>1 TON = <strong>${this.appConfig.XP_PER_TON} XP</strong> (Min: ${this.appConfig.MIN_EXCHANGE_TON} TON)</span>
-                    </div>
-                    <div class="exchange-input-group">
-                        <input type="number" id="exchange-input" class="exchange-input" 
-                               placeholder="TON amount" step="0.01" min="${this.appConfig.MIN_EXCHANGE_TON}">
-                        <button class="exchange-btn" id="exchange-btn">
-                            <i class="fas fa-coins"></i> Exchange
-                        </button>
-                    </div>
-                </div>
-                
                 <div class="withdraw-card">
-                    <div class="withdraw-info">
-                        <h3><i class="fas fa-wallet"></i> Withdraw TON</h3>
+                    <div class="card-header">
+                        <div class="card-icon">
+                            <i class="fas fa-wallet"></i>
+                        </div>
+                        <div class="card-title">Withdraw TON</div>
                     </div>
+                    <div class="card-divider"></div>
                     
                     <div class="requirements-section">
-                        <div class="requirement-item">
-                            <div class="requirement-header">
-                                <span><i class="fas fa-ad"></i> Watch Ads</span>
-                                <span class="requirement-count">${adsProgress}/${requiredAds}</span>
-                            </div>
-                            <div class="progress-bar">
-                                <div class="progress-fill" style="width: ${(adsProgress/requiredAds)*100}%"></div>
-                            </div>
-                        </div>
-                        
+                        ${!tasksCompleted ? `
                         <div class="requirement-item">
                             <div class="requirement-header">
                                 <span><i class="fas fa-tasks"></i> Complete Tasks</span>
-                                <span class="requirement-count">${tasksProgress}/${requiredTasks}</span>
+                                <span class="requirement-count">${tasksProgress}/${tasksRequired}</span>
                             </div>
                             <div class="progress-bar">
-                                <div class="progress-fill" style="width: ${(tasksProgress/requiredTasks)*100}%"></div>
+                                <div class="progress-fill" style="width: ${(tasksProgress/tasksRequired)*100}%"></div>
                             </div>
                         </div>
+                        ` : ''}
                         
+                        ${!referralsCompleted ? `
                         <div class="requirement-item">
                             <div class="requirement-header">
                                 <span><i class="fas fa-users"></i> Invite Friends</span>
-                                <span class="requirement-count">${referralsProgress}/${requiredReferrals}</span>
+                                <span class="requirement-count">${referralsProgress}/${referralsRequired}</span>
                             </div>
                             <div class="progress-bar">
-                                <div class="progress-fill" style="width: ${(referralsProgress/requiredReferrals)*100}%"></div>
+                                <div class="progress-fill" style="width: ${(referralsProgress/referralsRequired)*100}%"></div>
                             </div>
                         </div>
+                        ` : ''}
+                        
+                        ${!xpCompleted ? `
+                        <div class="requirement-item">
+                            <div class="requirement-header">
+                                <span><i class="fas fa-star"></i> Earn XP</span>
+                                <span class="requirement-count">${xpProgress}/${xpRequired}</span>
+                            </div>
+                            <div class="progress-bar">
+                                <div class="progress-fill" style="width: ${(xpProgress/xpRequired)*100}%"></div>
+                            </div>
+                        </div>
+                        ` : ''}
                     </div>
                     
                     <div class="form-group">
@@ -3521,7 +3646,7 @@ class TornadoApp {
                             <input type="number" id="profile-amount-input" class="form-input" 
                                    step="0.00001" min="${this.appConfig.MINIMUM_WITHDRAW}" 
                                    max="${maxBalance}"
-                                   placeholder="Minimum: ${this.appConfig.MINIMUM_WITHDRAW.toFixed(3)} TON"
+                                   placeholder="Min: ${this.formatReward(this.appConfig.MINIMUM_WITHDRAW)} TON"
                                    required>
                             <button type="button" class="max-btn" id="max-btn">MAX</button>
                         </div>
@@ -3529,13 +3654,13 @@ class TornadoApp {
                     
                     <div class="withdraw-minimum-info">
                         <i class="fas fa-info-circle"></i>
-                        <span>Minimum Withdrawal: <strong>${this.appConfig.MINIMUM_WITHDRAW.toFixed(3)} TON</strong></span>
+                        <span>Minimum Withdrawal: <strong>${this.formatReward(this.appConfig.MINIMUM_WITHDRAW)} TON</strong></span>
                     </div>
                     
                     <button id="profile-withdraw-btn" class="withdraw-btn" 
                             ${!canWithdraw || maxBalance < this.appConfig.MINIMUM_WITHDRAW ? 'disabled' : ''}>
                         <i class="fas fa-paper-plane"></i> 
-                        ${canWithdraw ? 'WITHDRAW NOW' : this.getWithdrawButtonText(adsProgress, tasksProgress, referralsProgress)}
+                        ${canWithdraw ? 'WITHDRAW NOW' : this.getWithdrawButtonText(tasksCompleted, referralsCompleted, xpCompleted)}
                     </button>
                 </div>
             </div>
@@ -3544,19 +3669,15 @@ class TornadoApp {
         this.setupProfilePageEvents();
     }
 
-    getWithdrawButtonText(adsProgress, tasksProgress, referralsProgress) {
-        const requiredAds = this.appConfig.REQUIRED_ADS_FOR_WITHDRAWAL;
-        const requiredTasks = this.appConfig.REQUIRED_TASKS_FOR_WITHDRAWAL;
-        const requiredReferrals = this.appConfig.REQUIRED_REFERRALS_FOR_WITHDRAWAL;
-        
-        if (adsProgress < requiredAds) {
-            return `NEED ${requiredAds - adsProgress} MORE ADS`;
+    getWithdrawButtonText(tasksCompleted, referralsCompleted, xpCompleted) {
+        if (!tasksCompleted) {
+            return `COMPLETE ${this.appConfig.REQUIRED_TASKS_FOR_WITHDRAWAL} TASKS`;
         }
-        if (tasksProgress < requiredTasks) {
-            return `NEED ${requiredTasks - tasksProgress} MORE TASKS`;
+        if (!referralsCompleted) {
+            return `INVITE ${this.appConfig.REQUIRED_REFERRALS_FOR_WITHDRAWAL} FRIEND`;
         }
-        if (referralsProgress < requiredReferrals) {
-            return `NEED ${requiredReferrals - referralsProgress} MORE FRIENDS`;
+        if (!xpCompleted) {
+            return `EARN ${this.appConfig.REQUIRED_XP_FOR_WITHDRAWAL} XP`;
         }
         return 'WITHDRAW NOW';
     }
@@ -3575,7 +3696,7 @@ class TornadoApp {
         return this.userWithdrawals.map(withdrawal => `
             <div class="withdrawal-item">
                 <div class="withdrawal-header">
-                    <span class="withdrawal-amount">${withdrawal.amount?.toFixed(5)} TON</span>
+                    <span class="withdrawal-amount">${this.formatReward(withdrawal.amount)} TON</span>
                     <span class="withdrawal-status ${withdrawal.status}">${withdrawal.status.toUpperCase()}</span>
                 </div>
                 <div class="withdrawal-details">
@@ -3679,6 +3800,13 @@ class TornadoApp {
             });
         }
     }
+
+    setupExchangeEvents() {
+        const exchangeBtn = document.getElementById('exchange-btn');
+        if (exchangeBtn) {
+            exchangeBtn.addEventListener('click', () => this.exchangeTonToXp());
+        }
+    }
     
     async handleProfileWithdrawal(walletInput, amountInput, withdrawBtn) {
         if (!walletInput || !amountInput || !withdrawBtn) return;
@@ -3687,12 +3815,13 @@ class TornadoApp {
         const amount = parseFloat(amountInput.value);
         const userBalance = this.safeNumber(this.userState.balance);
         const minimumWithdraw = this.appConfig.MINIMUM_WITHDRAW;
-        const totalWatchAds = this.safeNumber(this.userState.totalWatchAds || 0);
-        const requiredAds = this.appConfig.REQUIRED_ADS_FOR_WITHDRAWAL;
+        
         const totalTasksCompleted = this.safeNumber(this.userState.totalTasksCompleted || 0);
         const requiredTasks = this.appConfig.REQUIRED_TASKS_FOR_WITHDRAWAL;
         const totalReferrals = this.safeNumber(this.userState.referrals || 0);
         const requiredReferrals = this.appConfig.REQUIRED_REFERRALS_FOR_WITHDRAWAL;
+        const totalXP = this.safeNumber(this.userState.xp || 0);
+        const requiredXP = this.appConfig.REQUIRED_XP_FOR_WITHDRAWAL;
         
         if (!walletAddress || walletAddress.length < 20) {
             this.notificationManager.showNotification("Error", "Please enter a valid TON wallet address", "error");
@@ -3700,18 +3829,12 @@ class TornadoApp {
         }
         
         if (!amount || amount < minimumWithdraw) {
-            this.notificationManager.showNotification("Error", `Minimum withdrawal is ${minimumWithdraw} TON`, "error");
+            this.notificationManager.showNotification("Error", `Minimum withdrawal is ${this.formatReward(minimumWithdraw)} TON`, "error");
             return;
         }
         
         if (amount > userBalance) {
             this.notificationManager.showNotification("Error", "Insufficient balance", "error");
-            return;
-        }
-        
-        if (totalWatchAds < requiredAds) {
-            const adsNeeded = requiredAds - totalWatchAds;
-            this.notificationManager.showNotification("Ads Required", `You need to watch ${adsNeeded} more ads to withdraw`, "error");
             return;
         }
         
@@ -3724,6 +3847,12 @@ class TornadoApp {
         if (totalReferrals < requiredReferrals) {
             const referralsNeeded = requiredReferrals - totalReferrals;
             this.notificationManager.showNotification("Referrals Required", `You need to invite ${referralsNeeded} more friend${referralsNeeded > 1 ? 's' : ''} to withdraw`, "error");
+            return;
+        }
+        
+        if (totalXP < requiredXP) {
+            const xpNeeded = requiredXP - totalXP;
+            this.notificationManager.showNotification("XP Required", `You need to earn ${xpNeeded} more XP to withdraw`, "error");
             return;
         }
         
@@ -3756,7 +3885,7 @@ class TornadoApp {
         if (!rateLimitCheck.allowed) {
             this.notificationManager.showNotification(
                 "Rate Limit", 
-                `Please wait ${rateLimitCheck.remaining} seconds before another withdrawal`, 
+                `You can only withdraw once per day. Please try again tomorrow.`, 
                 "warning"
             );
             return;
@@ -3772,13 +3901,9 @@ class TornadoApp {
             const newBalance = userBalance - amount;
             const currentTime = this.getServerTime();
             const newTotalWithdrawnAmount = this.safeNumber(this.userState.totalWithdrawnAmount) + amount;
-            const newTotalWatchAds = this.safeNumber(this.userState.totalWatchAds) - requiredAds;
-            const newTotalTasksCompleted = this.safeNumber(this.userState.totalTasksCompleted) - requiredTasks;
             
             if (this.db) {
                 await this.db.ref(`users/${this.tgUser.id}`).update({
-                    totalWatchAds: newTotalWatchAds,
-                    totalTasksCompleted: newTotalTasksCompleted, 
                     balance: newBalance,
                     totalWithdrawals: this.safeNumber(this.userState.totalWithdrawals) + 1,
                     totalWithdrawnAmount: newTotalWithdrawnAmount,
@@ -3798,8 +3923,7 @@ class TornadoApp {
                 
                 await this.db.ref('withdrawals/pending').push(requestData);
             }
-            this.userState.totalWatchAds = newTotalWatchAds;
-            this.userState.totalTasksCompleted = newTotalTasksCompleted;
+            
             this.userState.balance = newBalance;
             this.userState.totalWithdrawals = this.safeNumber(this.userState.totalWithdrawals) + 1;
             this.userState.totalWithdrawnAmount = newTotalWithdrawnAmount;
@@ -3891,9 +4015,16 @@ class TornadoApp {
                 exchangeInput.value = '';
                 this.updateHeader();
                 
+                // تحديث الرصيد المصغر في بطاقة Exchange
+                const miniBalanceItems = document.querySelectorAll('.mini-balance-item');
+                if (miniBalanceItems.length >= 2) {
+                    miniBalanceItems[0].querySelector('span').textContent = `${this.formatReward(newTonBalance)} TON`;
+                    miniBalanceItems[1].querySelector('span').textContent = `${Math.floor(newXpBalance)} XP`;
+                }
+                
                 this.notificationManager.showNotification(
                     "Success",
-                    `Exchanged ${tonAmount.toFixed(3)} TON to ${xpAmount} XP`,
+                    `Exchanged ${this.formatReward(tonAmount)} TON to ${xpAmount} XP`,
                     "success"
                 );
                 

@@ -77,6 +77,7 @@ class TaskManager {
                             type: taskData.type || 'channel',
                             category: category,
                             reward: this.app.safeNumber(taskData.reward || 0.0001),
+                            xpReward: this.app.safeNumber(taskData.xpReward || 1),
                             currentCompletions: currentCompletions,
                             maxCompletions: maxCompletions,
                             status: taskData.status || 'active'

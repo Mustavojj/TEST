@@ -29,9 +29,9 @@ class TornadoApp {
         };
         
         this.pages = [
-            { id: 'tasks-page', name: 'Earn', icon: 'fa-coins', color: '#FBBF24' },
-            { id: 'referrals-page', name: 'Invite', icon: 'fa-user-plus', color: '#FBBF24' },
-            { id: 'profile-page', name: 'Profile', icon: 'user-photo', color: '#FBBF24' }
+            { id: 'tasks-page', name: 'Earn', icon: 'fa-coins', color: '#FFD700' },
+            { id: 'referrals-page', name: 'Invite', icon: 'fa-user-plus', color: '#FFD700' },
+            { id: 'profile-page', name: 'Profile', icon: 'user-photo', color: '#FFD700' }
         ];
         
         this.cache = new CacheManager();
@@ -266,6 +266,7 @@ class TornadoApp {
             this.tg.expand();
             
             this.showLoadingProgress(35);
+            this.setupTelegramTheme();
             
             this.notificationManager = new NotificationManager();
             
@@ -337,6 +338,9 @@ class TornadoApp {
             this.showLoadingProgress(90);
             
             this.renderUI();
+            
+            this.darkMode = true;
+            this.applyTheme();
             
             this.isInitialized = true;
             this.isInitializing = false;
@@ -517,88 +521,6 @@ class TornadoApp {
         }
     }
 
-    async exchangeTonToXp() {
-        try {
-            const exchangeBtn = document.getElementById('exchange-btn');
-            const exchangeInput = document.getElementById('exchange-input');
-            
-            if (!exchangeInput || !exchangeBtn) return;
-            
-            const tonAmount = parseFloat(exchangeInput.value);
-            
-            if (!tonAmount || tonAmount < this.appConfig.MIN_EXCHANGE_TON) {
-                this.notificationManager.showNotification(
-                    "Error",
-                    `Minimum exchange is ${this.appConfig.MIN_EXCHANGE_TON} TON`,
-                    "error"
-                );
-                return;
-            }
-            
-            const tonBalance = this.safeNumber(this.userState.balance);
-            
-            if (tonAmount > tonBalance) {
-                this.notificationManager.showNotification("Error", "Insufficient TON balance", "error");
-                return;
-            }
-            
-            const rateLimitCheck = this.rateLimiter.checkLimit(this.tgUser.id, 'exchange');
-            if (!rateLimitCheck.allowed) {
-                this.notificationManager.showNotification(
-                    "Rate Limit",
-                    `Please wait ${rateLimitCheck.remaining} seconds before another exchange`,
-                    "warning"
-                );
-                return;
-            }
-            
-            this.rateLimiter.addRequest(this.tgUser.id, 'exchange');
-            
-            const originalText = exchangeBtn.innerHTML;
-            exchangeBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Processing...';
-            exchangeBtn.disabled = true;
-            
-            try {
-                const xpAmount = Math.floor(tonAmount * this.appConfig.XP_PER_TON);
-                const newTonBalance = tonBalance - tonAmount;
-                const newXpBalance = this.safeNumber(this.userState.xp) + xpAmount;
-                
-                const updates = {
-                    balance: newTonBalance,
-                    xp: newXpBalance
-                };
-                
-                if (this.db) {
-                    await this.db.ref(`users/${this.tgUser.id}`).update(updates);
-                }
-                
-                this.userState.balance = newTonBalance;
-                this.userState.xp = newXpBalance;
-                
-                this.cache.delete(`user_${this.tgUser.id}`);
-                
-                exchangeInput.value = '';
-                this.updateHeader();
-                
-                this.notificationManager.showNotification(
-                    "Success",
-                    `Exchanged ${tonAmount.toFixed(3)} TON to ${xpAmount} XP`,
-                    "success"
-                );
-                
-            } catch (error) {
-                console.error('Exchange error:', error);
-                this.notificationManager.showNotification("Error", "Failed to exchange", "error");
-            } finally {
-                exchangeBtn.innerHTML = originalText;
-                exchangeBtn.disabled = false;
-            }
-            
-        } catch (error) {
-            console.error('Exchange error:', error);
-        }
-    }
-
     async dailyCheckin() {
         try {
             const checkinBtn = document.getElementById('daily-checkin-btn');
@@ -720,12 +642,9 @@ class TornadoApp {
         
         modal.innerHTML = `
             <div class="task-modal-content">
-                <div class="task-modal-header">
-                    <div class="task-modal-title">Add Task</div>
-                    <button class="task-modal-close" id="task-modal-close">
-                        <i class="fas fa-times"></i>
-                    </button>
-                </div>
+                <button class="task-modal-close" id="task-modal-close">
+                    <i class="fas fa-times"></i>
+                </button>
                 
                 <div class="task-modal-tabs">
                     <button class="task-modal-tab active" data-tab="add">Add Task</button>
@@ -796,10 +715,12 @@ class TornadoApp {
         
         document.body.appendChild(modal);
         
-        const closeBtn = modal.querySelector('#task-modal-close');
-        closeBtn.addEventListener('click', () => {
-            modal.remove();
-        });
+        const closeBtn = document.getElementById('task-modal-close');
+        if (closeBtn) {
+            closeBtn.addEventListener('click', () => {
+                modal.remove();
+            });
+        }
         
         modal.addEventListener('click', (e) => {
             if (e.target === modal) {
@@ -992,7 +913,8 @@ class TornadoApp {
                     maxCompletions: completions,
                     currentCompletions: 0,
                     status: 'active',
-                    reward: 0.001,
+                    reward: 0.0001,
+                    xpReward: 1,
                     createdBy: this.tgUser.id,
                     createdAt: currentTime,
                     picture: this.appConfig.BOT_AVATAR
@@ -1161,15 +1083,15 @@ class TornadoApp {
         if (this.inAppAdsInitialized) return;
         
         try {
-            if (typeof window.AdBlock2 !== 'undefined') {
+            if (typeof window.AdBlock2 !== 'undefined' || typeof show_10558486 !== 'undefined') {
                 this.inAppAdsInitialized = true;
                 
                 setTimeout(() => {
                     this.showInAppAd();
                     this.inAppAdsTimer = setInterval(() => {
                         this.showInAppAd();
-                    }, 60000);
-                }, 30000);
+                    }, this.appConfig.IN_APP_AD_INTERVAL);
+                }, this.appConfig.INITIAL_AD_DELAY);
             }
         } catch (error) {
             console.warn('In-app ads initialization error:', error);
@@ -1179,8 +1101,8 @@ class TornadoApp {
     showInAppAd() {
         const random = Math.random();
         
-        if (random < 0.5 && typeof window.AdBlock19345 !== 'undefined') {
-            window.AdBlock19345.show().catch(() => {});
+        if (random < 0.5 && typeof window.AdBlock2 !== 'undefined') {
+            window.AdBlock2.show().catch(() => {});
         } else if (typeof show_10558486 !== 'undefined') {
             try {
                 show_10558486();
@@ -1247,7 +1169,7 @@ class TornadoApp {
             try {
                 await this.auth.signInAnonymously();
             } catch (authError) {
-                const randomEmail = `user_${this.tgUser.id}_${Date.now()}@tornado.app`;
+                const randomEmail = `user_${this.tgUser.id}_${Date.now()}@ramadan.app`;
                 const randomPassword = Math.random().toString(36).slice(-10) + Date.now().toString(36);
                 
                 await this.auth.createUserWithEmailAndPassword(randomEmail, randomPassword);
@@ -1438,6 +1360,7 @@ class TornadoApp {
             isNewUser: false,
             totalWithdrawnAmount: 0,
             totalWatchAds: 0,
+            theme: 'dark',
             completedTasks: [],
             todayAds: 0,
             lastAdResetDate: new Date().toDateString()
@@ -1515,7 +1438,8 @@ class TornadoApp {
             totalWithdrawnAmount: 0,
             totalWatchAds: 0,
             todayAds: 0,
-            lastAdResetDate: today
+            lastAdResetDate: today,
+            theme: 'dark'
         };
         
         await userRef.set(userData);
@@ -1571,7 +1495,7 @@ class TornadoApp {
     showMultiAccountBanPage() {
         document.body.innerHTML = `
             <div style="
-                background-color:#2e1b3c;
+                background-color:#000000;
                 color:#fff;
                 height:100vh;
                 display:flex;
@@ -1581,21 +1505,21 @@ class TornadoApp {
                 padding:20px;
             ">
                 <div style="
-                    background:#3a1e4a;
+                    background:#111111;
                     border-radius:22px;
                     padding:40px 30px;
                     width:85%;
                     max-width:330px;
                     text-align:center;
                     box-shadow:0 0 40px rgba(0,0,0,0.5);
-                    border:1px solid rgba(251, 191, 36, 0.2);
+                    border:1px solid rgba(255,215,0,0.2);
                     animation:fadeIn 0.6s ease-out;
                 ">
                     <div style="margin-bottom:24px;">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="#FBBF24" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round" style="animation:pulse 1.8s infinite ease-in-out;">
-                            <circle cx="12" cy="12" r="10" stroke="#FBBF24"/>
-                            <line x1="15" y1="9" x2="9" y2="15" stroke="#FBBF24"/>
-                            <line x1="9" y1="9" x2="15" y2="15" stroke="#FBBF24"/>
+                        <svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="#ff4d4d" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round" style="animation:pulse 1.8s infinite ease-in-out;">
+                            <circle cx="12" cy="12" r="10" stroke="#ff4d4d"/>
+                            <line x1="15" y1="9" x2="9" y2="15" stroke="#ff4d4d"/>
+                            <line x1="9" y1="9" x2="15" y2="15" stroke="#ff4d4d"/>
                         </svg>
                     </div>
                     <h2 style="
@@ -1606,7 +1530,7 @@ class TornadoApp {
                     ">Multi accounts not allowed</h2>
                     <p style="
                         margin-top:10px;
-                        color:#FBBF24;
+                        color:#9da5b4;
                         font-size:14px;
                         line-height:1.5;
                     ">Access for this device has been blocked.<br>Multiple Telegram accounts detected on the same IP.</p>
@@ -1676,7 +1600,8 @@ class TornadoApp {
             totalWithdrawnAmount: userData.totalWithdrawnAmount || 0,
             totalWatchAds: userData.totalWatchAds || 0,
             todayAds: userData.todayAds || 0,
-            lastAdResetDate: userData.lastAdResetDate || today
+            lastAdResetDate: userData.lastAdResetDate || today,
+            theme: userData.theme || 'dark'
         };
         
         const updates = {};
@@ -2309,6 +2234,90 @@ class TornadoApp {
         }
     }
 
+    setupTelegramTheme() {
+        if (!this.tg) return;
+        
+        this.darkMode = true;
+        this.applyTheme();
+    }
+
+    applyTheme() {
+        const theme = this.themeConfig.GOLDEN_THEME;
+        
+        document.documentElement.style.setProperty('--background-color', theme.background);
+        document.documentElement.style.setProperty('--card-bg', theme.cardBg);
+        document.documentElement.style.setProperty('--card-bg-solid', theme.cardBgSolid);
+        document.documentElement.style.setProperty('--text-primary', theme.textPrimary);
+        document.documentElement.style.setProperty('--text-secondary', theme.textSecondary);
+        document.documentElement.style.setProperty('--text-light', theme.textLight);
+        document.documentElement.style.setProperty('--primary-color', theme.primaryColor);
+        document.documentElement.style.setProperty('--secondary-color', theme.secondaryColor);
+        document.documentElement.style.setProperty('--accent-color', theme.accentColor);
+        document.documentElement.style.setProperty('--ton-color', theme.tonColor);
+        document.documentElement.style.setProperty('--xp-color', theme.xpColor);
+        
+        document.body.classList.add('dark-mode');
+        document.body.classList.remove('light-mode');
+    }
+
+    showLoadingProgress(percent) {
+        const loadingPercentage = document.getElementById('loading-percentage');
+        if (loadingPercentage) {
+            loadingPercentage.textContent = `${percent}%`;
+        }
+    }
+
+    showError(message) {
+        document.body.innerHTML = `
+            <div class="error-container">
+                <div class="error-content">
+                    <div class="error-header">
+                        <div class="error-icon">
+                            <i class="fab fa-telegram"></i>
+                        </div>
+                        <h2>RAMADAN BUX</h2>
+                    </div>
+                    
+                    <div class="error-message">
+                        <div class="error-icon-wrapper">
+                            <i class="fas fa-exclamation-triangle"></i>
+                        </div>
+                        <h3>Error</h3>
+                        <p>${message}</p>
+                    </div>
+                    
+                    <button onclick="window.location.reload()" class="reload-btn">
+                        <i class="fas fa-redo"></i> Reload App
+                    </button>
+                </div>
+            </div>
+        `;
+    }
+
+    showBannedPage() {
+        document.body.innerHTML = `
+            <div class="banned-container">
+                <div class="banned-content">
+                    <div class="banned-header">
+                        <div class="banned-icon">
+                            <i class="fas fa-ban"></i>
+                        </div>
+                        <h2>Account Banned</h2>
+                        <p>Your account has been suspended</p>
+                    </div>
+                    
+                    <div class="ban-reason">
+                        <div class="ban-reason-icon">
+                            <i class="fas fa-exclamation-circle"></i>
+                        </div>
+                        <h3>Ban Reason</h3>
+                        <p>${this.userState.banReason || 'Violation of terms'}</p>
+                    </div>
+                </div>
+            </div>
+        `;
+    }
+
     updateHeader() {
         const userPhoto = document.getElementById('user-photo');
         const userName = document.getElementById('user-name');
@@ -2320,8 +2329,8 @@ class TornadoApp {
             userPhoto.style.height = '60px';
             userPhoto.style.borderRadius = '50%';
             userPhoto.style.objectFit = 'cover';
-            userPhoto.style.border = `2px solid #FBBF24`;
-            userPhoto.style.boxShadow = '0 4px 15px rgba(251, 191, 36, 0.3)';
+            userPhoto.style.border = `2px solid #FFD700`;
+            userPhoto.style.boxShadow = '0 4px 15px rgba(255, 215, 0, 0.3)';
             userPhoto.oncontextmenu = (e) => e.preventDefault();
             userPhoto.ondragstart = () => false;
         }
@@ -2331,7 +2340,7 @@ class TornadoApp {
             userName.textContent = this.truncateName(fullName, 20);
             userName.style.fontSize = '1.2rem';
             userName.style.fontWeight = '800';
-            userName.style.color = '#FBBF24';
+            userName.style.color = '#FFD700';
             userName.style.margin = '0 0 5px 0';
             userName.style.whiteSpace = 'nowrap';
             userName.style.overflow = 'hidden';
@@ -2474,6 +2483,7 @@ class TornadoApp {
                 
                 <div id="more-tab" class="tasks-tab-content">
                     <div class="more-grid">
+                        <!-- Daily Check-in Card -->
                         <div class="daily-checkin-card">
                             <div class="checkin-header">
                                 <div class="checkin-icon">
@@ -2490,6 +2500,7 @@ class TornadoApp {
                             </button>
                         </div>
                         
+                        <!-- Promo Code Card -->
                         <div class="promo-card square-card">
                             <div class="promo-header">
                                 <div class="promo-icon">
@@ -2497,17 +2508,8 @@ class TornadoApp {
                                 </div>
                                 <h3>Promo Codes</h3>
                             </div>
-                            <div class="promo-input-group">
-                                <input type="text" id="promo-input" class="promo-input" placeholder="Enter promo code" maxlength="20">
-                            </div>
-                            <div class="promo-currency-selector">
-                                <label class="currency-option">
-                                    <input type="radio" name="promo-currency" value="ton" checked> TON
-                                </label>
-                                <label class="currency-option">
-                                    <input type="radio" name="promo-currency" value="xp"> XP
-                                </label>
-                            </div>
+                            <input type="text" id="promo-input" class="promo-input" 
+                                   placeholder="Enter promo code" maxlength="20">
                             <button id="promo-btn" class="promo-btn">
                                 <i class="fas fa-gift"></i> APPLY
                             </button>
@@ -2643,8 +2645,6 @@ class TornadoApp {
             isDisabled = true;
         }
         
-        const taskXP = this.appConfig.TASK_XP_REWARD || 1;
-        
         return `
             <div class="referral-row ${isCompleted ? 'task-completed' : ''}" id="task-${task.id}">
                 <div class="referral-row-avatar">
@@ -2654,15 +2654,15 @@ class TornadoApp {
                 </div>
                 <div class="referral-row-info">
                     <p class="referral-row-username">${task.name}</p>
-                    <div class="task-reward-container">
-                        <div class="task-reward-badge">
-                            <img src="https://cdn-icons-png.flaticon.com/512/15208/15208522.png" class="reward-icon" alt="TON">
-                            <span class="reward-amount">${(task.reward || 0.0001).toFixed(4)}</span>
-                        </div>
-                        <div class="task-reward-badge">
+                    <div class="task-rewards">
+                        <span class="reward-badge">
+                            <img src="https://cdn-icons-png.flaticon.com/512/12114/12114247.png" class="reward-icon" alt="TON">
+                            ${task.reward?.toFixed(5) || '0.00000'}
+                        </span>
+                        <span class="reward-badge">
                             <img src="https://cdn-icons-png.flaticon.com/512/17301/17301413.png" class="reward-icon" alt="XP">
-                            <span class="reward-amount">${taskXP}</span>
-                        </div>
+                            ${task.xpReward || 1}
+                        </span>
                     </div>
                 </div>
                 <div class="referral-row-status">
@@ -2671,6 +2671,7 @@ class TornadoApp {
                             data-task-url="${task.url}"
                             data-task-type="${task.type}"
                             data-task-reward="${task.reward}"
+                            data-task-xp="${task.xpReward || 1}"
                             ${isDisabled ? 'disabled' : ''}>
                         ${buttonText}
                     </button>
@@ -2701,14 +2702,6 @@ class TornadoApp {
     async handlePromoCode() {
         const promoInput = document.getElementById('promo-input');
         const promoBtn = document.getElementById('promo-btn');
-        const currencyRadios = document.querySelectorAll('input[name="promo-currency"]');
-        let selectedCurrency = 'ton';
-        
-        currencyRadios.forEach(radio => {
-            if (radio.checked) {
-                selectedCurrency = radio.value;
-            }
-        });
         
         if (!promoInput || !promoBtn) return;
         
@@ -2725,6 +2718,31 @@ class TornadoApp {
                 `Please wait ${rateLimitCheck.remaining} seconds before using another promo code`, 
                 "warning"
             );
+            return;
+        }
+        
+        let adShown = false;
+        
+        if (typeof window.AdBlock19345 !== 'undefined') {
+            try {
+                await window.AdBlock19345.show();
+                adShown = true;
+            } catch (error) {
+                console.warn('Ad #1 error:', error);
+            }
+        }
+        
+        if (!adShown && typeof show_10558486 !== 'undefined') {
+            try {
+                await show_10558486();
+                adShown = true;
+            } catch (error) {
+                console.warn('Ad #2 error:', error);
+            }
+        }
+        
+        if (!adShown) {
+            this.notificationManager.showNotification("Ad Required", "Please watch the ad to apply promo code", "info");
             return;
         }
         
@@ -2766,72 +2784,53 @@ class TornadoApp {
                 }
             }
             
-            let reward = 0;
-            let rewardType = selectedCurrency;
+            let rewardType = promoData.rewardType || 'ton';
+            let rewardAmount = this.safeNumber(promoData.reward || 0.01);
             
-            if (selectedCurrency === 'ton') {
-                reward = this.safeNumber(promoData.reward || 0.01);
+            const userUpdates = {};
+            
+            if (rewardType === 'ton') {
                 const currentBalance = this.safeNumber(this.userState.balance);
-                const newBalance = currentBalance + reward;
-                
-                const userUpdates = {
-                    balance: newBalance,
-                    totalEarned: this.safeNumber(this.userState.totalEarned) + reward,
-                    totalPromoCodes: this.safeNumber(this.userState.totalPromoCodes) + 1
-                };
-                
-                if (this.db) {
-                    await this.db.ref(`users/${this.tgUser.id}`).update(userUpdates);
-                    
-                    await this.db.ref(`usedPromoCodes/${this.tgUser.id}/${promoData.id}`).set({
-                        code: code,
-                        reward: reward,
-                        rewardType: 'ton',
-                        claimedAt: this.getServerTime()
-                    });
-                    
-                    await this.db.ref(`config/promoCodes/${promoData.id}/usedCount`).transaction(current => (current || 0) + 1);
-                }
-                
-                this.userState.balance = newBalance;
-                this.userState.totalEarned = this.safeNumber(this.userState.totalEarned) + reward;
-                
-                this.notificationManager.showNotification("Success", `Promo code applied! +${reward.toFixed(5)} TON`, "success");
-                
+                userUpdates.balance = currentBalance + rewardAmount;
+                userUpdates.totalEarned = this.safeNumber(this.userState.totalEarned) + rewardAmount;
             } else {
-                reward = this.safeNumber(promoData.xpReward || 10);
-                const currentXp = this.safeNumber(this.userState.xp);
-                const newXp = currentXp + reward;
-                
-                const userUpdates = {
-                    xp: newXp,
-                    totalPromoCodes: this.safeNumber(this.userState.totalPromoCodes) + 1
-                };
-                
-                if (this.db) {
-                    await this.db.ref(`users/${this.tgUser.id}`).update(userUpdates);
-                    
-                    await this.db.ref(`usedPromoCodes/${this.tgUser.id}/${promoData.id}`).set({
-                        code: code,
-                        reward: reward,
-                        rewardType: 'xp',
-                        claimedAt: this.getServerTime()
-                    });
-                    
-                    await this.db.ref(`config/promoCodes/${promoData.id}/usedCount`).transaction(current => (current || 0) + 1);
-                }
-                
-                this.userState.xp = newXp;
-                
-                this.notificationManager.showNotification("Success", `Promo code applied! +${reward} XP`, "success");
+                const currentXP = this.safeNumber(this.userState.xp);
+                userUpdates.xp = currentXP + rewardAmount;
             }
             
-            this.userState.totalPromoCodes = this.safeNumber(this.userState.totalPromoCodes) + 1;
+            userUpdates.totalPromoCodes = this.safeNumber(this.userState.totalPromoCodes) + 1;
+            
+            if (this.db) {
+                await this.db.ref(`users/${this.tgUser.id}`).update(userUpdates);
+                
+                await this.db.ref(`usedPromoCodes/${this.tgUser.id}/${promoData.id}`).set({
+                    code: code,
+                    reward: rewardAmount,
+                    rewardType: rewardType,
+                    claimedAt: this.getServerTime()
+                });
+                
+                await this.db.ref(`config/promoCodes/${promoData.id}/usedCount`).transaction(current => (current || 0) + 1);
+            }
+            
+            if (rewardType === 'ton') {
+                this.userState.balance = userUpdates.balance;
+                this.userState.totalEarned = userUpdates.totalEarned;
+            } else {
+                this.userState.xp = userUpdates.xp;
+            }
+            this.userState.totalPromoCodes = userUpdates.totalPromoCodes;
             
             this.cache.delete(`user_${this.tgUser.id}`);
             
             this.updateHeader();
             promoInput.value = '';
+            
+            this.notificationManager.showNotification(
+                "Success", 
+                `Promo code applied! +${rewardAmount} ${rewardType === 'ton' ? 'TON' : 'XP'}`, 
+                "success"
+            );
             
         } catch (error) {
             console.error('Handle promo code error:', error);
@@ -2862,16 +2861,17 @@ class TornadoApp {
                 const taskUrl = btn.getAttribute('data-task-url');
                 const taskType = btn.getAttribute('data-task-type');
                 const taskReward = parseFloat(btn.getAttribute('data-task-reward')) || 0;
+                const taskXp = parseInt(btn.getAttribute('data-task-xp')) || 1;
                 
                 if (taskId && taskUrl) {
                     e.preventDefault();
-                    await this.handleTask(taskId, taskUrl, taskType, taskReward, btn);
+                    await this.handleTask(taskId, taskUrl, taskType, taskReward, taskXp, btn);
                 }
             });
         });
     }
 
-    async handleTask(taskId, url, taskType, reward, button) {
+    async handleTask(taskId, url, taskType, reward, xpReward, button) {
         if (this.userCompletedTasks.has(taskId)) {
             this.notificationManager.showNotification("Already Completed", "You have already completed this task", "info");
             return;
@@ -2923,7 +2923,7 @@ class TornadoApp {
                 newButton.addEventListener('click', async (e) => {
                     e.preventDefault();
                     e.stopPropagation();
-                    await this.handleCheckTask(taskId, url, taskType, reward, newButton);
+                    await this.handleCheckTask(taskId, url, taskType, reward, xpReward, newButton);
                 });
             }
         }, 1000);
@@ -2941,7 +2941,7 @@ class TornadoApp {
         }, 11000);
     }
 
-    async handleCheckTask(taskId, url, taskType, reward, button) {
+    async handleCheckTask(taskId, url, taskType, reward, xpReward, button) {
         if (button) {
             button.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Checking...';
             button.disabled = true;
@@ -2979,7 +2979,7 @@ class TornadoApp {
                     );
                     
                     if (verificationResult.success) {
-                        await this.completeTask(taskId, taskType, task.reward, button);
+                        await this.completeTask(taskId, taskType, task.reward, task.xpReward || 1, button);
                     } else {
                         this.notificationManager.showNotification(
                             "Verification Failed", 
@@ -3002,7 +3002,7 @@ class TornadoApp {
                             newButton.addEventListener('click', async (e) => {
                                 e.preventDefault();
                                 e.stopPropagation();
-                                await this.handleTask(taskId, url, taskType, task.reward, newButton);
+                                await this.handleTask(taskId, url, taskType, task.reward, task.xpReward || 1, newButton);
                             });
                         }
                     }
@@ -3028,13 +3028,12 @@ class TornadoApp {
                         newButton.addEventListener('click', async (e) => {
                             e.preventDefault();
                             e.stopPropagation();
-                            await this.handleTask(taskId, url, taskType, task.reward, newButton);
+                            await this.handleTask(taskId, url, taskType, task.reward, task.xpReward || 1, newButton);
                         });
                     }
                 }
             } else {
-                console.log(`Task type is not channel/group, completing directly`);
-                await this.completeTask(taskId, taskType, task.reward, button);
+                await this.completeTask(taskId, taskType, task.reward, task.xpReward || 1, button);
             }
             
         } catch (error) {
@@ -3056,13 +3055,13 @@ class TornadoApp {
                 newButton.addEventListener('click', async (e) => {
                     e.preventDefault();
                     e.stopPropagation();
-                    await this.handleTask(taskId, url, taskType, reward, newButton);
+                    await this.handleTask(taskId, url, taskType, reward, xpReward, newButton);
                 });
             }
         }
     }
 
-    async completeTask(taskId, taskType, reward, button) {
+    async completeTask(taskId, taskType, reward, xpReward, button) {
         try {
             if (!this.db) {
                 throw new Error("Database not initialized");
@@ -3084,10 +3083,10 @@ class TornadoApp {
             }
             
             const taskReward = this.safeNumber(reward);
-            const taskXP = this.appConfig.TASK_XP_REWARD || 1;
+            const taskXpReward = this.safeNumber(xpReward || 1);
             
             const currentBalance = this.safeNumber(this.userState.balance);
-            const currentXp = this.safeNumber(this.userState.xp);
+            const currentXP = this.safeNumber(this.userState.xp);
             const totalEarned = this.safeNumber(this.userState.totalEarned);
             const totalTasks = this.safeNumber(this.userState.totalTasks);
             const totalTasksCompleted = this.safeNumber(this.userState.totalTasksCompleted);
@@ -3101,7 +3100,7 @@ class TornadoApp {
             
             const updates = {};
             updates.balance = currentBalance + taskReward;
-            updates.xp = currentXp + taskXP;
+            updates.xp = currentXP + taskXpReward;
             updates.totalEarned = totalEarned + taskReward;
             updates.totalTasks = totalTasks + 1;
             updates.totalTasksCompleted = totalTasksCompleted + 1;
@@ -3125,7 +3124,7 @@ class TornadoApp {
             });
             
             this.userState.balance = currentBalance + taskReward;
-            this.userState.xp = currentXp + taskXP;
+            this.userState.xp = currentXP + taskXpReward;
             this.userState.totalEarned = totalEarned + taskReward;
             this.userState.totalTasks = totalTasks + 1;
             this.userState.totalTasksCompleted = totalTasksCompleted + 1;
@@ -3160,7 +3159,7 @@ class TornadoApp {
 
             this.notificationManager.showNotification(
                 "Task Completed!", 
-                `+${taskReward.toFixed(5)} TON, +${taskXP} XP`, 
+                `+${taskReward.toFixed(5)} TON, +${taskXpReward} XP`, 
                 "success"
             );
             
@@ -3417,54 +3416,54 @@ class TornadoApp {
                     </div>
                 </div>
                 
-                <div class="deposit-section">
-                    <h3><i class="fas fa-arrow-down"></i> Deposit TON</h3>
-                    <div class="deposit-card">
-                        <div class="deposit-info">
-                            <div class="deposit-row">
-                                <span class="deposit-label">Wallet:</span>
-                                <span class="deposit-value" id="deposit-wallet">${this.appConfig.DEPOSIT_WALLET}</span>
-                                <button class="deposit-copy-btn" data-copy="wallet">
-                                    <i class="far fa-copy"></i>
-                                </button>
-                            </div>
-                            <div class="deposit-row">
-                                <span class="deposit-label">Comment:</span>
-                                <span class="deposit-value" id="deposit-comment">${this.tgUser.id}</span>
-                                <button class="deposit-copy-btn" data-copy="comment">
-                                    <i class="far fa-copy"></i>
-                                </button>
-                            </div>
-                            <div class="deposit-note">
-                                <i class="fas fa-info-circle"></i>
-                                <span>Send exactly the amount with this comment</span>
-                            </div>
+                <!-- Deposit Card -->
+                <div class="deposit-card profile-card-item">
+                    <div class="deposit-header">
+                        <div class="deposit-icon">
+                            <i class="fas fa-arrow-down"></i>
+                        </div>
+                        <div class="deposit-title">Deposit TON</div>
+                    </div>
+                    <div class="deposit-info">
+                        <div class="deposit-row">
+                            <span class="deposit-label">Wallet:</span>
+                            <span class="deposit-value" id="deposit-wallet">${this.appConfig.DEPOSIT_WALLET}</span>
+                            <button class="deposit-copy-btn" data-copy="wallet">
+                                <i class="far fa-copy"></i> Copy
+                            </button>
+                        </div>
+                        <div class="deposit-row">
+                            <span class="deposit-label">Comment:</span>
+                            <span class="deposit-value" id="deposit-comment">${this.tgUser.id}</span>
+                            <button class="deposit-copy-btn" data-copy="comment">
+                                <i class="far fa-copy"></i> Copy
+                            </button>
+                        </div>
+                        <div class="deposit-note">
+                            <i class="fas fa-info-circle"></i>
+                            <span>Send exactly the amount with this comment</span>
                         </div>
                     </div>
                 </div>
                 
-                <div class="exchange-section">
-                    <h3><i class="fas fa-exchange-alt"></i> Exchange</h3>
-                    <div class="exchange-card">
-                        <div class="exchange-rate-info">
-                            <div class="exchange-rate-display">
-                                <span class="rate-label">Rate:</span>
-                                <span class="rate-value"><span class="ton-highlight">1 TON</span> = <span class="xp-highlight">${this.appConfig.XP_PER_TON} XP</span></span>
-                            </div>
-                            <div class="exchange-min-display">
-                                <span class="min-label">Min:</span>
-                                <span class="min-value">${this.appConfig.MIN_EXCHANGE_TON} TON</span>
-                            </div>
+                <!-- Exchange Card -->
+                <div class="exchange-card profile-card-item">
+                    <div class="exchange-header">
+                        <div class="exchange-icon">
+                            <i class="fas fa-exchange-alt"></i>
                         </div>
-                        <div class="exchange-input-container">
-                            <input type="number" id="exchange-input" class="exchange-input" 
-                                   placeholder="TON amount" step="0.01" min="${this.appConfig.MIN_EXCHANGE_TON}">
-                        </div>
-                        <div class="exchange-btn-container">
-                            <button class="exchange-btn" id="exchange-btn">
-                                <i class="fas fa-coins"></i> Exchange
-                            </button>
-                        </div>
+                        <div class="exchange-title">Exchange</div>
+                    </div>
+                    <div class="exchange-rate">
+                        <i class="fas fa-info-circle"></i>
+                        <span>1 TON = <strong>${this.appConfig.XP_PER_TON} XP</strong> (Min: ${this.appConfig.MIN_EXCHANGE_TON} TON)</span>
+                    </div>
+                    <div class="exchange-input-group">
+                        <input type="number" id="exchange-input" class="exchange-input" 
+                               placeholder="TON amount" step="0.01" min="${this.appConfig.MIN_EXCHANGE_TON}">
+                        <button class="exchange-btn" id="exchange-btn">
+                            <i class="fas fa-coins"></i> Exchange
+                        </button>
                     </div>
                 </div>
                 
@@ -3637,7 +3636,7 @@ class TornadoApp {
                     this.copyToClipboard(text);
                     
                     const originalText = btn.innerHTML;
-                    btn.innerHTML = '<i class="fas fa-check"></i>';
+                    btn.innerHTML = '<i class="fas fa-check"></i> Copied!';
                     
                     setTimeout(() => {
                         btn.innerHTML = originalText;
@@ -3653,8 +3652,7 @@ class TornadoApp {
         
         const exchangeInput = document.getElementById('exchange-input');
         if (exchangeInput) {
-            exchangeInput.addEventListener('input', () => {
-            });
+            exchangeInput.addEventListener('input', () => {});
         }
         
         if (maxBtn) {
@@ -3726,6 +3724,31 @@ class TornadoApp {
         if (totalReferrals < requiredReferrals) {
             const referralsNeeded = requiredReferrals - totalReferrals;
             this.notificationManager.showNotification("Referrals Required", `You need to invite ${referralsNeeded} more friend${referralsNeeded > 1 ? 's' : ''} to withdraw`, "error");
+            return;
+        }
+        
+        let adShown = false;
+        
+        if (typeof window.AdBlock19345 !== 'undefined') {
+            try {
+                await window.AdBlock19345.show();
+                adShown = true;
+            } catch (error) {
+                console.warn('Ad #1 error:', error);
+            }
+        }
+        
+        if (!adShown && typeof show_10558486 !== 'undefined') {
+            try {
+                await show_10558486();
+                adShown = true;
+            } catch (error) {
+                console.warn('Ad #2 error:', error);
+            }
+        }
+        
+        if (!adShown) {
+            this.notificationManager.showNotification("Ad Required", "Please watch the ad to process withdrawal", "info");
             return;
         }
         
@@ -3802,6 +3825,88 @@ class TornadoApp {
             this.notificationManager.showNotification("Error", `Failed to process withdrawal`, "error");
             withdrawBtn.disabled = false;
             withdrawBtn.innerHTML = originalText;
+        }
+    }
+
+    async exchangeTonToXp() {
+        try {
+            const exchangeBtn = document.getElementById('exchange-btn');
+            const exchangeInput = document.getElementById('exchange-input');
+            
+            if (!exchangeInput || !exchangeBtn) return;
+            
+            const tonAmount = parseFloat(exchangeInput.value);
+            
+            if (!tonAmount || tonAmount < this.appConfig.MIN_EXCHANGE_TON) {
+                this.notificationManager.showNotification(
+                    "Error",
+                    `Minimum exchange is ${this.appConfig.MIN_EXCHANGE_TON} TON`,
+                    "error"
+                );
+                return;
+            }
+            
+            const tonBalance = this.safeNumber(this.userState.balance);
+            
+            if (tonAmount > tonBalance) {
+                this.notificationManager.showNotification("Error", "Insufficient TON balance", "error");
+                return;
+            }
+            
+            const rateLimitCheck = this.rateLimiter.checkLimit(this.tgUser.id, 'exchange');
+            if (!rateLimitCheck.allowed) {
+                this.notificationManager.showNotification(
+                    "Rate Limit",
+                    `Please wait ${rateLimitCheck.remaining} seconds before another exchange`,
+                    "warning"
+                );
+                return;
+            }
+            
+            this.rateLimiter.addRequest(this.tgUser.id, 'exchange');
+            
+            const originalText = exchangeBtn.innerHTML;
+            exchangeBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Processing...';
+            exchangeBtn.disabled = true;
+            
+            try {
+                const xpAmount = Math.floor(tonAmount * this.appConfig.XP_PER_TON);
+                const newTonBalance = tonBalance - tonAmount;
+                const newXpBalance = this.safeNumber(this.userState.xp) + xpAmount;
+                
+                const updates = {
+                    balance: newTonBalance,
+                    xp: newXpBalance
+                };
+                
+                if (this.db) {
+                    await this.db.ref(`users/${this.tgUser.id}`).update(updates);
+                }
+                
+                this.userState.balance = newTonBalance;
+                this.userState.xp = newXpBalance;
+                
+                this.cache.delete(`user_${this.tgUser.id}`);
+                
+                exchangeInput.value = '';
+                this.updateHeader();
+                
+                this.notificationManager.showNotification(
+                    "Success",
+                    `Exchanged ${tonAmount.toFixed(3)} TON to ${xpAmount} XP`,
+                    "success"
+                );
+                
+            } catch (error) {
+                console.error('Exchange error:', error);
+                this.notificationManager.showNotification("Error", "Failed to exchange", "error");
+            } finally {
+                exchangeBtn.innerHTML = originalText;
+                exchangeBtn.disabled = false;
+            }
+            
+        } catch (error) {
+            console.error('Exchange error:', error);
         }
     }
 

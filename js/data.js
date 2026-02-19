@@ -1,6 +1,6 @@
 export const APP_CONFIG = {
     APP_NAME: "RAMADAN BUX",
-    BOT_USERNAME: "Tornado_Rbot",
+    BOT_USERNAME: "checatcbot",
     MINIMUM_WITHDRAW: 0.20,
     REFERRAL_BONUS_TON: 0.01,
     REFERRAL_PERCENTAGE: 0,

@@ -36,7 +36,8 @@ export const APP_CONFIG = {
     XP_PER_TON: 1000,
     MIN_EXCHANGE_TON: 0.10,
     TASK_PRICE_PER_100_COMPLETIONS: 100,
-    TASK_XP_REWARD: 1
+    IN_APP_AD_INTERVAL: 60000,
+    INITIAL_AD_DELAY: 30000
 };
 
 export const CORE_CONFIG = {
@@ -67,30 +68,17 @@ export const FEATURES_CONFIG = {
 };
 
 export const THEME_CONFIG = {
-    LIGHT_MODE: {
-        background: "#f8fafc",
-        cardBg: "#f1f5f9",
-        cardBgSolid: "#e2e8f0",
-        textPrimary: "#334155",
-        textSecondary: "#475569",
-        textLight: "#64748b",
-        primaryColor: "#FBBF24",
-        secondaryColor: "#F59E0B",
-        accentColor: "#D97706",
-        tonColor: "#FBBF24",
-        xpColor: "#F59E0B"
-    },
-    DARK_MODE: {
-        background: "#2e1b3c",
-        cardBg: "rgba(58, 28, 74, 0.8)",
-        cardBgSolid: "#3a1e4a",
-        textPrimary: "#f1f5f9",
-        textSecondary: "#cbd5e1",
-        textLight: "#94a3b8",
-        primaryColor: "#FBBF24",
-        secondaryColor: "#F59E0B",
-        accentColor: "#D97706",
-        tonColor: "#FBBF24",
-        xpColor: "#F59E0B"
+    GOLDEN_THEME: {
+        background: "#0a0a0a",
+        cardBg: "rgba(26, 26, 26, 0.95)",
+        cardBgSolid: "#1a1a1a",
+        textPrimary: "#ffffff",
+        textSecondary: "#e0e0e0",
+        textLight: "#b0b0b0",
+        primaryColor: "#FFD700",
+        secondaryColor: "#FFC800",
+        accentColor: "#FFB800",
+        tonColor: "#FFD700",
+        xpColor: "#FFA500"
     }
 };

@@ -2778,3 +2778,96 @@ html {
     50% { transform: scale(1.05); opacity: 1; }
     100% { transform: scale(1); opacity: 0.8; }
 }
+
+.form-hint {
+    display: block;
+    font-size: 0.7rem;
+    color: var(--text-light);
+    margin-top: 4px;
+}
+
+.task-result-message {
+    padding: 12px;
+    border-radius: var(--border-radius-xs);
+    margin-bottom: 15px;
+    font-size: 0.85rem;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.task-result-message.success {
+    background: rgba(22, 163, 74, 0.1);
+    border: 1px solid rgba(22, 163, 74, 0.3);
+    color: #16a34a;
+}
+
+.task-result-message.error {
+    background: rgba(220, 38, 38, 0.1);
+    border: 1px solid rgba(220, 38, 38, 0.3);
+    color: #dc2626;
+}
+
+.task-result-message.info {
+    background: rgba(14, 165, 233, 0.1);
+    border: 1px solid rgba(14, 165, 233, 0.3);
+    color: #0ea5e9;
+}
+
+.exchange-note {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 12px;
+    background: rgba(245, 158, 11, 0.1);
+    border-radius: var(--border-radius-xs);
+    color: #f59e0b;
+    font-size: 0.8rem;
+    font-weight: 500;
+    border: 1px solid rgba(245, 158, 11, 0.3);
+    margin-top: 10px;
+}
+
+.exchange-note i {
+    color: #f59e0b;
+}
+
+#exchange-input.form-input {
+    padding-right: 70px;
+}
+
+#exchange-max-btn {
+    position: absolute;
+    right: 8px;
+    padding: 6px 12px;
+    background: linear-gradient(135deg, var(--primary-color), var(--accent-color));
+    border: none;
+    border-radius: var(--border-radius-xs);
+    color: var(--background-color);
+    font-weight: 700;
+    font-size: 0.8rem;
+    cursor: pointer;
+    transition: all 0.15s ease;
+    z-index: 2;
+}
+
+#exchange-max-btn:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 10px rgba(251, 191, 36, 0.3);
+}
+
+#exchange-max-btn:active {
+    transform: scale(0.98);
+}
+
+.link-label i {
+    color: var(--primary-color);
+    margin-right: 5px;
+}
+ 
+.checkin-reward .balance-icon {
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    object-fit: cover;
+    }

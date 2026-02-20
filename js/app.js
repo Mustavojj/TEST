@@ -7,7 +7,7 @@ class TornadoApp {
     constructor() {
         this.darkMode = true;
         this.tg = null;
-        this.db = null;
+        this.db = null; // لم نعد نستخدم Firebase مباشرة
         this.auth = null;
         this.firebaseInitialized = false;
         
@@ -89,9 +89,22 @@ class TornadoApp {
         this.lastDailyCheckinDate = '';
         this.depositCheckInterval = null;
         this.checkedDeposits = new Set();
-        this.totalCheckins = 0;
+        this.allTasks = []; // تخزين المهام محلياً
         
+        // تحميل آخر تاريخ تسجيل يومي من التخزين المحلي
         this.loadLastCheckinDate();
+        this.loadCheckedDeposits();
+    }
+
+    loadCheckedDeposits() {
+        try {
+            const saved = localStorage.getItem('checked_deposits');
+            if (saved) {
+                this.checkedDeposits = new Set(JSON.parse(saved));
+            }
+        } catch (error) {
+            console.warn('Load checked deposits error:', error);
+        }
     }
 
     loadLastCheckinDate() {
@@ -101,10 +114,9 @@ class TornadoApp {
                 const data = JSON.parse(saved);
                 this.lastDailyCheckin = data.timestamp || 0;
                 this.lastDailyCheckinDate = data.date || '';
-                this.totalCheckins = data.totalCheckins || 0;
             }
         } catch (error) {
-            this.showNotification("Error", "Failed to load check-in data", "error");
+            console.warn('Load last checkin date error:', error);
         }
     }
 
@@ -113,33 +125,76 @@ class TornadoApp {
             if (!this.tgUser) return;
             const data = {
                 timestamp: this.lastDailyCheckin,
-                date: new Date().toDateString(),
-                totalCheckins: this.totalCheckins
+                date: new Date().toDateString()
             };
             localStorage.setItem(`last_checkin_${this.tgUser.id}`, JSON.stringify(data));
         } catch (error) {
-            this.showNotification("Error", "Failed to save check-in data", "error");
+            console.warn('Save last checkin date error:', error);
+        }
+    }
+
+    async apiRequest(endpoint, action, data = {}) {
+        try {
+            if (!this.tg?.initData) {
+                throw new Error('No Telegram data available');
+            }
+
+            const response = await fetch(`/api/${endpoint}`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    initData: this.tg.initData,
+                    userId: this.tgUser?.id,
+                    action: action,
+                    ...data
+                })
+            });
+
+            if (!response.ok) {
+                if (response.status === 429) {
+                    throw new Error('Too many requests. Please try again later.');
+                }
+                if (response.status === 401) {
+                    throw new Error('Authentication failed');
+                }
+                throw new Error(`API error: ${response.status}`);
+            }
+
+            const result = await response.json();
+            
+            if (result.error) {
+                throw new Error(result.error);
+            }
+
+            return result;
+
+        } catch (error) {
+            console.error(`API request failed (${endpoint}):`, error);
+            throw error;
         }
     }
 
     async getBotToken() {
         try {
-            const response = await fetch('/api/get-bot-token', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'x-telegram-user': this.tgUser?.id?.toString() || '',
-                    'x-telegram-auth': this.tg?.initData || ''
-                }
-            });
-            
-            if (response.ok) {
-                const data = await response.json();
-                return data.token;
+            const result = await this.apiRequest('get-bot-token', 'getToken');
+            return result.token;
+        } catch (error) {
+            console.error('Failed to get bot token:', error);
+            return null;
+        }
+    }
+
+    async getFirebaseData(action, data = {}) {
+        try {
+            const result = await this.apiRequest('firebase-config', action, data);
+            if (result.success) {
+                return result.data;
             }
             return null;
         } catch (error) {
-            this.showNotification("Error", "Failed to get bot token", "error");
+            console.error('Firebase data request failed:', error);
             return null;
         }
     }
@@ -165,7 +220,7 @@ class TornadoApp {
             return true;
             
         } catch (error) {
-            this.showNotification("Error", "Telegram verification failed", "error");
+            console.error('Telegram verification error:', error);
             return false;
         }
     }
@@ -196,7 +251,7 @@ class TornadoApp {
                         });
                     }
                 } catch (error) {
-                    // Silent fail
+                    console.warn('Load rate limiter error:', error);
                 }
             }
 
@@ -208,13 +263,13 @@ class TornadoApp {
                     });
                     localStorage.setItem('rateLimiter_requests', JSON.stringify(obj));
                 } catch (error) {
-                    // Silent fail
+                    console.warn('Save rate limiter error:', error);
                 }
             }
 
             checkLimit(userId, action) {
                 const key = `${userId}_${action}`;
-                const now = this.getServerTime();
+                const now = Date.now() + (window.app?.serverTimeOffset || 0);
                 const limitConfig = this.limits[action] || { limit: 5, window: 60000 };
                 
                 if (!this.requests.has(key)) this.requests.set(key, []);
@@ -236,7 +291,7 @@ class TornadoApp {
 
             addRequest(userId, action) {
                 const key = `${userId}_${action}`;
-                const now = this.getServerTime();
+                const now = Date.now() + (window.app?.serverTimeOffset || 0);
                 
                 if (!this.requests.has(key)) this.requests.set(key, []);
                 
@@ -258,34 +313,21 @@ class TornadoApp {
     }
 
     async syncServerTime() {
+        // نحصل على وقت السيرفر من أول استجابة API
         try {
-            const startTime = Date.now();
-            const serverTime = await this.getFirebaseServerTime();
-            const endTime = Date.now();
-            const rtt = endTime - startTime;
-            this.serverTimeOffset = serverTime - endTime + (rtt / 2);
-            return true;
+            const response = await fetch('/api/ping', { 
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ time: Date.now() })
+            });
+            const data = await response.json();
+            if (data.serverTime) {
+                const rtt = Date.now() - data.clientTime;
+                this.serverTimeOffset = data.serverTime - Date.now() + (rtt / 2);
+            }
         } catch (error) {
             this.serverTimeOffset = 0;
-            return false;
         }
-    }
-
-    async getFirebaseServerTime() {
-        return new Promise((resolve, reject) => {
-            if (!this.db) {
-                reject(new Error('Database not initialized'));
-                return;
-            }
-
-            const ref = this.db.ref('.info/serverTimeOffset');
-            ref.once('value')
-                .then(snapshot => {
-                    const offset = snapshot.val() || 0;
-                    resolve(Date.now() + offset);
-                })
-                .catch(reject);
-        });
     }
 
     async initialize() {
@@ -316,6 +358,7 @@ class TornadoApp {
             this.botToken = await this.getBotToken();
             
             this.showLoadingProgress(25);
+            
             const multiAccountAllowed = await this.checkMultiAccount(this.tgUser.id);
             if (!multiAccountAllowed) {
                 this.isInitializing = false;
@@ -334,10 +377,12 @@ class TornadoApp {
             
             this.showLoadingProgress(40);
             
-            const firebaseSuccess = await this.initializeFirebase();
+            // تحميل بيانات المستخدم من API
+            await this.loadUserData();
             
-            if (firebaseSuccess) {
-                this.setupFirebaseAuth();
+            if (this.userState.status === 'ban') {
+                this.showBannedPage();
+                return;
             }
             
             this.showLoadingProgress(50);
@@ -348,13 +393,6 @@ class TornadoApp {
                 clearInterval(this.timeSyncInterval);
             }
             this.timeSyncInterval = setInterval(() => this.syncServerTime(), 300000);
-            
-            await this.loadUserData();
-            
-            if (this.userState.status === 'ban') {
-                this.showBannedPage();
-                return;
-            }
             
             this.showLoadingProgress(60);
             
@@ -369,7 +407,7 @@ class TornadoApp {
             try {
                 await this.loadTasksData();
             } catch (taskError) {
-                this.showNotification("Warning", "Tasks loading failed", "warning");
+                console.warn('Tasks loading error:', taskError);
             }
             
             this.showLoadingProgress(75);
@@ -377,7 +415,7 @@ class TornadoApp {
             try {
                 await this.loadHistoryData();
             } catch (historyError) {
-                this.showNotification("Warning", "History loading failed", "warning");
+                console.warn('History loading error:', historyError);
             }
             
             this.showLoadingProgress(80);
@@ -385,7 +423,7 @@ class TornadoApp {
             try {
                 await this.loadAppStats();
             } catch (statsError) {
-                this.showNotification("Warning", "Stats loading failed", "warning");
+                console.warn('Stats loading error:', statsError);
             }
             
             this.showLoadingProgress(85);
@@ -394,7 +432,7 @@ class TornadoApp {
                 await this.loadUserCreatedTasks();
                 await this.startDepositMonitoring();
             } catch (adError) {
-                this.showNotification("Warning", "Additional data loading failed", "warning");
+                console.warn('Additional data loading error:', adError);
             }
             
             this.showLoadingProgress(90);
@@ -443,7 +481,15 @@ class TornadoApp {
             }, 500);
             
         } catch (error) {
-            this.showNotification("Error", "Initialization failed: " + error.message, "error");
+            console.error('Initialization error:', error);
+            
+            if (this.notificationManager) {
+                this.notificationManager.showNotification(
+                    "Initialization Error",
+                    "App loaded with limited functionality. Please refresh.",
+                    "warning"
+                );
+            }
             
             try {
                 this.userState = this.getDefaultUserState();
@@ -465,23 +511,12 @@ class TornadoApp {
 
     async loadUserCreatedTasks() {
         try {
-            if (!this.db) return;
-            
-            const tasksRef = await this.db.ref(`userTasks/${this.tgUser.id}`).once('value');
-            if (tasksRef.exists()) {
-                const tasks = [];
-                tasksRef.forEach(child => {
-                    tasks.push({
-                        id: child.key,
-                        ...child.val()
-                    });
-                });
-                this.userCreatedTasks = tasks;
-            } else {
-                this.userCreatedTasks = [];
-            }
+            const data = await this.getFirebaseData('getUserCreatedTasks', {
+                userId: this.tgUser.id
+            });
+            this.userCreatedTasks = data || [];
         } catch (error) {
-            this.showNotification("Warning", "Failed to load your tasks", "warning");
+            console.warn('Load user created tasks error:', error);
             this.userCreatedTasks = [];
         }
     }
@@ -540,7 +575,7 @@ class TornadoApp {
             localStorage.setItem('checked_deposits', JSON.stringify(checked));
             
         } catch (error) {
-            // Silent fail
+            console.warn('Check deposits error:', error);
         }
     }
 
@@ -570,6 +605,7 @@ class TornadoApp {
             
             return response.ok;
         } catch (error) {
+            console.warn('Send telegram message error:', error);
             return false;
         }
     }
@@ -585,7 +621,11 @@ class TornadoApp {
                 const timeLeft = this.getTimeUntilNextCheckin();
                 const hours = Math.floor(timeLeft / 3600000);
                 const minutes = Math.floor((timeLeft % 3600000) / 60000);
-                this.showNotification("Already Checked In", `Next check-in in ${hours}h ${minutes}m`, "info");
+                this.notificationManager.showNotification(
+                    "Already Checked In",
+                    `Next check-in in ${hours}h ${minutes}m`,
+                    "info"
+                );
                 return;
             }
             
@@ -594,7 +634,11 @@ class TornadoApp {
                 const timeLeft = rateLimitCheck.remaining;
                 const hours = Math.floor(timeLeft / 3600);
                 const minutes = Math.floor((timeLeft % 3600) / 60);
-                this.showNotification("Already Checked In", `Next check-in in ${hours}h ${minutes}m`, "info");
+                this.notificationManager.showNotification(
+                    "Already Checked In",
+                    `Next check-in in ${hours}h ${minutes}m`,
+                    "info"
+                );
                 return;
             }
             
@@ -605,7 +649,7 @@ class TornadoApp {
                     await window.AdBlock19345.show();
                     adShown = true;
                 } catch (error) {
-                    // Silent fail
+                    console.warn('Ad #1 error:', error);
                 }
             }
             
@@ -614,12 +658,12 @@ class TornadoApp {
                     await show_10558486();
                     adShown = true;
                 } catch (error) {
-                    // Silent fail
+                    console.warn('Ad #2 error:', error);
                 }
             }
             
             if (!adShown) {
-                this.showNotification("Ad Required", "Please watch the ad to claim daily reward", "info");
+                this.notificationManager.showNotification("Ad Required", "Please watch the ad to claim daily reward", "info");
                 return;
             }
             
@@ -633,45 +677,47 @@ class TornadoApp {
             checkinBtn.disabled = true;
             
             try {
-                const currentBalance = this.safeNumber(this.userState.balance);
-                const newBalance = currentBalance + reward;
-                this.totalCheckins = (this.totalCheckins || 0) + 1;
+                const result = await this.getFirebaseData('dailyCheckin', {
+                    userId: this.tgUser.id,
+                    timestamp: currentTime,
+                    reward: reward
+                });
                 
-                const updates = {
-                    balance: newBalance,
-                    totalEarned: this.safeNumber(this.userState.totalEarned) + reward,
-                    lastDailyCheckin: currentTime,
-                    totalCheckins: this.totalCheckins
-                };
-                
-                if (this.db) {
-                    await this.db.ref(`users/${this.tgUser.id}`).update(updates);
+                if (result && result.success) {
+                    const currentBalance = this.safeNumber(this.userState.balance);
+                    const newBalance = currentBalance + reward;
+                    
+                    this.userState.balance = newBalance;
+                    this.userState.totalEarned = this.safeNumber(this.userState.totalEarned) + reward;
+                    this.userState.lastDailyCheckin = currentTime;
+                    
+                    this.lastDailyCheckin = currentTime;
+                    this.lastDailyCheckinDate = today;
+                    this.saveLastCheckinDate();
+                    
+                    this.cache.delete(`user_${this.tgUser.id}`);
+                    
+                    this.updateHeader();
+                    this.updateDailyCheckinButton();
+                    
+                    this.notificationManager.showNotification(
+                        "Daily Check-in",
+                        `+${reward.toFixed(5)} TON`,
+                        "success"
+                    );
+                } else {
+                    throw new Error('Failed to claim reward');
                 }
                 
-                this.userState.balance = newBalance;
-                this.userState.totalEarned = this.safeNumber(this.userState.totalEarned) + reward;
-                this.userState.lastDailyCheckin = currentTime;
-                this.userState.totalCheckins = this.totalCheckins;
-                
-                this.lastDailyCheckin = currentTime;
-                this.lastDailyCheckinDate = today;
-                this.saveLastCheckinDate();
-                
-                this.cache.delete(`user_${this.tgUser.id}`);
-                
-                this.updateHeader();
-                this.updateDailyCheckinButton();
-                
-                this.showNotification("Daily Check-in", `+${reward.toFixed(3)} TON`, "success");
-                
             } catch (error) {
-                this.showNotification("Error", "Failed to claim daily reward", "error");
+                console.error('Daily checkin error:', error);
+                this.notificationManager.showNotification("Error", "Failed to claim daily reward", "error");
                 checkinBtn.innerHTML = originalText;
                 checkinBtn.disabled = false;
             }
             
         } catch (error) {
-            this.showNotification("Error", "Daily check-in failed", "error");
+            console.error('Daily checkin error:', error);
         }
     }
 
@@ -740,14 +786,14 @@ class TornadoApp {
                             <label class="form-label">
                                 <i class="fas fa-tag"></i> Task Name
                             </label>
-                            <input type="text" id="task-name" class="form-input" placeholder="Enter your task name *" maxlength="15" required>
+                            <input type="text" id="task-name" class="form-input" placeholder="Enter your task name *" required>
                         </div>
                         
                         <div class="form-group">
                             <label class="form-label">
                                 <i class="fas fa-link"></i> Task Link
                             </label>
-                            <input type="url" id="task-link" class="form-input" placeholder="https://t.me/..." required>
+                            <input type="url" id="task-link" class="form-input" placeholder="Enter your task link *" required>
                         </div>
                         
                         <div class="form-group">
@@ -756,7 +802,7 @@ class TornadoApp {
                             </label>
                             <div class="category-selector">
                                 <div class="category-option active" data-category="channel">Channel</div>
-                                <div class="category-option" data-category="other">Other</div>
+                                <div class="category-option" data-category="app">App/Bot</div>
                             </div>
                         </div>
                         
@@ -771,12 +817,9 @@ class TornadoApp {
                                 <i class="fas fa-chart-line"></i> Completions
                             </label>
                             <div class="completions-selector">
-                                ${completionsOptions.map(opt => {
-                                    const price = opt === 250 ? 250 : Math.floor(opt / 100) * this.appConfig.TASK_PRICE_PER_100_COMPLETIONS;
-                                    return `
-                                        <div class="completion-option ${opt === 100 ? 'active' : ''}" data-completions="${opt}" data-price="${price}">${opt}</div>
-                                    `;
-                                }).join('')}
+                                ${completionsOptions.map(opt => `
+                                    <div class="completion-option ${opt === 100 ? 'active' : ''}" data-completions="${opt}">${opt}</div>
+                                `).join('')}
                             </div>
                         </div>
                         
@@ -785,10 +828,8 @@ class TornadoApp {
                             <span class="price-value" id="total-price">100 XP</span>
                         </div>
                         
-                        <div class="task-message" id="task-message" style="display: none;"></div>
-                        
                         <button type="button" class="pay-task-btn" id="pay-task-btn">
-                            <i class="fas fa-coins"></i> Pay 100 XP
+                            <i class="fas fa-coins"></i> Pay {100 XP}
                         </button>
                     </form>
                 </div>
@@ -919,20 +960,21 @@ class TornadoApp {
         
         const completionOptions = modal.querySelectorAll('.completion-option');
         const totalPriceSpan = modal.querySelector('#total-price');
-        const payBtn = modal.querySelector('#pay-task-btn');
-        const messageDiv = modal.querySelector('#task-message');
         
         completionOptions.forEach(opt => {
             opt.addEventListener('click', () => {
                 completionOptions.forEach(o => o.classList.remove('active'));
                 opt.classList.add('active');
                 
-                const price = parseInt(opt.dataset.price);
-                totalPriceSpan.textContent = `${price} XP`;
-                payBtn.innerHTML = `<i class="fas fa-coins"></i> Pay ${price} XP`;
+                const completions = parseInt(opt.dataset.completions);
+                const priceInXP = Math.floor(completions / 100) * this.appConfig.TASK_PRICE_PER_100_COMPLETIONS;
+                totalPriceSpan.textContent = `${priceInXP} XP`;
+                
+                const payBtn = modal.querySelector('#pay-task-btn');
+                payBtn.innerHTML = `<i class="fas fa-coins"></i> Pay {${priceInXP} XP}`;
                 
                 const userXP = this.safeNumber(this.userState.xp);
-                if (userXP < price) {
+                if (userXP < priceInXP) {
                     payBtn.disabled = true;
                 } else {
                     payBtn.disabled = false;
@@ -940,21 +982,10 @@ class TornadoApp {
             });
         });
         
+        const payBtn = modal.querySelector('#pay-task-btn');
         payBtn.addEventListener('click', async () => {
             await this.handleCreateTask(modal);
         });
-        
-        const taskLinkInput = modal.querySelector('#task-link');
-        if (taskLinkInput) {
-            taskLinkInput.addEventListener('input', () => {
-                const value = taskLinkInput.value.trim();
-                if (value && !value.startsWith('https://t.me/')) {
-                    this.showMessage(modal, 'Task link must start with https://t.me/', 'error');
-                } else {
-                    messageDiv.style.display = 'none';
-                }
-            });
-        }
         
         const myTasksItems = modal.querySelectorAll('.my-task-item');
         myTasksItems.forEach(item => {
@@ -976,15 +1007,6 @@ class TornadoApp {
         });
     }
 
-    showMessage(modal, text, type) {
-        const messageDiv = modal.querySelector('#task-message');
-        if (messageDiv) {
-            messageDiv.textContent = text;
-            messageDiv.className = `task-message ${type}`;
-            messageDiv.style.display = 'block';
-        }
-    }
-
     async handleCreateTask(modal) {
         try {
             const taskName = modal.querySelector('#task-name').value.trim();
@@ -993,25 +1015,15 @@ class TornadoApp {
             const completions = parseInt(modal.querySelector('.completion-option.active').dataset.completions);
             
             if (!taskName || !taskLink) {
-                this.showMessage(modal, 'Please fill all fields', 'error');
+                this.notificationManager.showNotification("Error", "Please fill all fields", "error");
                 return;
             }
             
-            if (taskName.length > 15) {
-                this.showMessage(modal, 'Task name must be 15 characters or less', 'error');
-                return;
-            }
-            
-            if (!taskLink.startsWith('https://t.me/')) {
-                this.showMessage(modal, 'Task link must start with https://t.me/', 'error');
-                return;
-            }
-            
-            const price = completions === 250 ? 250 : Math.floor(completions / 100) * this.appConfig.TASK_PRICE_PER_100_COMPLETIONS;
+            const priceInXP = Math.floor(completions / 100) * this.appConfig.TASK_PRICE_PER_100_COMPLETIONS;
             const userXP = this.safeNumber(this.userState.xp);
             
-            if (userXP < price) {
-                this.showMessage(modal, 'Insufficient XP balance', 'error');
+            if (userXP < priceInXP) {
+                this.notificationManager.showNotification("Error", "Insufficient XP balance", "error");
                 return;
             }
             
@@ -1026,32 +1038,25 @@ class TornadoApp {
                     name: taskName,
                     url: taskLink,
                     category: category,
-                    type: category === 'channel' ? 'channel' : 'other',
+                    type: category === 'channel' ? 'channel' : 'app',
                     maxCompletions: completions,
                     currentCompletions: 0,
                     status: 'active',
                     reward: 0.0001,
                     xpReward: 1,
                     createdBy: this.tgUser.id,
-                    owner: this.tgUser.id,
                     createdAt: currentTime,
                     picture: this.appConfig.BOT_AVATAR
                 };
                 
-                if (this.db) {
-                    const taskRef = await this.db.ref('config/tasks').push(taskData);
-                    const taskId = taskRef.key;
-                    
-                    await this.db.ref(`userTasks/${this.tgUser.id}/${taskId}`).set({
-                        ...taskData,
-                        id: taskId
-                    });
-                    
-                    const newXP = userXP - price;
-                    await this.db.ref(`users/${this.tgUser.id}`).update({
-                        xp: newXP
-                    });
-                    
+                const result = await this.getFirebaseData('createTask', {
+                    userId: this.tgUser.id,
+                    taskData: taskData,
+                    priceInXP: priceInXP
+                });
+                
+                if (result && result.success) {
+                    const newXP = userXP - priceInXP;
                     this.userState.xp = newXP;
                     
                     const adminMessage = `
@@ -1061,7 +1066,7 @@ class TornadoApp {
 🔗 *Link:* ${taskLink}
 📊 *Category:* ${category}
 🎯 *Completions:* ${completions}
-💰 *Price:* ${price} XP
+💰 *Price:* ${priceInXP} XP
 👤 *Creator:* ${this.tgUser.id} (${this.userState.username})
                     `;
                     
@@ -1075,28 +1080,25 @@ class TornadoApp {
                         this.setupTaskModalEvents(modal, []);
                     }
                     
-                    this.showMessage(modal, `Task created! Cost: ${price} XP`, 'success');
-                    
-                    setTimeout(() => {
-                        const messageDiv = modal.querySelector('#task-message');
-                        if (messageDiv) {
-                            messageDiv.style.display = 'none';
-                        }
-                    }, 3000);
+                    this.notificationManager.showNotification(
+                        "Success",
+                        `Task created! Cost: ${priceInXP} XP`,
+                        "success"
+                    );
                     
                     this.updateHeader();
-                    
                 }
                 
             } catch (error) {
-                this.showMessage(modal, 'Failed to create task', 'error');
+                console.error('Create task error:', error);
+                this.notificationManager.showNotification("Error", "Failed to create task", "error");
             } finally {
                 payBtn.innerHTML = originalText;
                 payBtn.disabled = false;
             }
             
         } catch (error) {
-            this.showMessage(modal, 'Failed to create task', 'error');
+            console.error('Create task error:', error);
         }
     }
 
@@ -1107,16 +1109,13 @@ class TornadoApp {
             
             const newStatus = task.status === 'active' ? 'stopped' : 'active';
             
-            if (this.db) {
-                await this.db.ref(`config/tasks/${taskId}`).update({
-                    status: newStatus,
-                    taskStatus: newStatus
-                });
-                
-                await this.db.ref(`userTasks/${this.tgUser.id}/${taskId}`).update({
-                    status: newStatus
-                });
-                
+            const result = await this.getFirebaseData('toggleTask', {
+                taskId: taskId,
+                userId: this.tgUser.id,
+                newStatus: newStatus
+            });
+            
+            if (result && result.success) {
                 task.status = newStatus;
                 
                 const modal = document.querySelector('.task-modal');
@@ -1133,11 +1132,16 @@ class TornadoApp {
                     this.renderTasksPage();
                 }
                 
-                this.showNotification("Success", `Task ${newStatus === 'active' ? 'started' : 'stopped'}`, "success");
+                this.notificationManager.showNotification(
+                    "Success",
+                    `Task ${newStatus === 'active' ? 'started' : 'stopped'}`,
+                    "success"
+                );
             }
             
         } catch (error) {
-            this.showNotification("Error", "Failed to update task", "error");
+            console.error('Toggle task error:', error);
+            this.notificationManager.showNotification("Error", "Failed to update task", "error");
         }
     }
 
@@ -1169,10 +1173,12 @@ class TornadoApp {
         
         deleteBtn.addEventListener('click', async () => {
             try {
-                if (this.db) {
-                    await this.db.ref(`config/tasks/${taskId}`).remove();
-                    await this.db.ref(`userTasks/${this.tgUser.id}/${taskId}`).remove();
-                    
+                const result = await this.getFirebaseData('deleteTask', {
+                    taskId: taskId,
+                    userId: this.tgUser.id
+                });
+                
+                if (result && result.success) {
                     this.userCreatedTasks = this.userCreatedTasks.filter(t => t.id !== taskId);
                     
                     if (modal) {
@@ -1183,10 +1189,11 @@ class TornadoApp {
                         }
                     }
                     
-                    this.showNotification("Success", "Task deleted", "success");
+                    this.notificationManager.showNotification("Success", "Task deleted", "success");
                 }
             } catch (error) {
-                this.showNotification("Error", "Failed to delete task", "error");
+                console.error('Delete task error:', error);
+                this.notificationManager.showNotification("Error", "Failed to delete task", "error");
             } finally {
                 confirmModal.remove();
             }
@@ -1208,7 +1215,7 @@ class TornadoApp {
                 }, this.appConfig.INITIAL_AD_DELAY);
             }
         } catch (error) {
-            // Silent fail
+            console.warn('In-app ads initialization error:', error);
         }
     }
     
@@ -1221,152 +1228,15 @@ class TornadoApp {
             try {
                 show_10558486();
             } catch (error) {
-                // Silent fail
+                console.warn('Ad error:', error);
             }
         }
     }
 
     async initializeFirebase() {
-        try {
-            if (typeof firebase === 'undefined') {
-                throw new Error('Firebase SDK not loaded');
-            }
-            
-            const response = await fetch('/api/firebase-config', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'x-telegram-user': this.tgUser?.id?.toString() || '',
-                    'x-telegram-auth': this.tg?.initData || ''
-                }
-            });
-            
-            let firebaseConfig;
-            
-            if (response.ok) {
-                const result = await response.json();
-                if (result.encrypted) {
-                    const decoded = atob(result.encrypted);
-                    firebaseConfig = JSON.parse(decoded);
-                } else {
-                    firebaseConfig = result;
-                }
-            } else {
-                this.showNotification("Warning", "Using fallback Firebase config", "warning");
-                firebaseConfig = {
-                    apiKey: "AIzaSyDefaultKey123",
-                    authDomain: "tornado-default.firebaseapp.com",
-                    databaseURL: "https://tornado-default-rtdb.firebaseio.com",
-                    projectId: "tornado-default",
-                    storageBucket: "tornado-default.appspot.com",
-                    messagingSenderId: "987654321098",
-                    appId: "1:987654321098:web:default1234567890",
-                    measurementId: "G-DEFAULT123"
-                };
-            }
-            
-            let firebaseApp;
-            
-            try {
-                firebaseApp = firebase.initializeApp(firebaseConfig);
-            } catch (error) {
-                if (error.code === 'app/duplicate-app') {
-                    firebaseApp = firebase.app();
-                } else {
-                    throw error;
-                }
-            }
-            
-            this.db = firebaseApp.database();
-            this.auth = firebaseApp.auth();
-            
-            try {
-                await this.auth.signInAnonymously();
-            } catch (authError) {
-                const randomEmail = `user_${this.tgUser.id}_${Date.now()}@ramadan.app`;
-                const randomPassword = Math.random().toString(36).slice(-10) + Date.now().toString(36);
-                
-                await this.auth.createUserWithEmailAndPassword(randomEmail, randomPassword);
-            }
-            
-            await new Promise((resolve, reject) => {
-                const unsubscribe = this.auth.onAuthStateChanged((user) => {
-                    if (user) {
-                        unsubscribe();
-                        this.currentUser = user;
-                        resolve(user);
-                    }
-                });
-                
-                setTimeout(() => {
-                    unsubscribe();
-                    reject(new Error('Authentication timeout'));
-                }, 10000);
-            });
-            
-            this.firebaseInitialized = true;
-            return true;
-            
-        } catch (error) {
-            this.showNotification("Error", "Failed to connect to database", "error");
-            return false;
-        }
-    }
-
-    setupFirebaseAuth() {
-        if (!this.auth) return;
-        
-        this.auth.onAuthStateChanged(async (user) => {
-            if (user) {
-                this.currentUser = user;
-                
-                if (this.userState.firebaseUid !== user.uid) {
-                    this.userState.firebaseUid = user.uid;
-                    await this.syncUserWithFirebase();
-                }
-            } else {
-                try {
-                    await this.auth.signInAnonymously();
-                } catch (error) {
-                    // Silent fail
-                }
-            }
-        });
-    }
-
-    async syncUserWithFirebase() {
-        try {
-            if (!this.db || !this.auth.currentUser) {
-                return;
-            }
-            
-            const firebaseUid = this.auth.currentUser.uid;
-            const telegramId = this.tgUser.id;
-            
-            const userRef = this.db.ref(`users/${telegramId}`);
-            const userSnapshot = await userRef.once('value');
-            
-            if (!userSnapshot.exists()) {
-                const userData = {
-                    ...this.getDefaultUserState(),
-                    firebaseUid: firebaseUid,
-                    telegramId: telegramId,
-                    createdAt: this.getServerTime(),
-                    lastSynced: this.getServerTime(),
-                    isNewUser: true
-                };
-                
-                await userRef.set(userData);
-            } else {
-                await userRef.update({
-                    firebaseUid: firebaseUid,
-                    lastSynced: this.getServerTime()
-                });
-            }
-            
-        } catch (error) {
-            // Silent fail
-        }
+        // لم نعد نهيء Firebase في المتصفح
+        this.firebaseInitialized = true;
+        return true;
     }
 
     async loadUserData(forceRefresh = false) {
@@ -1378,7 +1248,6 @@ class TornadoApp {
                 this.userState = cachedData;
                 this.userXP = this.safeNumber(cachedData.xp);
                 this.lastDailyCheckin = cachedData.lastDailyCheckin || 0;
-                this.totalCheckins = cachedData.totalCheckins || 0;
                 
                 if (cachedData.lastDailyCheckin) {
                     const checkinDate = new Date(cachedData.lastDailyCheckin).toDateString();
@@ -1394,67 +1263,44 @@ class TornadoApp {
         }
         
         try {
-            if (!this.db || !this.firebaseInitialized || !this.auth?.currentUser) {
+            const userData = await this.getFirebaseData('getUserData', {
+                userId: this.tgUser.id
+            });
+            
+            if (userData) {
+                this.userState = userData;
+                this.userXP = this.safeNumber(userData.xp);
+                this.userCompletedTasks = new Set(userData.completedTasks || []);
+                this.todayAds = userData.todayAds || 0;
+                this.lastDailyCheckin = userData.lastDailyCheckin || 0;
+                
+                if (userData.lastDailyCheckin) {
+                    const checkinDate = new Date(userData.lastDailyCheckin).toDateString();
+                    const today = new Date().toDateString();
+                    if (checkinDate === today) {
+                        this.lastDailyCheckinDate = today;
+                    }
+                }
+                
+                this.cache.set(cacheKey, userData, 60000);
+            } else {
                 this.userState = this.getDefaultUserState();
                 this.userXP = 0;
-                this.totalCheckins = 0;
-                this.updateHeader();
-                
-                if (this.auth && !this.auth.currentUser) {
-                    setTimeout(() => {
-                        this.initializeFirebase();
-                    }, 2000);
-                }
-                
-                return;
             }
             
-            const telegramId = this.tgUser.id;
-            
-            const userRef = this.db.ref(`users/${telegramId}`);
-            const userSnapshot = await userRef.once('value');
-            
-            let userData;
-            
-            if (userSnapshot.exists()) {
-                userData = userSnapshot.val();
-                userData = await this.updateExistingUser(userRef, userData);
-            } else {
-                userData = await this.createNewUser(userRef);
-            }
-            
-            if (userData.firebaseUid !== this.auth.currentUser.uid) {
-                await userRef.update({
-                    firebaseUid: this.auth.currentUser.uid,
-                    lastUpdated: this.getServerTime()
-                });
-                userData.firebaseUid = this.auth.currentUser.uid;
-            }
-            
-            this.userState = userData;
-            this.userXP = this.safeNumber(userData.xp);
-            this.userCompletedTasks = new Set(userData.completedTasks || []);
-            this.todayAds = userData.todayAds || 0;
-            this.lastDailyCheckin = userData.lastDailyCheckin || 0;
-            this.totalCheckins = userData.totalCheckins || 0;
-            
-            if (userData.lastDailyCheckin) {
-                const checkinDate = new Date(userData.lastDailyCheckin).toDateString();
-                const today = new Date().toDateString();
-                if (checkinDate === today) {
-                    this.lastDailyCheckinDate = today;
-                }
-            }
-            
-            this.cache.set(cacheKey, userData, 60000);
             this.updateHeader();
             
         } catch (error) {
-            this.showNotification("Warning", "Using local data", "warning");
+            console.error('Load user data error:', error);
             this.userState = this.getDefaultUserState();
             this.userXP = 0;
-            this.totalCheckins = 0;
             this.updateHeader();
+            
+            this.notificationManager?.showNotification(
+                "Data Sync Error",
+                "Using local data. Will sync when connection improves.",
+                "warning"
+            );
         }
     }
 
@@ -1476,10 +1322,9 @@ class TornadoApp {
             totalTasksCompleted: 0,
             referralEarnings: 0,
             lastDailyCheckin: 0,
-            totalCheckins: 0,
             status: 'free',
-            lastUpdated: this.getServerTime(),
-            firebaseUid: this.auth?.currentUser?.uid || 'pending',
+            lastUpdated: Date.now(),
+            firebaseUid: 'none',
             welcomeTasksCompleted: false,
             isNewUser: false,
             totalWithdrawnAmount: 0,
@@ -1489,93 +1334,6 @@ class TornadoApp {
             todayAds: 0,
             lastAdResetDate: new Date().toDateString()
         };
-    }
-
-    async createNewUser(userRef) {
-        const multiAccountAllowed = await this.checkMultiAccount(this.tgUser.id, false);
-        if (!multiAccountAllowed) {
-            return this.getDefaultUserState();
-        }
-        
-        let referralId = null;
-        const startParam = this.tg?.initDataUnsafe?.start_param;
-        
-        if (startParam) {
-            referralId = this.extractReferralId(startParam);
-            
-            if (referralId && referralId > 0 && referralId !== this.tgUser.id) {
-                const referrerRef = this.db.ref(`users/${referralId}`);
-                const referrerSnapshot = await referrerRef.once('value');
-                if (referrerSnapshot.exists()) {
-                    this.pendingReferralAfterWelcome = referralId;
-                    
-                    await this.db.ref(`referrals/${referralId}/${this.tgUser.id}`).set({
-                        userId: this.tgUser.id,
-                        username: this.tgUser.username ? `@${this.tgUser.username}` : 'No Username',
-                        firstName: this.getShortName(this.tgUser.first_name || ''),
-                        photoUrl: this.tgUser.photo_url || this.appConfig.DEFAULT_USER_AVATAR,
-                        joinedAt: this.getServerTime(),
-                        state: 'pending',
-                        bonusGiven: false,
-                        bonusAmount: this.appConfig.REFERRAL_BONUS_TON,
-                        verifiedAt: null
-                    });
-                } else {
-                    referralId = null;
-                }
-            } else {
-                referralId = null;
-            }
-        }
-        
-        const currentTime = this.getServerTime();
-        const today = new Date().toDateString();
-        
-        const userData = {
-            id: this.tgUser.id,
-            username: this.tgUser.username ? `@${this.tgUser.username}` : 'No Username',
-            telegramId: this.tgUser.id,
-            firstName: this.getShortName(this.tgUser.first_name || ''),
-            photoUrl: this.tgUser.photo_url || this.appConfig.DEFAULT_USER_AVATAR,
-            balance: 0,
-            xp: 0,
-            referrals: 0,
-            referredBy: referralId,
-            totalEarned: 0,
-            totalTasks: 0,
-            totalWithdrawals: 0,
-            totalAds: 0,
-            totalPromoCodes: 0,
-            totalTasksCompleted: 0,
-            referralEarnings: 0,
-            completedTasks: [],
-            lastWithdrawalDate: null,
-            lastDailyCheckin: 0,
-            totalCheckins: 0,
-            createdAt: currentTime,
-            lastActive: currentTime,
-            status: 'free',
-            referralState: referralId ? 'pending' : null,
-            firebaseUid: this.auth?.currentUser?.uid || 'pending',
-            welcomeTasksCompleted: false,
-            welcomeTasksCompletedAt: null,
-            isNewUser: true,
-            totalWithdrawnAmount: 0,
-            totalWatchAds: 0,
-            todayAds: 0,
-            lastAdResetDate: today,
-            theme: 'dark'
-        };
-        
-        await userRef.set(userData);
-        
-        try {
-            await this.updateAppStats('totalUsers', 1);
-        } catch (statsError) {
-            // Silent fail
-        }
-        
-        return userData;
     }
 
     async checkMultiAccount(tgId, showBanPage = true) {
@@ -1591,15 +1349,12 @@ class TornadoApp {
                 }
                 
                 try {
-                    if (this.db) {
-                        await this.db.ref(`users/${tgId}`).update({
-                            status: 'ban',
-                            banReason: 'Multiple accounts detected on same IP',
-                            bannedAt: this.getServerTime()
-                        });
-                    }
+                    await this.getFirebaseData('banUser', {
+                        userId: tgId,
+                        reason: 'Multiple accounts detected on same IP'
+                    });
                 } catch (error) {
-                    // Silent fail
+                    console.warn('Ban user error:', error);
                 }
                 
                 return false;
@@ -1612,6 +1367,7 @@ class TornadoApp {
             
             return true;
         } catch (error) {
+            console.warn('Check multi-account error:', error);
             return true;
         }
     }
@@ -1685,65 +1441,6 @@ class TornadoApp {
         }
     }
 
-    async updateExistingUser(userRef, userData) {
-        const currentTime = this.getServerTime();
-        const today = new Date().toDateString();
-        
-        await userRef.update({ 
-            lastActive: currentTime,
-            username: this.tgUser.username ? `@${this.tgUser.username}` : 'No Username',
-            firstName: userData.firstName || this.getShortName(this.tgUser.first_name || 'User')
-        });
-        
-        if (userData.completedTasks && Array.isArray(userData.completedTasks)) {
-            this.userCompletedTasks = new Set(userData.completedTasks);
-        } else {
-            this.userCompletedTasks = new Set();
-            userData.completedTasks = [];
-            await userRef.update({ completedTasks: [] });
-        }
-        
-        const defaultData = {
-            lastDailyCheckin: userData.lastDailyCheckin || 0,
-            totalCheckins: userData.totalCheckins || 0,
-            status: userData.status || 'free',
-            referralState: userData.referralState || 'verified',
-            referralEarnings: userData.referralEarnings || 0,
-            totalEarned: userData.totalEarned || 0,
-            totalTasks: userData.totalTasks || 0,
-            totalWithdrawals: userData.totalWithdrawals || 0,
-            totalAds: userData.totalAds || 0,
-            totalPromoCodes: userData.totalPromoCodes || 0,
-            totalTasksCompleted: userData.totalTasksCompleted || 0,
-            balance: userData.balance || 0,
-            xp: userData.xp || 0,
-            referrals: userData.referrals || 0,
-            firebaseUid: this.auth?.currentUser?.uid || userData.firebaseUid || null,
-            welcomeTasksCompleted: userData.welcomeTasksCompleted || false,
-            welcomeTasksCompletedAt: userData.welcomeTasksCompletedAt || null,
-            isNewUser: userData.isNewUser || false,
-            totalWithdrawnAmount: userData.totalWithdrawnAmount || 0,
-            totalWatchAds: userData.totalWatchAds || 0,
-            todayAds: userData.todayAds || 0,
-            lastAdResetDate: userData.lastAdResetDate || today,
-            theme: userData.theme || 'dark'
-        };
-        
-        const updates = {};
-        Object.keys(defaultData).forEach(key => {
-            if (userData[key] === undefined) {
-                updates[key] = defaultData[key];
-                userData[key] = defaultData[key];
-            }
-        });
-        
-        if (Object.keys(updates).length > 0) {
-            await userRef.update(updates);
-        }
-        
-        return userData;
-    }
-
     extractReferralId(startParam) {
         if (!startParam) return null;
         
@@ -1766,110 +1463,55 @@ class TornadoApp {
 
     async processReferralRegistrationWithBonus(referrerId, newUserId) {
         try {
-            if (!this.db) return;
-            
-            const referrerRef = this.db.ref(`users/${referrerId}`);
-            const referrerSnapshot = await referrerRef.once('value');
-            
-            if (!referrerSnapshot.exists()) return;
-            
-            const referrerData = referrerSnapshot.val();
-            
-            if (referrerData.status === 'ban') return;
-            
-            const referralBonus = this.appConfig.REFERRAL_BONUS_TON;
-            
-            const newBalance = this.safeNumber(referrerData.balance) + referralBonus;
-            const newReferrals = (referrerData.referrals || 0) + 1;
-            const newReferralEarnings = this.safeNumber(referrerData.referralEarnings) + referralBonus;
-            const newTotalEarned = this.safeNumber(referrerData.totalEarned) + referralBonus;
-            const currentTime = this.getServerTime();
-            
-            await referrerRef.update({
-                balance: newBalance,
-                referrals: newReferrals,
-                referralEarnings: newReferralEarnings,
-                totalEarned: newTotalEarned
+            const result = await this.getFirebaseData('processReferral', {
+                referrerId: referrerId,
+                newUserId: newUserId,
+                bonusAmount: this.appConfig.REFERRAL_BONUS_TON
             });
             
-            await this.db.ref(`referrals/${referrerId}/${newUserId}`).update({
-                state: 'verified',
-                bonusGiven: true,
-                verifiedAt: currentTime,
-                bonusAmount: referralBonus
-            });
-            
-            await this.db.ref(`users/${newUserId}`).update({
-                referralState: 'verified'
-            });
-            
-            if (this.tgUser && referrerId === this.tgUser.id) {
-                this.userState.balance = newBalance;
-                this.userState.referrals = newReferrals;
-                this.userState.referralEarnings = newReferralEarnings;
-                this.userState.totalEarned = newTotalEarned;
+            if (result && result.success) {
+                if (this.tgUser && referrerId === this.tgUser.id) {
+                    this.userState.balance = result.newBalance;
+                    this.userState.referrals = result.newReferrals;
+                    this.userState.referralEarnings = result.newReferralEarnings;
+                    this.userState.totalEarned = result.newTotalEarned;
+                    
+                    this.updateHeader();
+                }
                 
-                this.updateHeader();
+                this.cache.delete(`user_${referrerId}`);
+                this.cache.delete(`referrals_${referrerId}`);
+                
+                await this.refreshReferralsList();
             }
             
-            this.cache.delete(`user_${referrerId}`);
-            this.cache.delete(`referrals_${referrerId}`);
-            
-            await this.refreshReferralsList();
-            
         } catch (error) {
-            // Silent fail
+            console.warn('Process referral bonus error:', error);
         }
     }
 
     async processReferralTaskBonus(referrerId, taskReward) {
         try {
-            if (!this.db) return;
             if (!referrerId || referrerId === this.tgUser.id) return;
             if (this.appConfig.REFERRAL_PERCENTAGE <= 0) return;
             
-            const referrerRef = this.db.ref(`users/${referrerId}`);
-            const referrerSnapshot = await referrerRef.once('value');
-            
-            if (!referrerSnapshot.exists()) return;
-            
-            const referrerData = referrerSnapshot.val();
-            
-            if (referrerData.status === 'ban') return;
-            
-            const referralPercentage = this.appConfig.REFERRAL_PERCENTAGE;
-            const referralBonus = (taskReward * referralPercentage) / 100;
-            
-            if (referralBonus <= 0) return;
-            
-            const newBalance = this.safeNumber(referrerData.balance) + referralBonus;
-            const newReferralEarnings = this.safeNumber(referrerData.referralEarnings) + referralBonus;
-            const newTotalEarned = this.safeNumber(referrerData.totalEarned) + referralBonus;
-            
-            await referrerRef.update({
-                balance: newBalance,
-                referralEarnings: newReferralEarnings,
-                totalEarned: newTotalEarned
-            });
-            
-            await this.db.ref(`referralTasks/${referrerId}`).push({
+            const result = await this.getFirebaseData('processReferralTask', {
+                referrerId: referrerId,
                 userId: this.tgUser.id,
                 taskReward: taskReward,
-                referralBonus: referralBonus,
-                percentage: referralPercentage,
-                createdAt: this.getServerTime()
+                percentage: this.appConfig.REFERRAL_PERCENTAGE
             });
             
-            if (referrerId === this.tgUser.id) {
-                this.userState.balance = newBalance;
-                this.userState.referralEarnings = newReferralEarnings;
-                this.userState.totalEarned = newTotalEarned;
+            if (result && result.success && referrerId === this.tgUser.id) {
+                this.userState.balance = result.newBalance;
+                this.userState.referralEarnings = result.newReferralEarnings;
+                this.userState.totalEarned = result.newTotalEarned;
                 
                 this.updateHeader();
             }
             
         } catch (error) {
-            // Silent fail
+            console.warn('Process referral task bonus error:', error);
         }
     }
 
@@ -1878,61 +1520,36 @@ class TornadoApp {
             if (this.taskManager) {
                 return await this.taskManager.loadTasksData();
             }
-            return [];
+            
+            const tasks = await this.getFirebaseData('getTasks');
+            this.allTasks = tasks || [];
+            return this.allTasks;
+            
         } catch (error) {
-            this.showNotification("Warning", "Failed to load tasks", "warning");
+            console.warn('Load tasks data error:', error);
             return [];
         }
     }
 
     async loadHistoryData() {
         try {
-            if (!this.db) {
-                this.userWithdrawals = [];
-                return;
-            }
-            
-            const statuses = ['pending', 'completed', 'rejected'];
-            const withdrawalPromises = statuses.map(status => 
-                this.db.ref(`withdrawals/${status}`).orderByChild('userId').equalTo(this.tgUser.id).once('value')
-            );
-            
-            const withdrawalSnapshots = await Promise.all(withdrawalPromises);
-            this.userWithdrawals = [];
-            
-            withdrawalSnapshots.forEach(snap => {
-                snap.forEach(child => {
-                    this.userWithdrawals.push({ 
-                        id: child.key, 
-                        ...child.val(),
-                        transactionLink: child.val().transactionLink || null
-                    });
-                });
+            const withdrawals = await this.getFirebaseData('getWithdrawals', {
+                userId: this.tgUser.id
             });
             
-            this.userWithdrawals.sort((a, b) => (b.createdAt || b.timestamp) - (a.createdAt || a.timestamp));
+            this.userWithdrawals = withdrawals || [];
             
         } catch (error) {
-            this.showNotification("Warning", "Failed to load history", "warning");
+            console.warn('Load history data error:', error);
             this.userWithdrawals = [];
         }
     }
 
     async loadAppStats() {
         try {
-            if (!this.db) {
-                this.appStats = {
-                    totalUsers: 0,
-                    onlineUsers: 0,
-                    totalPayments: 0,
-                    totalWithdrawals: 0
-                };
-                return;
-            }
+            const stats = await this.getFirebaseData('getAppStats');
             
-            const statsSnapshot = await this.db.ref('appStats').once('value');
-            if (statsSnapshot.exists()) {
-                const stats = statsSnapshot.val();
+            if (stats) {
                 const totalUsers = this.safeNumber(stats.totalUsers || 0);
                 const minOnline = Math.floor(totalUsers * 0.05);
                 const maxOnline = Math.floor(totalUsers * 0.20);
@@ -1951,41 +1568,16 @@ class TornadoApp {
                     totalPayments: 0,
                     totalWithdrawals: 0
                 };
-                await this.db.ref('appStats').set(this.appStats);
             }
             
         } catch (error) {
-            this.showNotification("Warning", "Failed to load stats", "warning");
+            console.warn('Load app stats error:', error);
             this.appStats = {
                 totalUsers: 0,
                 onlineUsers: 0,
                 totalPayments: 0,
                 totalWithdrawals: 0
             };
-        }
-    }
-
-    async updateAppStats(stat, value = 1) {
-        try {
-            if (!this.db) return;
-            
-            if (stat === 'totalUsers') {
-                const newTotal = (this.appStats.totalUsers || 0) + value;
-                const minOnline = Math.floor(newTotal * 0.05);
-                const maxOnline = Math.floor(newTotal * 0.20);
-                const onlineUsers = Math.floor(Math.random() * (maxOnline - minOnline + 1)) + minOnline;
-                
-                await this.db.ref('appStats/onlineUsers').set(Math.max(onlineUsers, Math.floor(newTotal * 0.05)));
-            }
-            
-            await this.db.ref(`appStats/${stat}`).transaction(current => (current || 0) + value);
-            this.appStats[stat] = (this.appStats[stat] || 0) + value;
-            
-            if (stat === 'totalUsers') {
-                await this.loadAppStats();
-            }
-        } catch (error) {
-            // Silent fail
         }
     }
 
@@ -2075,7 +1667,11 @@ class TornadoApp {
                             } else {
                                 btn.innerHTML = '<i class="fas fa-external-link-alt"></i> Join';
                                 btn.disabled = false;
-                                app.showNotification("Not a Member", `Please join ${task.name} first`, "warning");
+                                app.notificationManager.showNotification(
+                                    "Not a Member", 
+                                    `Please join ${task.name} first`, 
+                                    "warning"
+                                );
                             }
                         } else {
                             btn.innerHTML = '<i class="fas fa-check"></i> Verified';
@@ -2103,7 +1699,7 @@ class TornadoApp {
                         await app.completeWelcomeTasks();
                         modal.remove();
                         app.showPage('tasks-page');
-                        app.showNotification("Success", "Welcome bonus received!", "success");
+                        app.notificationManager.showNotification("Success", "Welcome bonus received!", "success");
                     } else {
                         checkBtn.innerHTML = '<i class="fas fa-check-circle"></i> Check & Get 0.01 TON';
                         checkBtn.disabled = false;
@@ -2114,12 +1710,16 @@ class TornadoApp {
                                 return task ? task.name : item;
                             }).join(', ');
                             
-                            app.showNotification("Verification Failed", `Please join: ${missingItems}`, "error");
+                            app.notificationManager.showNotification(
+                                "Verification Failed", 
+                                `Please join: ${missingItems}`, 
+                                "error"
+                            );
                         }
                     }
                 } catch (error) {
-                    app.showNotification("Error", "Failed to verify tasks", "error");
-                    checkBtn.innerHTML = '<i class="fas fa-check-circle"></i> Check & Get 0.01 TON';
+                    app.notificationManager.showNotification("Error", "Failed to verify tasks", "error");
+                    checkBtn.innerHTML = '<i class="fas fa-check-circle"></i> Check & Get 0.005 TON';
                     checkBtn.disabled = false;
                 }
             });
@@ -2148,7 +1748,7 @@ class TornadoApp {
             };
             
         } catch (error) {
-            this.showNotification("Warning", "Verification failed", "warning");
+            console.warn('Verify welcome tasks error:', error);
             return {
                 success: false,
                 verified: [],
@@ -2163,25 +1763,15 @@ class TornadoApp {
                 return false;
             }
             
-            const response = await fetch(`https://api.telegram.org/bot${this.botToken}/getChatMember`, {
-                method: 'POST',
-                headers: { 
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({
+            const result = await this.apiRequest('telegram-bot', 'getChatMember', {
+                params: {
                     chat_id: channelUsername,
                     user_id: this.tgUser.id
-                })
+                }
             });
             
-            if (!response.ok) {
-                return false;
-            }
-            
-            const data = await response.json();
-            
-            if (data.ok && data.result) {
-                const status = data.result.status;
+            if (result.ok && result.result) {
+                const status = result.result.status;
                 const isMember = (status === 'member' || status === 'administrator' || 
                                 status === 'creator' || status === 'restricted');
                 return isMember;
@@ -2190,6 +1780,7 @@ class TornadoApp {
             return false;
             
         } catch (error) {
+            console.warn('Check Telegram membership error:', error);
             return false;
         }
     }
@@ -2197,57 +1788,52 @@ class TornadoApp {
     async completeWelcomeTasks() {
         try {
             const reward = 0.01;
-            const currentBalance = this.safeNumber(this.userState.balance);
-            const newBalance = currentBalance + reward;
             const currentTime = this.getServerTime();
             
-            const updates = {
-                balance: newBalance,
-                totalEarned: this.safeNumber(this.userState.totalEarned) + reward,
-                totalTasks: this.safeNumber(this.userState.totalTasks) + 1,
-                welcomeTasksCompleted: true,
-                welcomeTasksCompletedAt: currentTime,
-                welcomeTasksVerifiedAt: currentTime,
-                referralState: 'verified',
-                lastUpdated: currentTime,
-                isNewUser: false
-            };
+            const result = await this.getFirebaseData('completeWelcomeTasks', {
+                userId: this.tgUser.id,
+                reward: reward,
+                timestamp: currentTime,
+                referredBy: this.pendingReferralAfterWelcome
+            });
             
-            if (this.db) {
-                await this.db.ref(`users/${this.tgUser.id}`).update(updates);
+            if (result && result.success) {
+                this.userState.balance = result.newBalance;
+                this.userState.totalEarned = result.newTotalEarned;
+                this.userState.totalTasks = result.newTotalTasks;
+                this.userState.welcomeTasksCompleted = true;
+                this.userState.welcomeTasksCompletedAt = currentTime;
+                this.userState.referralState = 'verified';
+                this.userState.isNewUser = false;
+                
+                if (result.referredBy) {
+                    this.userState.referredBy = result.referredBy;
+                }
+                
+                await this.loadUserData(true);
+                
+                this.cache.delete(`user_${this.tgUser.id}`);
+                this.updateHeader();
+                
+                if (this.referralManager) {
+                    await this.referralManager.refreshReferralsList();
+                }
+                
+                if (this.userState.referredBy) {
+                    this.notificationManager.showNotification(
+                        "Referral Bonus", 
+                        "Your referrer received ref bonus", 
+                        "success"
+                    );
+                }
+                
+                return true;
             }
             
-            this.userState.balance = newBalance;
-            this.userState.totalEarned = this.safeNumber(this.userState.totalEarned) + reward;
-            this.userState.totalTasks = this.safeNumber(this.userState.totalTasks) + 1;
-            this.userState.welcomeTasksCompleted = true;
-            this.userState.welcomeTasksCompletedAt = currentTime;
-            this.userState.welcomeTasksVerifiedAt = currentTime;
-            this.userState.referralState = 'verified';
-            this.userState.isNewUser = false;
+            return false;
             
-            if (this.pendingReferralAfterWelcome && this.pendingReferralAfterWelcome !== this.tgUser.id) {
-                await this.processReferralRegistrationWithBonus(this.pendingReferralAfterWelcome, this.tgUser.id);
-                this.userState.referredBy = this.pendingReferralAfterWelcome;
-                this.pendingReferralAfterWelcome = null;
-            }
-            
-            await this.loadUserData(true);
-            
-            this.cache.delete(`user_${this.tgUser.id}`);
-            this.updateHeader();
-            
-            if (this.referralManager) {
-                await this.referralManager.refreshReferralsList();
-            }
-            
-            if (this.userState.referredBy) {
-                this.showNotification("Referral Bonus", "Your referrer received ref bonus", "success");
-            }
-            
-            return true;
         } catch (error) {
-            this.showNotification("Error", "Failed to complete welcome tasks", "error");
+            console.warn('Complete welcome tasks error:', error);
             return false;
         }
     }
@@ -2264,31 +1850,11 @@ class TornadoApp {
 
     async checkReferralsVerification() {
         try {
-            if (!this.db || !this.tgUser) return;
+            const referrals = await this.getFirebaseData('checkReferrals', {
+                userId: this.tgUser.id
+            });
             
-            const referralsRef = await this.db.ref(`referrals/${this.tgUser.id}`).once('value');
-            if (!referralsRef.exists()) return;
-            
-            const referrals = referralsRef.val();
-            let updated = false;
-            
-            for (const referralId in referrals) {
-                const referral = referrals[referralId];
-                
-                if (referral.state === 'pending') {
-                    const newUserRef = await this.db.ref(`users/${referralId}`).once('value');
-                    if (newUserRef.exists()) {
-                        const newUserData = newUserRef.val();
-                        
-                        if (newUserData.welcomeTasksCompleted) {
-                            await this.processReferralRegistrationWithBonus(this.tgUser.id, referralId);
-                            updated = true;
-                        }
-                    }
-                }
-            }
-            
-            if (updated) {
+            if (referrals && referrals.updated) {
                 this.cache.delete(`user_${this.tgUser.id}`);
                 this.cache.delete(`referrals_${this.tgUser.id}`);
                 
@@ -2298,29 +1864,18 @@ class TornadoApp {
             }
             
         } catch (error) {
-            // Silent fail
+            console.warn('Check referrals verification error:', error);
         }
     }
 
     async loadAdTimers() {
         try {
-            if (this.db) {
-                const timersRef = await this.db.ref(`userAdTimers/${this.tgUser.id}`).once('value');
-                if (timersRef.exists()) {
-                    const data = timersRef.val();
-                    this.adTimers = {
-                        ad1: data.ad1 || 0,
-                        ad2: data.ad2 || 0
-                    };
-                    return;
-                }
-            }
-            
             const savedTimers = localStorage.getItem(`ad_timers_${this.tgUser.id}`);
             if (savedTimers) {
                 this.adTimers = JSON.parse(savedTimers);
             }
         } catch (error) {
+            console.warn('Load ad timers error:', error);
             this.adTimers = {
                 ad1: 0,
                 ad2: 0
@@ -2330,18 +1885,9 @@ class TornadoApp {
 
     async saveAdTimers() {
         try {
-            const currentTime = this.getServerTime();
-            if (this.db) {
-                await this.db.ref(`userAdTimers/${this.tgUser.id}`).set({
-                    ad1: this.adTimers.ad1,
-                    ad2: this.adTimers.ad2,
-                    lastUpdated: currentTime
-                });
-            }
-            
             localStorage.setItem(`ad_timers_${this.tgUser.id}`, JSON.stringify(this.adTimers));
         } catch (error) {
-            // Silent fail
+            console.warn('Save ad timers error:', error);
         }
     }
 
@@ -2604,8 +2150,8 @@ class TornadoApp {
                             </div>
                             <div class="card-divider"></div>
                             <div class="checkin-reward">
-                                <img src="https://cdn-icons-png.flaticon.com/512/12114/12114247.png" class="balance-icon" alt="TON">
-                                <span>Reward: ${FEATURES_CONFIG.DAILY_CHECKIN_REWARD.toFixed(3)} TON</span>
+                                <img src="https://cdn-icons-png.flaticon.com/512/15208/15208522.png" alt="TON">
+                                <span>Reward: ${FEATURES_CONFIG.DAILY_CHECKIN_REWARD.toFixed(5)} TON</span>
                             </div>
                             <button class="checkin-btn" id="daily-checkin-btn">
                                 <i class="fas fa-calendar-check"></i> CHECK-IN
@@ -2652,19 +2198,12 @@ class TornadoApp {
                             <div class="exchange-rate-info">
                                 <span class="rate-label">1 TON =</span>
                                 <span class="rate-value">${this.appConfig.XP_PER_TON} XP</span>
-                            </div>
-                            
-                            <div class="exchange-note">
-                                <i class="fas fa-info-circle"></i>
-                                <span>Minimum Exchange: ${this.appConfig.MIN_EXCHANGE_TON} TON</span>
+                                <span class="rate-min">(Min: ${this.appConfig.MIN_EXCHANGE_TON} TON)</span>
                             </div>
                             
                             <div class="exchange-input-group">
-                                <div class="amount-input-container">
-                                    <input type="number" id="exchange-input" class="form-input" 
-                                           placeholder="TON amount" step="0.01" min="${this.appConfig.MIN_EXCHANGE_TON}">
-                                    <button type="button" class="max-btn" id="exchange-max-btn">MAX</button>
-                                </div>
+                                <input type="number" id="exchange-input" class="exchange-input" 
+                                       placeholder="TON amount" step="0.01" min="${this.appConfig.MIN_EXCHANGE_TON}">
                                 <button class="exchange-btn" id="exchange-btn">
                                     <i class="fas fa-coins"></i> Exchange
                                 </button>
@@ -2728,6 +2267,9 @@ class TornadoApp {
             let mainTasks = [];
             if (this.taskManager) {
                 mainTasks = await this.taskManager.loadTasksFromDatabase('main');
+            } else {
+                const tasks = await this.getFirebaseData('getTasks', { category: 'main' });
+                mainTasks = tasks || [];
             }
             
             if (mainTasks.length > 0) {
@@ -2743,6 +2285,7 @@ class TornadoApp {
                 `;
             }
         } catch (error) {
+            console.warn('Load main tasks error:', error);
             mainTasksList.innerHTML = `
                 <div class="no-tasks">
                     <i class="fas fa-exclamation-triangle"></i>
@@ -2760,6 +2303,9 @@ class TornadoApp {
             let socialTasks = [];
             if (this.taskManager) {
                 socialTasks = await this.taskManager.loadTasksFromDatabase('social');
+            } else {
+                const tasks = await this.getFirebaseData('getTasks', { category: 'social' });
+                socialTasks = tasks || [];
             }
             
             socialTasks = socialTasks.filter(task => task.status !== 'stopped');
@@ -2777,6 +2323,7 @@ class TornadoApp {
                 `;
             }
         } catch (error) {
+            console.warn('Load social tasks error:', error);
             socialTasksList.innerHTML = `
                 <div class="no-tasks">
                     <i class="fas fa-exclamation-triangle"></i>
@@ -2862,13 +2409,17 @@ class TornadoApp {
         
         const code = promoInput.value.trim().toUpperCase();
         if (!code) {
-            this.showNotification("Promo Code", "Please enter a promo code", "warning");
+            this.notificationManager.showNotification("Promo Code", "Please enter a promo code", "warning");
             return;
         }
         
         const rateLimitCheck = this.rateLimiter.checkLimit(this.tgUser.id, 'promo_code');
         if (!rateLimitCheck.allowed) {
-            this.showNotification("Rate Limit", `Please wait ${rateLimitCheck.remaining} seconds`, "warning");
+            this.notificationManager.showNotification(
+                "Rate Limit", 
+                `Please wait ${rateLimitCheck.remaining} seconds before using another promo code`, 
+                "warning"
+            );
             return;
         }
         
@@ -2879,7 +2430,7 @@ class TornadoApp {
                 await window.AdBlock19345.show();
                 adShown = true;
             } catch (error) {
-                // Silent fail
+                console.warn('Ad #1 error:', error);
             }
         }
         
@@ -2888,12 +2439,12 @@ class TornadoApp {
                 await show_10558486();
                 adShown = true;
             } catch (error) {
-                // Silent fail
+                console.warn('Ad #2 error:', error);
             }
         }
         
         if (!adShown) {
-            this.showNotification("Ad Required", "Please watch the ad to apply promo code", "info");
+            this.notificationManager.showNotification("Ad Required", "Please watch the ad to apply promo code", "info");
             return;
         }
         
@@ -2904,83 +2455,37 @@ class TornadoApp {
         promoBtn.disabled = true;
         
         try {
-            let promoData = null;
-            if (this.db) {
-                const promoCodesRef = await this.db.ref('config/promoCodes').once('value');
-                if (promoCodesRef.exists()) {
-                    const promoCodes = promoCodesRef.val();
-                    for (const id in promoCodes) {
-                        if (promoCodes[id].code === code) {
-                            promoData = { id, ...promoCodes[id] };
-                            break;
-                        }
-                    }
+            const result = await this.getFirebaseData('applyPromoCode', {
+                userId: this.tgUser.id,
+                code: code
+            });
+            
+            if (result && result.success) {
+                if (result.rewardType === 'ton') {
+                    this.userState.balance = result.newBalance;
+                    this.userState.totalEarned = result.newTotalEarned;
+                } else {
+                    this.userState.xp = result.newXP;
                 }
-            }
-            
-            if (!promoData) {
-                this.showNotification("Promo Code", "Invalid promo code", "error");
-                promoBtn.innerHTML = originalText;
-                promoBtn.disabled = false;
-                return;
-            }
-            
-            if (this.db) {
-                const usedRef = await this.db.ref(`usedPromoCodes/${this.tgUser.id}/${promoData.id}`).once('value');
-                if (usedRef.exists()) {
-                    this.showNotification("Promo Code", "You have already used this code", "error");
-                    promoBtn.innerHTML = originalText;
-                    promoBtn.disabled = false;
-                    return;
-                }
-            }
-            
-            let rewardType = promoData.rewardType || 'ton';
-            let rewardAmount = this.safeNumber(promoData.reward || 0.01);
-            
-            const userUpdates = {};
-            
-            if (rewardType === 'ton') {
-                const currentBalance = this.safeNumber(this.userState.balance);
-                userUpdates.balance = currentBalance + rewardAmount;
-                userUpdates.totalEarned = this.safeNumber(this.userState.totalEarned) + rewardAmount;
-            } else {
-                const currentXP = this.safeNumber(this.userState.xp);
-                userUpdates.xp = currentXP + rewardAmount;
-            }
-            
-            userUpdates.totalPromoCodes = this.safeNumber(this.userState.totalPromoCodes) + 1;
-            
-            if (this.db) {
-                await this.db.ref(`users/${this.tgUser.id}`).update(userUpdates);
+                this.userState.totalPromoCodes = result.newTotalPromoCodes;
                 
-                await this.db.ref(`usedPromoCodes/${this.tgUser.id}/${promoData.id}`).set({
-                    code: code,
-                    reward: rewardAmount,
-                    rewardType: rewardType,
-                    claimedAt: this.getServerTime()
-                });
+                this.cache.delete(`user_${this.tgUser.id}`);
                 
-                await this.db.ref(`config/promoCodes/${promoData.id}/usedCount`).transaction(current => (current || 0) + 1);
-            }
-            
-            if (rewardType === 'ton') {
-                this.userState.balance = userUpdates.balance;
-                this.userState.totalEarned = userUpdates.totalEarned;
+                this.updateHeader();
+                promoInput.value = '';
+                
+                this.notificationManager.showNotification(
+                    "Success", 
+                    `Promo code applied! +${result.rewardAmount.toFixed(5)} ${result.rewardType === 'ton' ? 'TON' : 'XP'}`, 
+                    "success"
+                );
             } else {
-                this.userState.xp = userUpdates.xp;
+                this.notificationManager.showNotification("Promo Code", result?.message || "Invalid promo code", "error");
             }
-            this.userState.totalPromoCodes = userUpdates.totalPromoCodes;
-            
-            this.cache.delete(`user_${this.tgUser.id}`);
-            
-            this.updateHeader();
-            promoInput.value = '';
-            
-            this.showNotification("Success", `Promo code applied! +${rewardAmount.toFixed(5)} ${rewardType === 'ton' ? 'TON' : 'XP'}`, "success");
             
         } catch (error) {
-            this.showNotification("Error", "Failed to apply promo code", "error");
+            console.error('Handle promo code error:', error);
+            this.notificationManager.showNotification("Error", "Failed to apply promo code", "error");
         } finally {
             promoBtn.innerHTML = originalText;
             promoBtn.disabled = false;
@@ -2995,7 +2500,11 @@ class TornadoApp {
                 
                 const rateLimitCheck = this.rateLimiter.checkLimit(this.tgUser.id, 'task_start');
                 if (!rateLimitCheck.allowed) {
-                    this.showNotification("Rate Limit", `Please wait ${rateLimitCheck.remaining} seconds`, "warning");
+                    this.notificationManager.showNotification(
+                        "Rate Limit", 
+                        `Please wait ${rateLimitCheck.remaining} seconds before starting another task`, 
+                        "warning"
+                    );
                     return;
                 }
                 
@@ -3015,18 +2524,22 @@ class TornadoApp {
 
     async handleTask(taskId, url, taskType, reward, xpReward, button) {
         if (this.userCompletedTasks.has(taskId)) {
-            this.showNotification("Already Completed", "You have already completed this task", "info");
+            this.notificationManager.showNotification("Already Completed", "You have already completed this task", "info");
             return;
         }
         
         if (this.isProcessingTask) {
-            this.showNotification("Busy", "Please complete current task first", "warning");
+            this.notificationManager.showNotification("Busy", "Please complete current task first", "warning");
             return;
         }
         
         const rateLimitCheck = this.rateLimiter.checkLimit(this.tgUser.id, 'task_start');
         if (!rateLimitCheck.allowed) {
-            this.showNotification("Rate Limit", `Please wait ${rateLimitCheck.remaining} seconds`, "warning");
+            this.notificationManager.showNotification(
+                "Rate Limit", 
+                `Please wait ${rateLimitCheck.remaining} seconds before starting another task`, 
+                "warning"
+            );
             return;
         }
         
@@ -3038,7 +2551,7 @@ class TornadoApp {
         this.isProcessingTask = true;
         
         const originalText = button.innerHTML;
-        button.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Cheaking...';
+        button.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Checking...';
         button.disabled = true;
         button.classList.remove('start');
         button.classList.add('counting');
@@ -3047,7 +2560,7 @@ class TornadoApp {
         const countdown = setInterval(() => {
             secondsLeft--;
             if (secondsLeft > 0) {
-                button.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Cheaking...';
+                button.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Checking...';
             } else {
                 clearInterval(countdown);
                 button.innerHTML = 'CHECK';
@@ -3098,79 +2611,75 @@ class TornadoApp {
                         break;
                     }
                 }
+            } else {
+                const allTasks = await this.getFirebaseData('getTask', { taskId: taskId });
+                if (allTasks) task = allTasks;
             }
             
             if (!task) {
                 throw new Error("Task not found");
             }
             
-            const chatId = this.taskManager.extractChatIdFromUrl(url);
+            const chatId = this.extractChatIdFromUrl(url);
             
             if (task.type === 'channel' || task.type === 'group') {
                 if (chatId && this.botToken) {
-                    const verificationResult = await this.taskManager.verifyTaskCompletion(
-                        taskId, 
-                        chatId, 
-                        this.tgUser.id, 
-                        this.tg?.initData || '',
-                        this.botToken
-                    );
-                    
-                    if (verificationResult.success) {
-                        await this.completeTask(taskId, taskType, task.reward, task.xpReward || 1, button);
-                    } else {
-                        this.showNotification("Verification Failed", verificationResult.message || "Please join the channel/group first!", "error");
-                        
-                        this.enableAllTaskButtons();
-                        this.isProcessingTask = false;
-                        
-                        if (button) {
-                            button.innerHTML = 'Try Again';
-                            button.disabled = false;
-                            button.classList.remove('check');
-                            button.classList.add('start');
-                            
-                            const newButton = button.cloneNode(true);
-                            button.parentNode.replaceChild(newButton, button);
-                            
-                            newButton.addEventListener('click', async (e) => {
-                                e.preventDefault();
-                                e.stopPropagation();
-                                await this.handleTask(taskId, url, taskType, task.reward, task.xpReward || 1, newButton);
-                            });
+                    const result = await this.apiRequest('telegram-bot', 'getChatMember', {
+                        params: {
+                            chat_id: chatId,
+                            user_id: this.tgUser.id
                         }
+                    });
+                    
+                    if (result.ok && result.result) {
+                        const status = result.result.status;
+                        const isMember = (status === 'member' || status === 'administrator' || 
+                                        status === 'creator' || status === 'restricted');
+                        
+                        if (isMember) {
+                            await this.completeTask(taskId, taskType, task.reward, task.xpReward || 1, button);
+                        } else {
+                            this.notificationManager.showNotification(
+                                "Verification Failed", 
+                                "Please join the channel/group first!", 
+                                "error"
+                            );
+                            
+                            this.enableAllTaskButtons();
+                            this.isProcessingTask = false;
+                            
+                            if (button) {
+                                button.innerHTML = 'Try Again';
+                                button.disabled = false;
+                                button.classList.remove('check');
+                                button.classList.add('start');
+                                
+                                const newButton = button.cloneNode(true);
+                                button.parentNode.replaceChild(newButton, button);
+                                
+                                newButton.addEventListener('click', async (e) => {
+                                    e.preventDefault();
+                                    e.stopPropagation();
+                                    await this.handleTask(taskId, url, taskType, task.reward, task.xpReward || 1, newButton);
+                                });
+                            }
+                        }
+                    } else {
+                        throw new Error("Verification failed");
                     }
                 } else {
-                    this.showNotification("Verification Failed", "Unable to verify task. Please try again.", "error");
-                    
-                    this.enableAllTaskButtons();
-                    this.isProcessingTask = false;
-                    
-                    if (button) {
-                        button.innerHTML = 'Try Again';
-                        button.disabled = false;
-                        button.classList.remove('check');
-                        button.classList.add('start');
-                        
-                        const newButton = button.cloneNode(true);
-                        button.parentNode.replaceChild(newButton, button);
-                        
-                        newButton.addEventListener('click', async (e) => {
-                            e.preventDefault();
-                            e.stopPropagation();
-                            await this.handleTask(taskId, url, taskType, task.reward, task.xpReward || 1, newButton);
-                        });
-                    }
+                    throw new Error("Unable to verify task");
                 }
             } else {
                 await this.completeTask(taskId, taskType, task.reward, task.xpReward || 1, button);
             }
             
         } catch (error) {
+            console.error('Error in handleCheckTask:', error);
             this.enableAllTaskButtons();
             this.isProcessingTask = false;
             
-            this.showNotification("Error", "Failed to verify task", "error");
+            this.notificationManager.showNotification("Error", "Failed to verify task", "error");
             
             if (button) {
                 button.innerHTML = 'Try Again';
@@ -3190,111 +2699,92 @@ class TornadoApp {
         }
     }
 
-    async completeTask(taskId, taskType, reward, xpReward, button) {
+    extractChatIdFromUrl(url) {
         try {
-            if (!this.db) {
-                throw new Error("Database not initialized");
-            }
-            
-            let task = null;
-            if (this.taskManager) {
-                const allTasks = [...(this.taskManager.mainTasks || []), ...(this.taskManager.socialTasks || [])];
-                for (const t of allTasks) {
-                    if (t.id === taskId) {
-                        task = t;
-                        break;
-                    }
+            const urlObj = new URL(url);
+            if (urlObj.hostname.includes('t.me')) {
+                const parts = urlObj.pathname.split('/');
+                if (parts.length >= 2) {
+                    return '@' + parts[1];
                 }
             }
-            
-            if (!task) {
-                throw new Error("Task not found");
-            }
-            
+            return null;
+        } catch {
+            return null;
+        }
+    }
+
+    async completeTask(taskId, taskType, reward, xpReward, button) {
+        try {
             const taskReward = this.safeNumber(reward);
             const taskXpReward = this.safeNumber(xpReward || 1);
             
-            const currentBalance = this.safeNumber(this.userState.balance);
-            const currentXP = this.safeNumber(this.userState.xp);
-            const totalEarned = this.safeNumber(this.userState.totalEarned);
-            const totalTasks = this.safeNumber(this.userState.totalTasks);
-            const totalTasksCompleted = this.safeNumber(this.userState.totalTasksCompleted);
-            
             if (this.userCompletedTasks.has(taskId)) {
-                this.showNotification("Already Completed", "This task was already completed", "info");
+                this.notificationManager.showNotification("Already Completed", "This task was already completed", "info");
                 return false;
             }
             
-            const currentTime = this.getServerTime();
-            
-            const updates = {};
-            updates.balance = currentBalance + taskReward;
-            updates.xp = currentXP + taskXpReward;
-            updates.totalEarned = totalEarned + taskReward;
-            updates.totalTasks = totalTasks + 1;
-            updates.totalTasksCompleted = totalTasksCompleted + 1;
-            
-            this.userCompletedTasks.add(taskId);
-            updates.completedTasks = [...this.userCompletedTasks];
-            
-            await this.db.ref(`users/${this.tgUser.id}`).update(updates);
-            
-            await this.db.ref(`config/tasks/${taskId}/currentCompletions`).transaction(current => {
-                const newValue = (current || 0) + 1;
-                
-                if (newValue >= task.maxCompletions) {
-                    this.db.ref(`config/tasks/${taskId}`).update({
-                        status: 'completed',
-                        taskStatus: 'completed'
-                    });
-                }
-                
-                return newValue;
+            const result = await this.getFirebaseData('completeTask', {
+                userId: this.tgUser.id,
+                taskId: taskId,
+                reward: taskReward,
+                xpReward: taskXpReward
             });
             
-            this.userState.balance = currentBalance + taskReward;
-            this.userState.xp = currentXP + taskXpReward;
-            this.userState.totalEarned = totalEarned + taskReward;
-            this.userState.totalTasks = totalTasks + 1;
-            this.userState.totalTasksCompleted = totalTasksCompleted + 1;
-            this.userState.completedTasks = [...this.userCompletedTasks];
-            
-            if (button) {
-                const taskCard = document.getElementById(`task-${taskId}`);
-                if (taskCard) {
-                    const taskBtn = taskCard.querySelector('.task-btn');
-                    if (taskBtn) {
-                        taskBtn.innerHTML = 'COMPLETED';
-                        taskBtn.className = 'task-btn completed';
-                        taskBtn.disabled = true;
-                        taskCard.classList.add('task-completed');
+            if (result && result.success) {
+                const currentBalance = this.safeNumber(this.userState.balance);
+                const currentXP = this.safeNumber(this.userState.xp);
+                
+                this.userState.balance = currentBalance + taskReward;
+                this.userState.xp = currentXP + taskXpReward;
+                this.userState.totalEarned = this.safeNumber(this.userState.totalEarned) + taskReward;
+                this.userState.totalTasks = this.safeNumber(this.userState.totalTasks) + 1;
+                this.userState.totalTasksCompleted = this.safeNumber(this.userState.totalTasksCompleted) + 1;
+                
+                this.userCompletedTasks.add(taskId);
+                this.userState.completedTasks = [...this.userCompletedTasks];
+                
+                if (button) {
+                    const taskCard = document.getElementById(`task-${taskId}`);
+                    if (taskCard) {
+                        const taskBtn = taskCard.querySelector('.task-btn');
+                        if (taskBtn) {
+                            taskBtn.innerHTML = 'COMPLETED';
+                            taskBtn.className = 'task-btn completed';
+                            taskBtn.disabled = true;
+                            taskCard.classList.add('task-completed');
+                        }
                     }
                 }
-            }
-            
-            this.updateHeader();
-            
-            await this.updateAppStats('totalTasks', 1);
-            
-            this.cache.delete(`tasks_${this.tgUser.id}`);
-            this.cache.delete(`user_${this.tgUser.id}`);
+                
+                this.updateHeader();
+                this.cache.delete(`tasks_${this.tgUser.id}`);
+                this.cache.delete(`user_${this.tgUser.id}`);
 
-            if (this.userState.referredBy && this.appConfig.REFERRAL_PERCENTAGE > 0) {
-                await this.processReferralTaskBonus(this.userState.referredBy, taskReward);
-            }
-            
-            this.enableAllTaskButtons();
-            this.isProcessingTask = false;
+                if (this.userState.referredBy && this.appConfig.REFERRAL_PERCENTAGE > 0) {
+                    await this.processReferralTaskBonus(this.userState.referredBy, taskReward);
+                }
+                
+                this.enableAllTaskButtons();
+                this.isProcessingTask = false;
 
-            this.showNotification("Task Completed!", `+${taskReward.toFixed(4)} TON, +${taskXpReward} XP`, "success");
-            
-            return true;
+                this.notificationManager.showNotification(
+                    "Task Completed!", 
+                    `+${taskReward.toFixed(4)} TON, +${taskXpReward} XP`, 
+                    "success"
+                );
+                
+                return true;
+            } else {
+                throw new Error(result?.error || 'Failed to complete task');
+            }
             
         } catch (error) {
+            console.error('Error in completeTask:', error);
             this.enableAllTaskButtons();
             this.isProcessingTask = false;
             
-            this.showNotification("Error", "Failed to complete task", "error");
+            this.notificationManager.showNotification("Error", "Failed to complete task", "error");
             
             if (button) {
                 button.innerHTML = 'Try Again';
@@ -3358,15 +2848,13 @@ class TornadoApp {
         const referrals = this.safeNumber(this.userState.referrals || 0);
         const referralEarnings = this.safeNumber(this.userState.referralEarnings || 0);
         
-        const recentReferrals = await this.referralManager.loadRecentReferrals();
+        const recentReferrals = await this.referralManager?.loadRecentReferrals() || [];
         
         referralsPage.innerHTML = `
             <div class="referrals-container">
                 <div class="referral-link-section">
                     <div class="referral-link-box">
-                        <p class="link-label">
-                            <i class="fas fa-link"></i> Referral Link:
-                        </p>
+                        <p class="link-label">Your referral link:</p>
                         <div class="link-display" id="referral-link-text">${referralLink}</div>
                         <button class="copy-btn" id="copy-referral-link-btn">
                             <i class="far fa-copy"></i> Copy Link
@@ -3414,7 +2902,7 @@ class TornadoApp {
                     <h3><i class="fas fa-history"></i> Recent Referrals</h3>
                     <div class="referrals-list" id="referrals-list">
                         ${recentReferrals.length > 0 ? 
-                            recentReferrals.slice(0, 5).map(referral => this.renderReferralRow(referral)).join('') : 
+                            recentReferrals.map(referral => this.renderReferralRow(referral)).join('') : 
                             '<div class="no-data"><i class="fas fa-handshake"></i><p>No referrals yet</p><p class="hint">Share your link to earn free TON!</p></div>'
                         }
                     </div>
@@ -3464,9 +2952,9 @@ class TornadoApp {
 
     async refreshReferralsList() {
         try {
-            await this.referralManager.refreshReferralsList();
+            await this.referralManager?.refreshReferralsList();
         } catch (error) {
-            // Silent fail
+            console.warn('Refresh referrals list error:', error);
         }
     }
 
@@ -3481,7 +2969,6 @@ class TornadoApp {
         const totalTasksCompleted = this.safeNumber(this.userState.totalTasksCompleted || 0);
         const totalReferrals = this.safeNumber(this.userState.referrals || 0);
         const totalXP = this.safeNumber(this.userState.xp || 0);
-        const totalCheckins = this.safeNumber(this.userState.totalCheckins || 0);
         
         const tasksRequired = this.appConfig.REQUIRED_TASKS_FOR_WITHDRAWAL;
         const referralsRequired = this.appConfig.REQUIRED_REFERRALS_FOR_WITHDRAWAL;
@@ -3723,13 +3210,8 @@ class TornadoApp {
         }
         
         const exchangeInput = document.getElementById('exchange-input');
-        const exchangeMaxBtn = document.getElementById('exchange-max-btn');
-        
-        if (exchangeMaxBtn) {
-            exchangeMaxBtn.addEventListener('click', () => {
-                const max = this.safeNumber(this.userState.balance);
-                exchangeInput.value = max.toFixed(3);
-            });
+        if (exchangeInput) {
+            exchangeInput.addEventListener('input', () => {});
         }
         
         if (maxBtn) {
@@ -3759,18 +3241,8 @@ class TornadoApp {
 
     setupExchangeEvents() {
         const exchangeBtn = document.getElementById('exchange-btn');
-        const exchangeInput = document.getElementById('exchange-input');
-        const exchangeMaxBtn = document.getElementById('exchange-max-btn');
-        
         if (exchangeBtn) {
             exchangeBtn.addEventListener('click', () => this.exchangeTonToXp());
-        }
-        
-        if (exchangeMaxBtn && exchangeInput) {
-            exchangeMaxBtn.addEventListener('click', () => {
-                const max = this.safeNumber(this.userState.balance);
-                exchangeInput.value = max.toFixed(3);
-            });
         }
     }
     
@@ -3790,35 +3262,35 @@ class TornadoApp {
         const requiredXP = this.appConfig.REQUIRED_XP_FOR_WITHDRAWAL;
         
         if (!walletAddress || walletAddress.length < 20) {
-            this.showNotification("Error", "Please enter a valid TON wallet address", "error");
+            this.notificationManager.showNotification("Error", "Please enter a valid TON wallet address", "error");
             return;
         }
         
         if (!amount || amount < minimumWithdraw) {
-            this.showNotification("Error", `Minimum withdrawal is ${minimumWithdraw.toFixed(3)} TON`, "error");
+            this.notificationManager.showNotification("Error", `Minimum withdrawal is ${minimumWithdraw.toFixed(3)} TON`, "error");
             return;
         }
         
         if (amount > userBalance) {
-            this.showNotification("Error", "Insufficient balance", "error");
+            this.notificationManager.showNotification("Error", "Insufficient balance", "error");
             return;
         }
         
         if (totalTasksCompleted < requiredTasks) {
             const tasksNeeded = requiredTasks - totalTasksCompleted;
-            this.showNotification("Tasks Required", `You need to complete ${tasksNeeded} more tasks to withdraw`, "error");
+            this.notificationManager.showNotification("Tasks Required", `You need to complete ${tasksNeeded} more tasks to withdraw`, "error");
             return;
         }
         
         if (totalReferrals < requiredReferrals) {
             const referralsNeeded = requiredReferrals - totalReferrals;
-            this.showNotification("Referrals Required", `You need to invite ${referralsNeeded} more friend${referralsNeeded > 1 ? 's' : ''} to withdraw`, "error");
+            this.notificationManager.showNotification("Referrals Required", `You need to invite ${referralsNeeded} more friend${referralsNeeded > 1 ? 's' : ''} to withdraw`, "error");
             return;
         }
         
         if (totalXP < requiredXP) {
             const xpNeeded = requiredXP - totalXP;
-            this.showNotification("XP Required", `You need to earn ${xpNeeded} more XP to withdraw`, "error");
+            this.notificationManager.showNotification("XP Required", `You need to earn ${xpNeeded} more XP to withdraw`, "error");
             return;
         }
         
@@ -3829,7 +3301,7 @@ class TornadoApp {
                 await window.AdBlock19345.show();
                 adShown = true;
             } catch (error) {
-                // Silent fail
+                console.warn('Ad #1 error:', error);
             }
         }
         
@@ -3838,18 +3310,22 @@ class TornadoApp {
                 await show_10558486();
                 adShown = true;
             } catch (error) {
-                // Silent fail
+                console.warn('Ad #2 error:', error);
             }
         }
         
         if (!adShown) {
-            this.showNotification("Ad Required", "Please watch the ad to process withdrawal", "info");
+            this.notificationManager.showNotification("Ad Required", "Please watch the ad to process withdrawal", "info");
             return;
         }
         
         const rateLimitCheck = this.rateLimiter.checkLimit(this.tgUser.id, 'withdrawal');
         if (!rateLimitCheck.allowed) {
-            this.showNotification("Rate Limit", "You can only withdraw once per day. Please try again tomorrow.", "warning");
+            this.notificationManager.showNotification(
+                "Rate Limit", 
+                `You can only withdraw once per day. Please try again tomorrow.`, 
+                "warning"
+            );
             return;
         }
         
@@ -3860,54 +3336,41 @@ class TornadoApp {
         withdrawBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Processing...';
         
         try {
-            const newBalance = userBalance - amount;
-            const currentTime = this.getServerTime();
-            const newTotalWithdrawnAmount = this.safeNumber(this.userState.totalWithdrawnAmount) + amount;
+            const result = await this.getFirebaseData('requestWithdrawal', {
+                userId: this.tgUser.id,
+                walletAddress: walletAddress,
+                amount: amount,
+                userBalance: userBalance,
+                userData: {
+                    firstName: this.userState.firstName,
+                    username: this.userState.username
+                }
+            });
             
-            if (this.db) {
-                await this.db.ref(`users/${this.tgUser.id}`).update({
-                    balance: newBalance,
-                    totalWithdrawals: this.safeNumber(this.userState.totalWithdrawals) + 1,
-                    totalWithdrawnAmount: newTotalWithdrawnAmount,
-                    lastWithdrawalDate: currentTime
-                });
+            if (result && result.success) {
+                this.userState.balance = result.newBalance;
+                this.userState.totalWithdrawals = result.newTotalWithdrawals;
+                this.userState.totalWithdrawnAmount = result.newTotalWithdrawnAmount;
+                this.userState.lastWithdrawalDate = result.timestamp;
                 
-                const requestData = {
-                    userId: this.tgUser.id,
-                    userName: this.userState.firstName,
-                    username: this.userState.username,
-                    walletAddress: walletAddress,
-                    amount: amount,
-                    status: 'pending',
-                    createdAt: currentTime,
-                    timestamp: currentTime
-                };
+                this.cache.delete(`user_${this.tgUser.id}`);
                 
-                await this.db.ref('withdrawals/pending').push(requestData);
+                await this.loadHistoryData();
+                
+                walletInput.value = '';
+                amountInput.value = '';
+                
+                this.updateHeader();
+                this.renderProfilePage();
+                
+                this.notificationManager.showNotification("Success", "Withdrawal request submitted!", "success");
+            } else {
+                throw new Error(result?.error || 'Failed to process withdrawal');
             }
             
-            this.userState.balance = newBalance;
-            this.userState.totalWithdrawals = this.safeNumber(this.userState.totalWithdrawals) + 1;
-            this.userState.totalWithdrawnAmount = newTotalWithdrawnAmount;
-            this.userState.lastWithdrawalDate = currentTime;
-            
-            this.cache.delete(`user_${this.tgUser.id}`);
-            
-            await this.updateAppStats('totalWithdrawals', 1);
-            await this.updateAppStats('totalPayments', amount);
-            
-            await this.loadHistoryData();
-            
-            walletInput.value = '';
-            amountInput.value = '';
-            
-            this.updateHeader();
-            this.renderProfilePage();
-            
-            this.showNotification("Success", "Withdrawal request submitted!", "success");
-            
         } catch (error) {
-            this.showNotification("Error", "Failed to process withdrawal", "error");
+            console.error('Handle withdrawal error:', error);
+            this.notificationManager.showNotification("Error", `Failed to process withdrawal: ${error.message}`, "error");
             withdrawBtn.disabled = false;
             withdrawBtn.innerHTML = originalText;
         }
@@ -3923,20 +3386,28 @@ class TornadoApp {
             const tonAmount = parseFloat(exchangeInput.value);
             
             if (!tonAmount || tonAmount < this.appConfig.MIN_EXCHANGE_TON) {
-                this.showNotification("Error", `Minimum exchange is ${this.appConfig.MIN_EXCHANGE_TON} TON`, "error");
+                this.notificationManager.showNotification(
+                    "Error",
+                    `Minimum exchange is ${this.appConfig.MIN_EXCHANGE_TON} TON`,
+                    "error"
+                );
                 return;
             }
             
             const tonBalance = this.safeNumber(this.userState.balance);
             
             if (tonAmount > tonBalance) {
-                this.showNotification("Error", "Insufficient TON balance", "error");
+                this.notificationManager.showNotification("Error", "Insufficient TON balance", "error");
                 return;
             }
             
             const rateLimitCheck = this.rateLimiter.checkLimit(this.tgUser.id, 'exchange');
             if (!rateLimitCheck.allowed) {
-                this.showNotification("Rate Limit", `Please wait ${rateLimitCheck.remaining} seconds`, "warning");
+                this.notificationManager.showNotification(
+                    "Rate Limit",
+                    `Please wait ${rateLimitCheck.remaining} seconds before another exchange`,
+                    "warning"
+                );
                 return;
             }
             
@@ -3948,43 +3419,47 @@ class TornadoApp {
             
             try {
                 const xpAmount = Math.floor(tonAmount * this.appConfig.XP_PER_TON);
-                const newTonBalance = tonBalance - tonAmount;
-                const newXpBalance = this.safeNumber(this.userState.xp) + xpAmount;
                 
-                const updates = {
-                    balance: newTonBalance,
-                    xp: newXpBalance
-                };
+                const result = await this.getFirebaseData('exchangeTonToXp', {
+                    userId: this.tgUser.id,
+                    tonAmount: tonAmount,
+                    xpAmount: xpAmount
+                });
                 
-                if (this.db) {
-                    await this.db.ref(`users/${this.tgUser.id}`).update(updates);
+                if (result && result.success) {
+                    this.userState.balance = result.newTonBalance;
+                    this.userState.xp = result.newXpBalance;
+                    
+                    this.cache.delete(`user_${this.tgUser.id}`);
+                    
+                    exchangeInput.value = '';
+                    this.updateHeader();
+                    
+                    const miniBalanceItems = document.querySelectorAll('.mini-balance-item');
+                    if (miniBalanceItems.length >= 2) {
+                        miniBalanceItems[0].querySelector('span').textContent = `${result.newTonBalance.toFixed(3)} TON`;
+                        miniBalanceItems[1].querySelector('span').textContent = `${Math.floor(result.newXpBalance)} XP`;
+                    }
+                    
+                    this.notificationManager.showNotification(
+                        "Success",
+                        `Exchanged ${tonAmount.toFixed(3)} TON to ${xpAmount} XP`,
+                        "success"
+                    );
+                } else {
+                    throw new Error(result?.error || 'Exchange failed');
                 }
-                
-                this.userState.balance = newTonBalance;
-                this.userState.xp = newXpBalance;
-                
-                this.cache.delete(`user_${this.tgUser.id}`);
-                
-                exchangeInput.value = '';
-                this.updateHeader();
-                
-                const miniBalanceItems = document.querySelectorAll('.mini-balance-item');
-                if (miniBalanceItems.length >= 2) {
-                    miniBalanceItems[0].querySelector('span').textContent = `${newTonBalance.toFixed(3)} TON`;
-                    miniBalanceItems[1].querySelector('span').textContent = `${Math.floor(newXpBalance)} XP`;
-                }
-                
-                this.showNotification("Success", `Exchanged ${tonAmount.toFixed(3)} TON to ${xpAmount} XP`, "success");
                 
             } catch (error) {
-                this.showNotification("Error", "Failed to exchange", "error");
+                console.error('Exchange error:', error);
+                this.notificationManager.showNotification("Error", "Failed to exchange", "error");
             } finally {
                 exchangeBtn.innerHTML = originalText;
                 exchangeBtn.disabled = false;
             }
             
         } catch (error) {
-            this.showNotification("Error", "Failed to exchange", "error");
+            console.error('Exchange error:', error);
         }
     }
 
@@ -3994,12 +3469,12 @@ class TornadoApp {
         this.isCopying = true;
         
         navigator.clipboard.writeText(text).then(() => {
-            this.showNotification("Copied", "Text copied to clipboard", "success");
+            this.notificationManager.showNotification("Copied", "Text copied to clipboard", "success");
             setTimeout(() => {
                 this.isCopying = false;
             }, 1000);
         }).catch(() => {
-            this.showNotification("Error", "Failed to copy text", "error");
+            this.notificationManager.showNotification("Error", "Failed to copy text", "error");
             setTimeout(() => {
                 this.isCopying = false;
             }, 1000);
@@ -4047,12 +3522,6 @@ class TornadoApp {
         if (!name) return 'User';
         if (name.length <= maxLength) return name;
         return name.substring(0, maxLength) + '...';
-    }
-
-    showNotification(title, message, type = 'info') {
-        if (this.notificationManager) {
-            this.notificationManager.showNotification(title, message, type);
-        }
     }
 }
 

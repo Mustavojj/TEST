@@ -2779,39 +2779,33 @@ html {
     100% { transform: scale(1); opacity: 0.8; }
 }
 
-.form-hint {
-    display: block;
-    font-size: 0.7rem;
-    color: var(--text-light);
-    margin-top: 4px;
-}
+    /* إضافة تنسيقات جديدة في نهاية الملف */
 
-.task-result-message {
-    padding: 12px;
+.task-message {
+    padding: 10px 12px;
     border-radius: var(--border-radius-xs);
-    margin-bottom: 15px;
     font-size: 0.85rem;
-    display: flex;
-    align-items: center;
-    gap: 8px;
+    font-weight: 500;
+    margin: 10px 0;
+    display: none;
 }
 
-.task-result-message.success {
+.task-message.success {
     background: rgba(22, 163, 74, 0.1);
-    border: 1px solid rgba(22, 163, 74, 0.3);
-    color: #16a34a;
+    border: 1px solid var(--success-color);
+    color: var(--success-color);
 }
 
-.task-result-message.error {
+.task-message.error {
     background: rgba(220, 38, 38, 0.1);
-    border: 1px solid rgba(220, 38, 38, 0.3);
-    color: #dc2626;
+    border: 1px solid var(--error-color);
+    color: var(--error-color);
 }
 
-.task-result-message.info {
+.task-message.info {
     background: rgba(14, 165, 233, 0.1);
-    border: 1px solid rgba(14, 165, 233, 0.3);
-    color: #0ea5e9;
+    border: 1px solid var(--info-color);
+    color: var(--info-color);
 }
 
 .exchange-note {
@@ -2819,55 +2813,25 @@ html {
     align-items: center;
     gap: 8px;
     padding: 8px 12px;
-    background: rgba(245, 158, 11, 0.1);
+    background: rgba(0, 0, 0, 0.3);
     border-radius: var(--border-radius-xs);
-    color: #f59e0b;
+    border: 1px solid var(--card-border);
+    color: var(--text-secondary);
     font-size: 0.8rem;
-    font-weight: 500;
-    border: 1px solid rgba(245, 158, 11, 0.3);
-    margin-top: 10px;
+    margin-bottom: 10px;
 }
 
 .exchange-note i {
-    color: #f59e0b;
-}
-
-#exchange-input.form-input {
-    padding-right: 70px;
-}
-
-#exchange-max-btn {
-    position: absolute;
-    right: 8px;
-    padding: 6px 12px;
-    background: linear-gradient(135deg, var(--primary-color), var(--accent-color));
-    border: none;
-    border-radius: var(--border-radius-xs);
-    color: var(--background-color);
-    font-weight: 700;
-    font-size: 0.8rem;
-    cursor: pointer;
-    transition: all 0.15s ease;
-    z-index: 2;
-}
-
-#exchange-max-btn:hover {
-    transform: translateY(-1px);
-    box-shadow: 0 4px 10px rgba(251, 191, 36, 0.3);
-}
-
-#exchange-max-btn:active {
-    transform: scale(0.98);
-}
-
-.link-label i {
     color: var(--primary-color);
-    margin-right: 5px;
 }
- 
+
+.copy-btn.copied {
+    background: linear-gradient(135deg, var(--success-color), #15803d);
+}
+
 .checkin-reward .balance-icon {
-    width: 24px;
-    height: 24px;
+    width: 20px;
+    height: 20px;
     border-radius: 50%;
     object-fit: cover;
-    }
+}

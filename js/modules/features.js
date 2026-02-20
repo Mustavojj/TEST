@@ -81,15 +81,14 @@ class TaskManager {
                             currentCompletions: currentCompletions,
                             maxCompletions: maxCompletions,
                             status: taskData.status || 'active',
-                            createdBy: taskData.createdBy || null,
-                            owner: taskData.owner || null
+                            owner: taskData.owner || taskData.createdBy || null
                         };
                         
                         if (!this.app.userCompletedTasks.has(task.id)) {
                             tasks.push(task);
                         }
                     } catch (error) {
-                        // تجاهل الأخطاء
+                        // Silent fail for individual task errors
                     }
                 });
             }
@@ -239,12 +238,12 @@ class ReferralManager {
         this.app = app;
         this.recentReferrals = [];
         this.currentPage = 1;
-        this.itemsPerPage = 10;
+        this.itemsPerPage = 5;
         this.isLoading = false;
         this.hasMore = true;
     }
 
-    async loadRecentReferrals(limit = 5) {
+    async loadRecentReferrals() {
         try {
             if (!this.app.db) return [];
             
@@ -262,7 +261,7 @@ class ReferralManager {
                 }
             });
             
-            this.recentReferrals = referralsList.sort((a, b) => b.joinedAt - a.joinedAt).slice(0, limit);
+            this.recentReferrals = referralsList.sort((a, b) => b.joinedAt - a.joinedAt).slice(0, 5);
             
             return this.recentReferrals;
             
@@ -302,7 +301,7 @@ class ReferralManager {
             this.app.updateHeader();
             
         } catch (error) {
-            // تجاهل الأخطاء
+            // Silent fail
         }
     }
 
@@ -342,7 +341,7 @@ class ReferralManager {
             }
             
         } catch (error) {
-            // تجاهل الأخطاء
+            // Silent fail
         }
     }
 

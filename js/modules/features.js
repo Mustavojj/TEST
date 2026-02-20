@@ -31,7 +31,7 @@ class TaskManager {
             }, 30000);
             
         } catch (error) {
-            console.warn('Load tasks data error:', error);
+            this.app.showNotification("Warning", "Failed to load tasks", "warning");
             this.mainTasks = [];
             this.socialTasks = [];
         }
@@ -80,14 +80,16 @@ class TaskManager {
                             xpReward: this.app.safeNumber(taskData.xpReward || 1),
                             currentCompletions: currentCompletions,
                             maxCompletions: maxCompletions,
-                            status: taskData.status || 'active'
+                            status: taskData.status || 'active',
+                            createdBy: taskData.createdBy || null,
+                            owner: taskData.owner || null
                         };
                         
                         if (!this.app.userCompletedTasks.has(task.id)) {
                             tasks.push(task);
                         }
                     } catch (error) {
-                        console.error('Error processing task:', error);
+                        // تجاهل الأخطاء
                     }
                 });
             }
@@ -95,7 +97,6 @@ class TaskManager {
             return tasks;
             
         } catch (error) {
-            console.error(`Error loading ${category} tasks:`, error);
             return [];
         }
     }
@@ -111,14 +112,12 @@ class TaskManager {
     async verifyTaskCompletion(taskId, chatId, userId, initData, botToken) {
         try {
             if (!botToken) {
-                console.warn('Bot token not available for verification');
                 return { success: true, message: "Auto-verified (no bot token)" };
             }
             
             const isBotAdmin = await this.checkBotAdminStatus(chatId, botToken);
             
             if (!isBotAdmin) {
-                console.log(`Bot is not admin in ${chatId}, skipping verification`);
                 return { success: true, message: "Auto-verified (bot not admin)" };
             }
             
@@ -135,7 +134,6 @@ class TaskManager {
                 });
                 
                 if (!response.ok) {
-                    console.warn(`Telegram API error: ${response.status}`);
                     return { success: false, message: "Verification failed" };
                 }
                 
@@ -150,16 +148,13 @@ class TaskManager {
                         message: isMember ? "Verified successfully" : "Please join the channel/group first!"
                     };
                 } else {
-                    console.warn('Telegram API returned error:', data);
                     return { success: false, message: "Verification failed" };
                 }
             } catch (apiError) {
-                console.error('Telegram API verification error:', apiError);
                 return { success: false, message: "Verification error" };
             }
             
         } catch (error) {
-            console.error('Task verification error:', error);
             return { success: false, message: "Verification error" };
         }
     }
@@ -179,7 +174,6 @@ class TaskManager {
             });
             
             if (!response.ok) {
-                console.warn(`Failed to get chat administrators: ${response.status}`);
                 return false;
             }
             
@@ -195,7 +189,6 @@ class TaskManager {
             }
             return false;
         } catch (error) {
-            console.error('Error checking bot admin status:', error);
             return false;
         }
     }
@@ -251,7 +244,7 @@ class ReferralManager {
         this.hasMore = true;
     }
 
-    async loadRecentReferrals() {
+    async loadRecentReferrals(limit = 5) {
         try {
             if (!this.app.db) return [];
             
@@ -269,12 +262,11 @@ class ReferralManager {
                 }
             });
             
-            this.recentReferrals = referralsList.sort((a, b) => b.joinedAt - a.joinedAt).slice(0, 10);
+            this.recentReferrals = referralsList.sort((a, b) => b.joinedAt - a.joinedAt).slice(0, limit);
             
             return this.recentReferrals;
             
         } catch (error) {
-            console.warn('Load recent referrals error:', error);
             return [];
         }
     }
@@ -310,7 +302,7 @@ class ReferralManager {
             this.app.updateHeader();
             
         } catch (error) {
-            console.warn('Refresh referrals list error:', error);
+            // تجاهل الأخطاء
         }
     }
 
@@ -350,7 +342,7 @@ class ReferralManager {
             }
             
         } catch (error) {
-            console.warn('Check referrals verification error:', error);
+            // تجاهل الأخطاء
         }
     }
 

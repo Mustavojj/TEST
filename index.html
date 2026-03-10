@@ -21,12 +21,10 @@
     
     <script src="https://sad.adsgram.ai/js/sad.min.js"></script>
     
-    <script src='//libtl.com/sdk.js' data-zone='10558486' data-sdk='show_10558486'></script>
-    
     <script>
         document.addEventListener('DOMContentLoaded', function() {
             if (typeof Adsgram !== 'undefined') {
-                window.AdBlock19345 = Adsgram.init({ blockId: "22461" });
+                window.AdBlock1 = Adsgram.init({ blockId: "22461" });
                 window.AdBlock2 = Adsgram.init({ blockId: "int-22462" });
             }
         });
@@ -56,7 +54,7 @@
             justify-content: center;
             text-align: center;
             width: 90%;
-            max-width: 320px;
+            max-width: 380px;
         ">
             <div style="
                 width: 100px;
@@ -80,22 +78,43 @@
                      ondragstart="return false;">
             </div>
             
-            <div class="loading-steps" style="width: 100%; margin-top: 20px;">
-                <div class="loading-step" style="color: #FFD700; margin: 8px 0; font-size: 14px; text-align: left; padding: 5px 10px; background: rgba(255,215,0,0.1); border-radius: 8px;">⌛ Initializing...</div>
-                <div class="loading-step" style="color: #FFD700; margin: 8px 0; font-size: 14px; text-align: left; padding: 5px 10px; background: rgba(255,215,0,0.1); border-radius: 8px;"></div>
-                <div class="loading-step" style="color: #FFD700; margin: 8px 0; font-size: 14px; text-align: left; padding: 5px 10px; background: rgba(255,215,0,0.1); border-radius: 8px;"></div>
-                <div class="loading-step" style="color: #FFD700; margin: 8px 0; font-size: 14px; text-align: left; padding: 5px 10px; background: rgba(255,215,0,0.1); border-radius: 8px;"></div>
-                <div class="loading-step" style="color: #FFD700; margin: 8px 0; font-size: 14px; text-align: left; padding: 5px 10px; background: rgba(255,215,0,0.1); border-radius: 8px;"></div>
-                <div class="loading-step" style="color: #FFD700; margin: 8px 0; font-size: 14px; text-align: left; padding: 5px 10px; background: rgba(255,215,0,0.1); border-radius: 8px;"></div>
-                <div class="loading-step" style="color: #FFD700; margin: 8px 0; font-size: 14px; text-align: left; padding: 5px 10px; background: rgba(255,215,0,0.1); border-radius: 8px;"></div>
-                <div class="loading-step" style="color: #FFD700; margin: 8px 0; font-size: 14px; text-align: left; padding: 5px 10px; background: rgba(255,215,0,0.1); border-radius: 8px;"></div>
-                <div class="loading-step" style="color: #FFD700; margin: 8px 0; font-size: 14px; text-align: left; padding: 5px 10px; background: rgba(255,215,0,0.1); border-radius: 8px;"></div>
-                <div class="loading-step" style="color: #FFD700; margin: 8px 0; font-size: 14px; text-align: left; padding: 5px 10px; background: rgba(255,215,0,0.1); border-radius: 8px;"></div>
-                <div class="loading-step" style="color: #FFD700; margin: 8px 0; font-size: 14px; text-align: left; padding: 5px 10px; background: rgba(255,215,0,0.1); border-radius: 8px;"></div>
-                <div class="loading-step" style="color: #FFD700; margin: 8px 0; font-size: 14px; text-align: left; padding: 5px 10px; background: rgba(255,215,0,0.1); border-radius: 8px;"></div>
-                <div class="loading-step" style="color: #FFD700; margin: 8px 0; font-size: 14px; text-align: left; padding: 5px 10px; background: rgba(255,215,0,0.1); border-radius: 8px;"></div>
-                <div class="loading-step" style="color: #FFD700; margin: 8px 0; font-size: 14px; text-align: left; padding: 5px 10px; background: rgba(255,215,0,0.1); border-radius: 8px;"></div>
-                <div class="loading-step" style="color: #FFD700; margin: 8px 0; font-size: 14px; text-align: left; padding: 5px 10px; background: rgba(255,215,0,0.1); border-radius: 8px;"></div>
+            <div class="loading-steps" style="width: 100%; margin-top: 10px; background: rgba(26,26,26,0.8); border-radius: 16px; padding: 15px; border: 1px solid rgba(255,215,0,0.2);">
+                <div class="loading-step" style="color: #FFD700; margin: 8px 0; font-size: 14px; text-align: left; padding: 12px 15px; background: rgba(0,0,0,0.3); border-radius: 12px; border-left: 3px solid #FFD700; display: flex; align-items: center;">
+                    <i class="fas fa-spinner fa-pulse" style="color: #FFD700; margin-right: 12px; width: 20px;"></i>
+                    <span>Initializing...</span>
+                </div>
+                <div class="loading-step" style="color: #FFD700; margin: 8px 0; font-size: 14px; text-align: left; padding: 12px 15px; background: rgba(0,0,0,0.3); border-radius: 12px; border-left: 3px solid #FFD700; display: flex; align-items: center;">
+                    <i class="fas fa-spinner fa-pulse" style="color: #FFD700; margin-right: 12px; width: 20px;"></i>
+                    <span>Verifying user...</span>
+                </div>
+                <div class="loading-step" style="color: #FFD700; margin: 8px 0; font-size: 14px; text-align: left; padding: 12px 15px; background: rgba(0,0,0,0.3); border-radius: 12px; border-left: 3px solid #FFD700; display: flex; align-items: center;">
+                    <i class="fas fa-spinner fa-pulse" style="color: #FFD700; margin-right: 12px; width: 20px;"></i>
+                    <span>Checking device...</span>
+                </div>
+                <div class="loading-step" style="color: #FFD700; margin: 8px 0; font-size: 14px; text-align: left; padding: 12px 15px; background: rgba(0,0,0,0.3); border-radius: 12px; border-left: 3px solid #FFD700; display: flex; align-items: center;">
+                    <i class="fas fa-spinner fa-pulse" style="color: #FFD700; margin-right: 12px; width: 20px;"></i>
+                    <span>Setting up theme...</span>
+                </div>
+                <div class="loading-step" style="color: #FFD700; margin: 8px 0; font-size: 14px; text-align: left; padding: 12px 15px; background: rgba(0,0,0,0.3); border-radius: 12px; border-left: 3px solid #FFD700; display: flex; align-items: center;">
+                    <i class="fas fa-spinner fa-pulse" style="color: #FFD700; margin-right: 12px; width: 20px;"></i>
+                    <span>Connecting to database...</span>
+                </div>
+                <div class="loading-step" style="color: #FFD700; margin: 8px 0; font-size: 14px; text-align: left; padding: 12px 15px; background: rgba(0,0,0,0.3); border-radius: 12px; border-left: 3px solid #FFD700; display: flex; align-items: center;">
+                    <i class="fas fa-spinner fa-pulse" style="color: #FFD700; margin-right: 12px; width: 20px;"></i>
+                    <span>Loading user data...</span>
+                </div>
+                <div class="loading-step" style="color: #FFD700; margin: 8px 0; font-size: 14px; text-align: left; padding: 12px 15px; background: rgba(0,0,0,0.3); border-radius: 12px; border-left: 3px solid #FFD700; display: flex; align-items: center;">
+                    <i class="fas fa-spinner fa-pulse" style="color: #FFD700; margin-right: 12px; width: 20px;"></i>
+                    <span>Loading tasks...</span>
+                </div>
+                <div class="loading-step" style="color: #FFD700; margin: 8px 0; font-size: 14px; text-align: left; padding: 12px 15px; background: rgba(0,0,0,0.3); border-radius: 12px; border-left: 3px solid #FFD700; display: flex; align-items: center;">
+                    <i class="fas fa-spinner fa-pulse" style="color: #FFD700; margin-right: 12px; width: 20px;"></i>
+                    <span>Loading deposits...</span>
+                </div>
+                <div class="loading-step" style="color: #FFD700; margin: 8px 0; font-size: 14px; text-align: left; padding: 12px 15px; background: rgba(0,0,0,0.3); border-radius: 12px; border-left: 3px solid #FFD700; display: flex; align-items: center;">
+                    <i class="fas fa-spinner fa-pulse" style="color: #FFD700; margin-right: 12px; width: 20px;"></i>
+                    <span>Preparing app...</span>
+                </div>
             </div>
         </div>
     </div>
@@ -115,6 +134,10 @@
             transition: transform 0.3s, box-shadow 0.3s;
             width: 100%;
             max-width: 280px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
         }
         
         .launch-btn:hover {
@@ -126,6 +149,14 @@
             0% { transform: scale(1); }
             50% { transform: scale(1.1); }
             100% { transform: scale(1); }
+        }
+        
+        .loading-step {
+            transition: all 0.3s ease;
+        }
+        
+        .loading-step i {
+            transition: color 0.3s ease;
         }
     </style>
 

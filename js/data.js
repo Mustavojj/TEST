@@ -1,6 +1,7 @@
 export const APP_CONFIG = {
     APP_NAME: "RAMADAN BUX",
     BOT_USERNAME: "checatcbot",
+    BOT_WALLET: "UQDgM0u7lPZ6HNmK5L9VHJdNxCyh3LDWq4b85PbJZzyaFLmO",
     MINIMUM_WITHDRAW: 0.20,
     REFERRAL_BONUS_TON: 0.01,
     REFERRAL_PERCENTAGE: 0,
@@ -15,23 +16,6 @@ export const APP_CONFIG = {
     REQUIRED_XP_FOR_WITHDRAWAL: 100,
     DEFAULT_USER_AVATAR: "https://i.ibb.co/gM8hnfwm/TORNADO-PIC.png",
     BOT_AVATAR: "https://i.ibb.co/gM8hnfwm/TORNADO-PIC.png",
-    WELCOME_TASKS: [
-        {
-            name: "Join Official Channel",
-            url: "https://t.me/TORNADO_CHNL",
-            channel: "@TORNADO_CHNL"
-        },
-        {
-            name: "Join Money Hub",
-            url: "https://t.me/MONEYHUB9_69",
-            channel: "@MONEYHUB9_69"
-        },
-        {
-            name: "Join Crypto Al",
-            url: "https://t.me/Crypto_al2",
-            channel: "@Crypto_al2"
-        }
-    ],
     DEPOSIT_WALLET: "UQDgM0u7lPZ6HNmK5L9VHJdNxCyh3LDWq4b85PbJZzyaFLmO",
     ADMIN_ID: "1891231976",
     XP_PER_TON: 1000,

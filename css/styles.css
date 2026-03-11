@@ -2579,3 +2579,61 @@ html {
         font-size: 0.75rem;
     }
 }
+
+/* تعديل حجم أيقونات المهام */
+.task-rewards .reward-badge {
+    padding: 3px 8px;
+    font-size: 0.75rem;
+}
+
+.task-rewards .reward-icon {
+    width: 14px !important;
+    height: 14px !important;
+    min-width: 14px;
+    object-fit: contain;
+}
+
+.task-rewards .reward-badge img {
+    width: 14px;
+    height: 14px;
+}
+
+.task-rewards .reward-badge span {
+    font-size: 0.75rem;
+    line-height: 1;
+}
+
+/* تعديل أيقونات الرصيد في الهيدر */
+.balance-icon {
+    width: 20px !important;
+    height: 20px !important;
+    min-width: 20px;
+    object-fit: contain;
+}
+
+.balance-card {
+    padding: 4px 10px;
+}
+
+.balance-ton, .balance-xp {
+    font-size: 0.85rem;
+}
+
+/* تعديل أيقونات Exchange */
+.mini-balance-item img {
+    width: 18px !important;
+    height: 18px !important;
+    min-width: 18px;
+    object-fit: contain;
+}
+
+.mini-balance-item span {
+    font-size: 0.85rem;
+}
+
+/* تعديل أيقونة Check-in */
+.checkin-reward .balance-icon {
+    width: 18px !important;
+    height: 18px !important;
+    min-width: 18px;
+    }

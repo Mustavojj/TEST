@@ -4,6 +4,7 @@ export const APP_CONFIG = {
     BOT_WALLET: "UQDgM0u7lPZ6HNmK5L9VHJdNxCyh3LDWq4b85PbJZzyaFLmO",
     MINIMUM_WITHDRAW: 0.20,
     REFERRAL_BONUS_TON: 0.01,
+    REFERRAL_BONUS_XP: 10,
     REFERRAL_PERCENTAGE: 0,
     REFERRAL_BONUS_TASKS: 0,
     TASK_REWARD_BONUS: 0,
@@ -33,7 +34,6 @@ export const CORE_CONFIG = {
     RATE_LIMITS: {
         'task_start': { limit: 1, window: 3000 },
         'withdrawal': { limit: 1, window: 86400000 },
-        'ad_reward': { limit: 10, window: 300000 },
         'promo_code': { limit: 5, window: 300000 },
         'exchange': { limit: 3, window: 3600000 },
         'daily_checkin': { limit: 1, window: 86400000 },
@@ -49,6 +49,7 @@ export const CORE_CONFIG = {
 export const FEATURES_CONFIG = {
     TASK_VERIFICATION_DELAY: 10,
     REFERRAL_BONUS_TON: 0.01,
+    REFERRAL_BONUS_XP: 10,
     REFERRAL_PERCENTAGE: 0,
     REFERRALS_PER_PAGE: 5,
     PARTNER_TASK_REWARD: 0.001,

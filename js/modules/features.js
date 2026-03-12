@@ -87,9 +87,7 @@ class TaskManager {
                         if (!this.app.userCompletedTasks.has(task.id)) {
                             tasks.push(task);
                         }
-                    } catch (error) {
-                        // Silent fail for individual task errors
-                    }
+                    } catch (error) {}
                 });
             }
             
@@ -300,9 +298,7 @@ class ReferralManager {
             
             this.app.updateHeader();
             
-        } catch (error) {
-            // Silent fail
-        }
+        } catch (error) {}
     }
 
     async checkReferralsVerification() {
@@ -340,9 +336,7 @@ class ReferralManager {
                 }
             }
             
-        } catch (error) {
-            // Silent fail
-        }
+        } catch (error) {}
     }
 
     async handleReferralBonus(referralId) {

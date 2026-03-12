@@ -73,8 +73,8 @@ class TornadoApp {
         
         this.inAppAdsInitialized = false;
         this.inAppAdsTimer = null;
-        this.inAppAdInterval = 60000; // دقيقة واحدة
-        this.nextAdInterval = 60000; // المرة القادمة بعد دقيقة
+        this.inAppAdInterval = 60000;
+        this.nextAdInterval = 60000;
         
         this.serverTimeOffset = 0;
         this.timeSyncInterval = null;
@@ -92,18 +92,15 @@ class TornadoApp {
         this.totalCheckins = 0;
         
         this.deviceId = null;
+        this.deviceRegistered = false;
         
-        // عناصر التحميل
+        // 5 أشرطة تحميل فقط
         this.loadingSteps = [
-            { element: null, text: 'Initializing...', icon: 'fa-spinner fa-pulse' },
-            { element: null, text: 'Verifying user...', icon: 'fa-spinner fa-pulse' },
-            { element: null, text: 'Checking device...', icon: 'fa-spinner fa-pulse' },
-            { element: null, text: 'Setting up theme...', icon: 'fa-spinner fa-pulse' },
-            { element: null, text: 'Connecting to database...', icon: 'fa-spinner fa-pulse' },
-            { element: null, text: 'Loading user data...', icon: 'fa-spinner fa-pulse' },
-            { element: null, text: 'Loading tasks...', icon: 'fa-spinner fa-pulse' },
-            { element: null, text: 'Loading deposits...', icon: 'fa-spinner fa-pulse' },
-            { element: null, text: 'Preparing app...', icon: 'fa-spinner fa-pulse' }
+            { element: null, text: 'App Data Loading...', icon: 'fa-spinner fa-pulse', completedText: 'App Data Loaded', completedIcon: 'fa-check-circle' },
+            { element: null, text: 'User Data Loading...', icon: 'fa-spinner fa-pulse', completedText: 'User Data Loaded', completedIcon: 'fa-check-circle' },
+            { element: null, text: 'User Tasks Loading...', icon: 'fa-spinner fa-pulse', completedText: 'Tasks Loaded', completedIcon: 'fa-check-circle' },
+            { element: null, text: 'Checking Device Data...', icon: 'fa-spinner fa-pulse', completedText: 'Device Verified', completedIcon: 'fa-check-circle' },
+            { element: null, text: 'Checking New Deposits...', icon: 'fa-spinner fa-pulse', completedText: 'Deposit Monitor Active', completedIcon: 'fa-check-circle' }
         ];
         this.currentLoadingStep = 0;
     }
@@ -222,18 +219,24 @@ class TornadoApp {
         });
     }
 
-    updateLoadingStep(step, text, icon = 'fa-check-circle', success = true) {
+    updateLoadingStep(step, text, icon = 'fa-spinner fa-pulse', success = false) {
         if (step >= this.loadingSteps.length) return;
         
         const stepData = this.loadingSteps[step];
         if (!stepData.element) return;
         
-        const iconClass = success ? icon : 'fa-exclamation-circle';
-        const iconColor = success ? '#4CAF50' : '#f44336';
+        const finalIcon = success ? (stepData.completedIcon || 'fa-check-circle') : icon;
+        const finalText = success ? (stepData.completedText || text) : text;
+        const iconColor = success ? '#4CAF50' : (icon.includes('fa-pulse') ? '#FFD700' : '#f44336');
         
-        stepData.element.innerHTML = `<i class="fas ${iconClass}" style="color: ${iconColor}; margin-right: 10px;"></i>${text}`;
-        stepData.element.style.color = success ? '#4CAF50' : '#f44336';
-        stepData.element.style.borderLeftColor = success ? '#4CAF50' : '#f44336';
+        stepData.element.innerHTML = `<i class="fas ${finalIcon}" style="color: ${iconColor}; margin-right: 12px; width: 20px;"></i><span>${finalText}</span>`;
+        stepData.element.style.color = success ? '#4CAF50' : (icon.includes('fa-pulse') ? '#FFD700' : '#f44336');
+        stepData.element.style.borderLeftColor = success ? '#4CAF50' : (icon.includes('fa-pulse') ? '#FFD700' : '#f44336');
+        
+        if (success && step === this.currentLoadingStep && step < this.loadingSteps.length - 1) {
+            this.currentLoadingStep++;
+            this.updateLoadingStep(this.currentLoadingStep, this.loadingSteps[this.currentLoadingStep].text, 'fa-spinner fa-pulse', false);
+        }
     }
 
     async initialize() {
@@ -245,7 +248,7 @@ class TornadoApp {
             // تهيئة عناصر التحميل
             this.initLoadingElements();
             
-            this.updateLoadingStep(0, "Initializing...", 'fa-spinner fa-pulse', false);
+            this.updateLoadingStep(0, "App Data Loading...", 'fa-spinner fa-pulse', false);
             
             if (!window.Telegram || !window.Telegram.WebApp) {
                 this.showError("Please open from Telegram Mini App");
@@ -261,40 +264,25 @@ class TornadoApp {
             
             this.tgUser = this.tg.initDataUnsafe.user;
             
-            this.updateLoadingStep(1, "Verifying user...", 'fa-spinner fa-pulse', false);
+            this.updateLoadingStep(0, "App Data Loaded", 'fa-check-circle', true);
+            
+            this.updateLoadingStep(1, "User Data Loading...", 'fa-spinner fa-pulse', false);
             
             this.telegramVerified = await this.verifyTelegramUser();
             this.botToken = await this.getBotToken();
             
-            this.updateLoadingStep(1, "User verified", 'fa-check-circle', true);
-            
-            this.updateLoadingStep(2, "Checking device...", 'fa-spinner fa-pulse', false);
-            const multiAccountAllowed = await this.checkMultiAccount(this.tgUser.id);
-            if (!multiAccountAllowed) {
-                this.isInitializing = false;
-                return;
-            }
-            
-            this.updateLoadingStep(2, "Device verified", 'fa-check-circle', true);
-            
             this.tg.ready();
             this.tg.expand();
             
-            this.updateLoadingStep(3, "Setting up theme...", 'fa-spinner fa-pulse', false);
             this.setupTelegramTheme();
-            this.updateLoadingStep(3, "Theme ready", 'fa-check-circle', true);
             
             this.notificationManager = new NotificationManager();
-            
-            this.updateLoadingStep(4, "Connecting to database...", 'fa-spinner fa-pulse', false);
             
             const firebaseSuccess = await this.initializeFirebase();
             
             if (firebaseSuccess) {
                 this.setupFirebaseAuth();
             }
-            
-            this.updateLoadingStep(4, "Database connected", 'fa-check-circle', true);
             
             await this.syncServerTime();
             
@@ -303,7 +291,6 @@ class TornadoApp {
             }
             this.timeSyncInterval = setInterval(() => this.syncServerTime(), 300000);
             
-            this.updateLoadingStep(5, "Loading user data...", 'fa-spinner fa-pulse', false);
             await this.loadUserData();
             
             if (this.userState.status === 'ban') {
@@ -311,7 +298,7 @@ class TornadoApp {
                 return;
             }
             
-            this.updateLoadingStep(5, "User data loaded", 'fa-check-circle', true);
+            this.updateLoadingStep(1, "User Data Loaded", 'fa-check-circle', true);
             
             this.taskManager = new TaskManager(this);
             this.questManager = new QuestManager(this);
@@ -319,40 +306,35 @@ class TornadoApp {
             
             this.startReferralMonitor();
             
-            this.updateLoadingStep(6, "Loading tasks...", 'fa-spinner fa-pulse', false);
+            this.updateLoadingStep(2, "User Tasks Loading...", 'fa-spinner fa-pulse', false);
             
             try {
                 await this.loadTasksData();
-                this.updateLoadingStep(6, "Tasks loaded", 'fa-check-circle', true);
+                await this.loadUserCreatedTasks();
+                this.updateLoadingStep(2, "Tasks Loaded", 'fa-check-circle', true);
             } catch (taskError) {
-                this.updateLoadingStep(6, "Tasks loaded (partial)", 'fa-exclamation-triangle', false);
-                this.showNotification("Warning", "Tasks loading failed", "warning");
+                this.updateLoadingStep(2, "Tasks Loaded (partial)", 'fa-exclamation-triangle', false);
             }
             
-            try {
-                await this.loadHistoryData();
-            } catch (historyError) {
-                this.showNotification("Warning", "History loading failed", "warning");
-            }
+            this.updateLoadingStep(3, "Checking Device Data...", 'fa-spinner fa-pulse', false);
             
-            this.updateLoadingStep(7, "Loading deposits...", 'fa-spinner fa-pulse', false);
+            // التحقق من الجهاز - الآن يسمح بحسابات متعددة
+            await this.registerDevice(this.tgUser.id);
+            this.updateLoadingStep(3, "Device Verified", 'fa-check-circle', true);
+            
+            this.updateLoadingStep(4, "Checking New Deposits...", 'fa-spinner fa-pulse', false);
             
             try {
                 await this.loadUserDeposits();
                 await this.startDepositMonitoring();
-                this.updateLoadingStep(7, "Deposits loaded", 'fa-check-circle', true);
+                this.updateLoadingStep(4, "Deposit Monitor Active", 'fa-check-circle', true);
             } catch (depositError) {
-                this.updateLoadingStep(7, "Deposit monitoring active", 'fa-check-circle', true);
-                this.showNotification("Warning", "Deposit loading failed", "warning");
+                this.updateLoadingStep(4, "Deposit Monitor Active", 'fa-check-circle', true);
             }
             
             try {
-                await this.loadUserCreatedTasks();
-            } catch (adError) {
-                this.showNotification("Warning", "Additional data loading failed", "warning");
-            }
-            
-            this.updateLoadingStep(8, "Preparing app...", 'fa-spinner fa-pulse', false);
+                await this.loadHistoryData();
+            } catch (historyError) {}
             
             this.renderUI();
             
@@ -361,8 +343,6 @@ class TornadoApp {
             
             this.isInitialized = true;
             this.isInitializing = false;
-            
-            this.updateLoadingStep(8, "Ready to go!", 'fa-rocket', true);
             
             setTimeout(() => {
                 this.showLaunchButton();
@@ -399,6 +379,12 @@ class TornadoApp {
     showLaunchButton() {
         const loader = document.getElementById('app-loader');
         if (!loader) return;
+        
+        // إخفاء أشرطة التحميل
+        const steps = loader.querySelector('.loading-steps');
+        if (steps) {
+            steps.style.opacity = '0.7';
+        }
         
         const launchBtn = document.createElement('button');
         launchBtn.className = 'launch-btn';
@@ -444,9 +430,9 @@ class TornadoApp {
         return comment;
     }
 
-    async checkMultiAccount(tgId, showBanPage = true) {
+    // تعديل: تسجيل الجهاز بدون حظر الحسابات المتعددة
+    async registerDevice(tgId) {
         try {
-            // Get or generate device ID
             if (!this.deviceId) {
                 const savedDeviceId = localStorage.getItem('device_id');
                 if (savedDeviceId) {
@@ -457,48 +443,15 @@ class TornadoApp {
                 }
             }
             
-            // Check if this device is already linked to another user
-            if (this.db) {
-                const deviceRef = await this.db.ref(`devices/${this.deviceId}`).once('value');
+            if (this.db && !this.deviceRegistered) {
+                // فقط سجل الجهاز بدون حظر الحسابات المتعددة
+                await this.db.ref(`devices/${this.deviceId}/users/${tgId}`).set({
+                    userId: tgId,
+                    lastSeen: this.getServerTime(),
+                    userAgent: navigator.userAgent
+                });
                 
-                if (deviceRef.exists()) {
-                    const deviceData = deviceRef.val();
-                    const existingUserId = deviceData.userId;
-                    
-                    if (existingUserId && existingUserId !== tgId) {
-                        // Multiple accounts detected on same device
-                        if (showBanPage) {
-                            this.showDeviceBanPage();
-                        }
-                        
-                        // Ban the user
-                        await this.db.ref(`users/${tgId}`).update({
-                            status: 'ban',
-                            banReason: 'Multiple accounts detected on same device',
-                            bannedAt: this.getServerTime(),
-                            deviceId: this.deviceId
-                        });
-                        
-                        // Also ban the existing user if needed
-                        await this.db.ref(`users/${existingUserId}`).update({
-                            status: 'ban',
-                            banReason: 'Multiple accounts detected on same device',
-                            bannedAt: this.getServerTime(),
-                            deviceId: this.deviceId
-                        });
-                        
-                        return false;
-                    }
-                } else {
-                    // First time this device is used, save it
-                    await this.db.ref(`devices/${this.deviceId}`).set({
-                        userId: tgId,
-                        firstSeen: this.getServerTime(),
-                        userAgent: navigator.userAgent,
-                        language: navigator.language,
-                        platform: navigator.platform
-                    });
-                }
+                this.deviceRegistered = true;
             }
             
             return true;
@@ -507,35 +460,7 @@ class TornadoApp {
         }
     }
 
-    showDeviceBanPage() {
-        document.body.innerHTML = `
-            <div style="background-color:#000000; color:#fff; height:100vh; display:flex; justify-content:center; align-items:center; font-family:-apple-system, BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif; padding:20px;">
-                <div style="background:#111111; border-radius:22px; padding:40px 30px; width:85%; max-width:330px; text-align:center; box-shadow:0 0 40px rgba(0,0,0,0.5); border:1px solid rgba(255,215,0,0.2); animation:fadeIn 0.6s ease-out;">
-                    <div style="margin-bottom:24px;">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="#ff4d4d" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round" style="animation:pulse 1.8s infinite ease-in-out;">
-                            <circle cx="12" cy="12" r="10" stroke="#ff4d4d"/>
-                            <line x1="15" y1="9" x2="9" y2="15" stroke="#ff4d4d"/>
-                            <line x1="9" y1="9" x2="15" y2="15" stroke="#ff4d4d"/>
-                        </svg>
-                    </div>
-                    <h2 style="font-size:18px; font-weight:600; color:#fff; letter-spacing:0.5px;">Multi accounts not allowed</h2>
-                    <p style="margin-top:10px; color:#9da5b4; font-size:14px; line-height:1.5;">Access for this device has been blocked.<br>Multiple Telegram accounts detected on the same device.</p>
-                </div>
-            </div>
-
-            <style>
-                @keyframes fadeIn {
-                    from { opacity:0; transform:scale(0.97); }
-                    to { opacity:1; transform:scale(1); }
-                }
-                @keyframes pulse {
-                    0% { transform:scale(1); opacity:1; }
-                    50% { transform:scale(1.1); opacity:0.8; }
-                    100% { transform:scale(1); opacity:1; }
-                }
-            </style>
-        `;
-    }
+    // إزالة دالة showDeviceBanPage
 
     async loadUserDeposits() {
         try {
@@ -559,16 +484,20 @@ class TornadoApp {
         }
     }
 
+    // تحسين: التحقق الفعلي من الإيداعات
     async checkDeposit(comment) {
         try {
-            if (!this.botToken || !this.appConfig.ADMIN_ID || !this.db) return false;
+            if (!this.botToken || !this.db) return false;
             
             const walletAddress = this.appConfig.DEPOSIT_WALLET;
             
-            // استخدام TON API للتحقق من المعاملات
+            // محاولة التحقق من TON API
             try {
-                const response = await fetch(`https://tonapi.io/v2/accounts/${walletAddress}/events?limit=20`);
-                if (!response.ok) return false;
+                const response = await fetch(`https://tonapi.io/v2/accounts/${walletAddress}/events?limit=50`);
+                if (!response.ok) {
+                    // استخدام الطريقة البديلة
+                    return this.checkDepositAlternative(comment);
+                }
                 
                 const data = await response.json();
                 
@@ -576,75 +505,127 @@ class TornadoApp {
                     for (const event of data.events) {
                         if (event.actions) {
                             for (const action of event.actions) {
-                                if (action.type === 'TonTransfer' && 
-                                    action.TonTransfer?.comment === comment) {
+                                if (action.type === 'TonTransfer') {
+                                    const transfer = action.TonTransfer;
                                     
-                                    // التحقق من عدم معالجة هذه المعاملة من قبل
-                                    if (this.checkedDeposits.has(event.event_id)) {
-                                        continue;
+                                    // التحقق من التعليق
+                                    if (transfer.comment && transfer.comment === comment) {
+                                        
+                                        // التحقق من أن المستلم هو المحفظة الصحيحة
+                                        if (transfer.recipient && 
+                                            transfer.recipient.address && 
+                                            transfer.recipient.address.toLowerCase() === walletAddress.toLowerCase()) {
+                                            
+                                            // التحقق من عدم معالجة هذه المعاملة من قبل
+                                            if (this.checkedDeposits.has(event.event_id)) {
+                                                continue;
+                                            }
+                                            
+                                            const amount = transfer.amount / 1e9;
+                                            
+                                            // التحقق من المعاملة في قاعدة البيانات
+                                            if (this.db) {
+                                                const processedRef = await this.db.ref(`processed_deposits/${event.event_id}`).once('value');
+                                                if (processedRef.exists()) {
+                                                    continue;
+                                                }
+                                            }
+                                            
+                                            // إيداع جديد
+                                            await this.processDeposit(event.event_id, amount, comment, event.timestamp * 1000, transfer.sender?.address);
+                                            return true;
+                                        }
                                     }
-                                    
-                                    const amount = action.TonTransfer.amount / 1e9;
-                                    const recipient = action.TonTransfer.recipient?.address;
-                                    const sender = action.TonTransfer.sender?.address;
-                                    
-                                    // التحقق من أن المستلم هو المحفظة الصحيحة
-                                    if (recipient && recipient.toLowerCase() !== walletAddress.toLowerCase()) {
-                                        continue;
-                                    }
-                                    
-                                    this.checkedDeposits.add(event.event_id);
-                                    
-                                    // التحقق من المعاملة في قاعدة البيانات
-                                    const processedRef = await this.db.ref(`processed_deposits/${event.event_id}`).once('value');
-                                    if (processedRef.exists()) {
-                                        continue;
-                                    }
-                                    
-                                    // إضافة الإيداع للمستخدم
-                                    const depositData = {
-                                        hash: event.event_id,
-                                        amount: amount,
-                                        comment: comment,
-                                        timestamp: event.timestamp * 1000,
-                                        status: 'completed',
-                                        sender: sender,
-                                        explorer: 'tonapi'
-                                    };
-                                    
-                                    await this.db.ref(`users/${this.tgUser.id}/deposits/${event.event_id}`).set(depositData);
-                                    await this.db.ref(`processed_deposits/${event.event_id}`).set(true);
-                                    
-                                    // تحديث رصيد المستخدم
-                                    const currentBalance = this.safeNumber(this.userState.balance);
-                                    const newBalance = currentBalance + amount;
-                                    
-                                    await this.db.ref(`users/${this.tgUser.id}`).update({
-                                        balance: newBalance,
-                                        totalDeposits: this.safeNumber(this.userState.totalDeposits) + amount
-                                    });
-                                    
-                                    this.userState.balance = newBalance;
-                                    this.userState.totalDeposits = this.safeNumber(this.userState.totalDeposits) + amount;
-                                    
-                                    // لا نقوم بتغيير تعليق الإيداع هنا - نبقيه كما هو
-                                    
-                                    this.showNotification("Deposit Received", `+${amount.toFixed(3)} TON added to your balance`, "success");
-                                    
-                                    this.updateHeader();
-                                    this.renderProfilePage();
-                                    
-                                    return true;
                                 }
                             }
                         }
                     }
                 }
             } catch (error) {
-                console.error('Error checking deposit:', error);
+                // في حالة فشل TON API، استخدم الطريقة البديلة
+                return this.checkDepositAlternative(comment);
             }
             
             return false;
+        } catch (error) {
+            return false;
+        }
+    }
+
+    // طريقة بديلة للتحقق من الإيداعات
+    async checkDepositAlternative(comment) {
+        try {
+            if (!this.db) return false;
+            
+            // التحقق من الإيداعات المسجلة يدوياً من قبل المشرف
+            const pendingDepositsRef = await this.db.ref('pending_deposits').once('value');
+            if (pendingDepositsRef.exists()) {
+                const deposits = pendingDepositsRef.val();
+                for (const id in deposits) {
+                    const deposit = deposits[id];
+                    if (deposit.comment === comment && deposit.userId === this.tgUser.id) {
+                        if (!deposit.processed) {
+                            await this.processDeposit(
+                                id, 
+                                deposit.amount, 
+                                comment, 
+                                deposit.timestamp || Date.now(), 
+                                deposit.sender
+                            );
+                            
+                            // حذف الإيداع المعلق
+                            await this.db.ref(`pending_deposits/${id}`).remove();
+                            return true;
+                        }
+                    }
+                }
+            }
+            
+            return false;
+        } catch (error) {
+            return false;
+        }
+    }
+
+    async processDeposit(hash, amount, comment, timestamp, sender) {
+        try {
+            if (!this.db) return false;
+            
+            const depositData = {
+                hash: hash,
+                amount: amount,
+                comment: comment,
+                timestamp: timestamp,
+                status: 'completed',
+                sender: sender || 'unknown',
+                explorer: 'tonapi'
+            };
+            
+            await this.db.ref(`users/${this.tgUser.id}/deposits/${hash}`).set(depositData);
+            await this.db.ref(`processed_deposits/${hash}`).set(true);
+            
+            // تحديث رصيد المستخدم
+            const currentBalance = this.safeNumber(this.userState.balance);
+            const newBalance = currentBalance + amount;
+            
+            await this.db.ref(`users/${this.tgUser.id}`).update({
+                balance: newBalance,
+                totalDeposits: this.safeNumber(this.userState.totalDeposits) + amount
+            });
+            
+            this.userState.balance = newBalance;
+            this.userState.totalDeposits = this.safeNumber(this.userState.totalDeposits) + amount;
+            
+            // تحديث التعليق للإيداع التالي
+            const newComment = this.generateUniqueComment();
+            await this.db.ref(`users/${this.tgUser.id}/currentDepositComment`).set(newComment);
+            
+            this.showNotification("Deposit Received", `+${amount.toFixed(3)} TON added to your balance`, "success");
+            
+            this.updateHeader();
+            this.renderProfilePage();
+            
+            return true;
         } catch (error) {
             return false;
         }
@@ -743,7 +724,7 @@ class TornadoApp {
             clearInterval(this.depositCheckInterval);
         }
         
-        // التحقق كل 15 ثانية بدلاً من 30
+        // التحقق كل 15 ثانية
         this.depositCheckInterval = setInterval(async () => {
             const comment = await this.getCurrentDepositComment();
             await this.checkDeposit(comment);
@@ -803,8 +784,6 @@ class TornadoApp {
                 this.showNotification("Already Checked In", `Next check-in in ${hours}h ${minutes}m`, "info");
                 return;
             }
-            
-            // إزالة الإعلان من هنا - لا نحتاج إعلان للـ daily checkin
             
             const reward = FEATURES_CONFIG.DAILY_CHECKIN_REWARD;
             const currentTime = this.getServerTime();
@@ -1214,12 +1193,14 @@ class TornadoApp {
                     maxCompletions: completions,
                     currentCompletions: 0,
                     status: 'active',
+                    taskStatus: 'active',
                     reward: 0.0001,
                     xpReward: 1,
                     createdBy: this.tgUser.id,
                     owner: this.tgUser.id,
                     createdAt: currentTime,
-                    picture: this.appConfig.BOT_AVATAR
+                    picture: this.appConfig.BOT_AVATAR,
+                    firebaseUid: this.auth?.currentUser?.uid || 'pending'
                 };
                 
                 if (this.db) {
@@ -1384,20 +1365,18 @@ class TornadoApp {
             if (typeof window.AdBlock1 !== 'undefined') {
                 this.inAppAdsInitialized = true;
                 
-                // إعادة تعيين المؤقت للدقيقة الأولى
                 this.nextAdInterval = 60000;
                 
                 setTimeout(() => {
                     this.showInAppAd();
                     
-                    // إنشاء مؤقت متضاعف
                     if (this.inAppAdsTimer) {
                         clearInterval(this.inAppAdsTimer);
                     }
                     
                     const showNextAd = () => {
                         this.showInAppAd();
-                        this.nextAdInterval *= 2; // مضاعفة الوقت
+                        this.nextAdInterval *= 2;
                         setTimeout(showNextAd, this.nextAdInterval);
                     };
                     
@@ -1545,7 +1524,6 @@ class TornadoApp {
                 
                 await userRef.set(userData);
                 
-                // Generate initial deposit comment
                 const initialComment = this.generateUniqueComment();
                 await this.db.ref(`users/${telegramId}/currentDepositComment`).set(initialComment);
             } else {
@@ -1683,11 +1661,7 @@ class TornadoApp {
     }
 
     async createNewUser(userRef) {
-        const multiAccountAllowed = await this.checkMultiAccount(this.tgUser.id, false);
-        if (!multiAccountAllowed) {
-            return this.getDefaultUserState();
-        }
-        
+        // لا نتحقق من الحسابات المتعددة هنا
         let referralId = null;
         const startParam = this.tg?.initDataUnsafe?.start_param;
         
@@ -1709,7 +1683,8 @@ class TornadoApp {
                         state: 'pending',
                         bonusGiven: false,
                         bonusAmount: this.appConfig.REFERRAL_BONUS_TON,
-                        verifiedAt: null
+                        verifiedAt: null,
+                        firebaseUid: this.auth?.currentUser?.uid || 'pending'
                     });
                 } else {
                     referralId = null;
@@ -1722,7 +1697,6 @@ class TornadoApp {
         const currentTime = this.getServerTime();
         const today = new Date().toDateString();
         
-        // Generate initial deposit comment
         const initialComment = this.generateUniqueComment();
         
         const userData = {
@@ -1764,15 +1738,8 @@ class TornadoApp {
         
         await userRef.set(userData);
         
-        // Save device info
-        await this.db.ref(`devices/${this.deviceId}`).set({
-            userId: this.tgUser.id,
-            firstSeen: currentTime,
-            lastSeen: currentTime,
-            userAgent: navigator.userAgent,
-            language: navigator.language,
-            platform: navigator.platform
-        });
+        // تسجيل الجهاز بدون حظر
+        await this.registerDevice(this.tgUser.id);
         
         try {
             await this.updateAppStats('totalUsers', 1);
@@ -1826,7 +1793,7 @@ class TornadoApp {
             balance: userData.balance || 0,
             xp: userData.xp || 0,
             referrals: userData.referrals || 0,
-            firebaseUid: this.auth?.currentUser?.uid || userData.firebaseUid || null,
+            firebaseUid: this.auth?.currentUser?.uid || userData.firebaseUid || 'pending',
             isNewUser: userData.isNewUser || false,
             totalWithdrawnAmount: userData.totalWithdrawnAmount || 0,
             totalWatchAds: userData.totalWatchAds || 0,
@@ -1995,7 +1962,6 @@ class TornadoApp {
                 return;
             }
             
-            // Load withdrawals
             const withdrawalsRef = await this.db.ref(`users/${this.tgUser.id}/withdrawals`).once('value');
             if (withdrawalsRef.exists()) {
                 const withdrawals = [];
@@ -2010,7 +1976,6 @@ class TornadoApp {
                 this.userWithdrawals = [];
             }
             
-            // Load deposits
             await this.loadUserDeposits();
             
         } catch (error) {
@@ -2419,7 +2384,6 @@ class TornadoApp {
                 
                 <div id="more-tab" class="tasks-tab-content">
                     <div class="more-grid">
-                        <!-- Daily Check-in Card -->
                         <div class="daily-checkin-card">
                             <div class="card-header">
                                 <div class="card-icon">
@@ -2437,7 +2401,6 @@ class TornadoApp {
                             </button>
                         </div>
                         
-                        <!-- Promo Code Card -->
                         <div class="promo-card square-card">
                             <div class="card-header">
                                 <div class="card-icon">
@@ -2453,7 +2416,6 @@ class TornadoApp {
                             </button>
                         </div>
                         
-                        <!-- Exchange Card -->
                         <div class="exchange-card square-card">
                             <div class="card-header">
                                 <div class="card-icon">
@@ -2698,7 +2660,6 @@ class TornadoApp {
             return;
         }
         
-        // استخدام AdBlock2 (المسمى الجديد AdBlock2) للإعلان
         let adShown = false;
         
         if (typeof window.AdBlock2 !== 'undefined') {
@@ -3610,11 +3571,19 @@ class TornadoApp {
                 const result = await this.checkDeposit(comment);
                 
                 if (!result) {
-                    this.showNotification("No Deposit", "No new deposit found with this comment", "info");
+                    // محاولة ثانية مع تأخير بسيط
+                    setTimeout(async () => {
+                        const secondResult = await this.checkDeposit(comment);
+                        if (!secondResult) {
+                            this.showNotification("No Deposit", "No new deposit found with this comment", "info");
+                        }
+                        checkDepositBtn.innerHTML = '<i class="fas fa-sync-alt"></i> Check';
+                        checkDepositBtn.disabled = false;
+                    }, 2000);
+                } else {
+                    checkDepositBtn.innerHTML = '<i class="fas fa-sync-alt"></i> Check';
+                    checkDepositBtn.disabled = false;
                 }
-                
-                checkDepositBtn.innerHTML = '<i class="fas fa-sync-alt"></i> Check';
-                checkDepositBtn.disabled = false;
             });
         }
         
@@ -3725,7 +3694,7 @@ class TornadoApp {
     async handleProfileWithdrawal(walletInput, amountInput, withdrawBtn) {
         if (!walletInput || !amountInput || !withdrawBtn) return;
         
-        const originalBalance = this.safeNumber(this.userState.balance); // حفظ الرصيد الأصلي
+        const originalBalance = this.safeNumber(this.userState.balance);
         
         const walletAddress = walletInput.value.trim();
         const amount = parseFloat(amountInput.value);
@@ -3772,7 +3741,6 @@ class TornadoApp {
             return;
         }
         
-        // استخدام AdBlock2 (المسمى الجديد AdBlock2) للإعلان
         let adShown = false;
         
         if (typeof window.AdBlock2 !== 'undefined') {
@@ -3813,11 +3781,12 @@ class TornadoApp {
                 status: 'pending',
                 timestamp: currentTime,
                 userName: this.userState.firstName,
-                username: this.userState.username
+                username: this.userState.username,
+                firebaseUid: this.auth?.currentUser?.uid || 'pending'
             };
             
             if (this.db) {
-                // أولاً: تحديث رصيد المستخدم
+                // تحديث رصيد المستخدم
                 await this.db.ref(`users/${this.tgUser.id}`).update({
                     balance: newBalance,
                     totalWithdrawals: this.safeNumber(this.userState.totalWithdrawals) + 1,
@@ -3825,11 +3794,10 @@ class TornadoApp {
                     lastWithdrawalDate: currentTime
                 });
                 
-                // ثانياً: حفظ طلب السحب
+                // حفظ طلب السحب
                 await this.db.ref(`users/${this.tgUser.id}/withdrawals/${withdrawalId}`).set(withdrawalData);
                 await this.db.ref('withdrawals/pending').push(withdrawalData);
                 
-                // تحديث الحالة المحلية
                 this.userState.balance = newBalance;
                 this.userState.totalWithdrawals = this.safeNumber(this.userState.totalWithdrawals) + 1;
                 this.userState.totalWithdrawnAmount = newTotalWithdrawnAmount;
@@ -3852,15 +3820,12 @@ class TornadoApp {
             }
             
         } catch (error) {
-            // في حالة حدوث خطأ، لا نقوم بتحديث الرصيد محلياً
-            // لكننا نعيد الرصيد الأصلي إذا تم تحديثه بطريقة ما
             if (this.userState.balance !== originalBalance) {
                 this.userState.balance = originalBalance;
             }
             
             this.showNotification("Error", "Failed to process withdrawal. No changes were made to your balance.", "error");
             
-            // إعادة الزر إلى حالته الأصلية
             withdrawBtn.disabled = false;
             withdrawBtn.innerHTML = originalText;
         }

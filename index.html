@@ -89,15 +89,15 @@
                 </div>
                 <div class="loading-step" style="color: #FFD700; margin: 8px 0; font-size: 14px; text-align: left; padding: 12px 15px; background: rgba(0,0,0,0.3); border-radius: 12px; border-left: 3px solid #FFD700; display: flex; align-items: center;">
                     <i class="fas fa-spinner fa-pulse" style="color: #FFD700; margin-right: 12px; width: 20px;"></i>
-                    <span>User Tasks Loading...</span>
-                </div>
-                <div class="loading-step" style="color: #FFD700; margin: 8px 0; font-size: 14px; text-align: left; padding: 12px 15px; background: rgba(0,0,0,0.3); border-radius: 12px; border-left: 3px solid #FFD700; display: flex; align-items: center;">
-                    <i class="fas fa-spinner fa-pulse" style="color: #FFD700; margin-right: 12px; width: 20px;"></i>
                     <span>Checking Device Data...</span>
                 </div>
                 <div class="loading-step" style="color: #FFD700; margin: 8px 0; font-size: 14px; text-align: left; padding: 12px 15px; background: rgba(0,0,0,0.3); border-radius: 12px; border-left: 3px solid #FFD700; display: flex; align-items: center;">
                     <i class="fas fa-spinner fa-pulse" style="color: #FFD700; margin-right: 12px; width: 20px;"></i>
-                    <span>Checking New Deposits...</span>
+                    <span>User Tasks Loading...</span>
+                </div>
+                <div class="loading-step" style="color: #FFD700; margin: 8px 0; font-size: 14px; text-align: left; padding: 12px 15px; background: rgba(0,0,0,0.3); border-radius: 12px; border-left: 3px solid #FFD700; display: flex; align-items: center;">
+                    <i class="fas fa-spinner fa-pulse" style="color: #FFD700; margin-right: 12px; width: 20px;"></i>
+                    <span>Loading App Data...</span>
                 </div>
             </div>
         </div>
@@ -122,6 +122,7 @@
             align-items: center;
             justify-content: center;
             gap: 8px;
+            animation: fadeIn 0.5s ease;
         }
         
         .launch-btn:hover {
@@ -133,6 +134,11 @@
             0% { transform: scale(1); }
             50% { transform: scale(1.1); }
             100% { transform: scale(1); }
+        }
+        
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
         }
         
         .loading-step {

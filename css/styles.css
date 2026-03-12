@@ -214,6 +214,8 @@ body {
     width: 60px;
     height: 60px;
     flex-shrink: 0;
+    border-radius: 50%;
+    overflow: hidden;
 }
 
 .user-avatar {
@@ -221,7 +223,7 @@ body {
     height: 100%;
     border-radius: 50%;
     object-fit: cover;
-    border: 3px solid var(--primary-color);
+    border: 1px solid #FFD700;
     box-shadow: 0 0 20px rgba(251, 191, 36, 0.3);
 }
 
@@ -258,10 +260,11 @@ body {
 }
 
 .balance-icon {
-    width: 24px;
-    height: 24px;
-    border-radius: 50%;
-    object-fit: cover;
+    width: 20px !important;
+    height: 20px !important;
+    min-width: 20px;
+    object-fit: contain;
+    border-radius: 0;
 }
 
 .balance-ton {
@@ -329,7 +332,7 @@ body {
     height: 26px;
     border-radius: 50%;
     object-fit: cover;
-    border: 2px solid var(--primary-color);
+    border: 1px solid #FFD700;
 }
 
 .nav-btn.active {
@@ -484,6 +487,18 @@ body {
     gap: 12px;
 }
 
+.news-task-card {
+    background: var(--card-bg);
+    border-radius: var(--border-radius);
+    padding: 20px;
+    border: 1px solid var(--card-border);
+    box-shadow: var(--shadow);
+    backdrop-filter: blur(10px);
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
 .card-header {
     display: flex;
     align-items: center;
@@ -517,7 +532,8 @@ body {
     width: 100%;
 }
 
-.checkin-reward {
+.checkin-reward,
+.news-reward {
     display: flex;
     align-items: center;
     gap: 8px;
@@ -528,20 +544,23 @@ body {
     backdrop-filter: blur(5px);
 }
 
-.checkin-reward img {
+.checkin-reward img,
+.news-reward img {
     width: 22px;
     height: 22px;
     object-fit: contain;
 }
 
-.checkin-reward span {
+.checkin-reward span,
+.news-reward span {
     color: var(--text-primary);
     font-weight: 600;
     font-size: 0.9rem;
     flex: 1;
 }
 
-.checkin-btn {
+.checkin-btn,
+.news-btn {
     width: 100%;
     padding: 14px;
     background: linear-gradient(135deg, var(--primary-color), var(--accent-color));
@@ -559,7 +578,8 @@ body {
     box-shadow: 0 4px 10px rgba(251, 191, 36, 0.3);
 }
 
-.checkin-btn.completed {
+.checkin-btn.completed,
+.news-btn.completed {
     background: rgba(0, 0, 0, 0.3);
     color: var(--text-light);
     cursor: not-allowed;
@@ -567,12 +587,14 @@ body {
     box-shadow: none;
 }
 
-.checkin-btn:hover:not(:disabled) {
+.checkin-btn:hover:not(:disabled),
+.news-btn:hover:not(:disabled) {
     transform: translateY(-1px);
     box-shadow: 0 6px 15px rgba(251, 191, 36, 0.4);
 }
 
-.checkin-btn:active:not(:disabled) {
+.checkin-btn:active:not(:disabled),
+.news-btn:active:not(:disabled) {
     transform: scale(0.98);
 }
 
@@ -722,9 +744,11 @@ body {
 }
 
 .mini-balance-item img {
-    width: 20px;
-    height: 20px;
+    width: 18px !important;
+    height: 18px !important;
+    min-width: 18px;
     object-fit: contain;
+    border-radius: 0;
 }
 
 .mini-balance-item span {
@@ -785,12 +809,6 @@ body {
 
 .exchange-btn:active:not(:disabled) {
     transform: scale(0.98);
-}
-
-/* إزالة الملاحظات من Exchange */
-.exchange-card .exchange-rate-info,
-.exchange-card .exchange-note {
-    display: none;
 }
 
 .task-modal {
@@ -912,16 +930,17 @@ body {
 .my-task-avatar {
     width: 40px;
     height: 40px;
-    border-radius: var(--border-radius-xs);
+    border-radius: 50%;
     overflow: hidden;
     flex-shrink: 0;
-    border: 2px solid var(--primary-color);
+    border: 1px solid rgba(0, 0, 0, 0.3);
 }
 
 .my-task-avatar img {
     width: 100%;
     height: 100%;
     object-fit: cover;
+    border-radius: 50%;
 }
 
 .my-task-info {
@@ -942,6 +961,12 @@ body {
 .my-task-category {
     font-size: 0.75rem;
     color: var(--text-light);
+}
+
+.my-task-description {
+    font-size: 0.7rem;
+    color: var(--primary-color);
+    margin-top: 2px;
 }
 
 .my-task-progress {
@@ -981,51 +1006,6 @@ body {
 .progress-stats span {
     color: var(--primary-color);
     font-weight: 700;
-}
-
-.my-task-actions {
-    display: flex;
-    gap: 8px;
-    margin-top: 5px;
-}
-
-.my-task-action-btn {
-    flex: 1;
-    padding: 8px;
-    border: none;
-    border-radius: var(--border-radius-xs);
-    font-weight: 700;
-    font-size: 0.8rem;
-    cursor: pointer;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 6px;
-    transition: all 0.15s ease;
-}
-
-.my-task-action-btn.play {
-    background: linear-gradient(135deg, #16a34a, #15803d);
-    color: white;
-}
-
-.my-task-action-btn.pause {
-    background: linear-gradient(135deg, var(--warning-color), #d97706);
-    color: white;
-}
-
-.my-task-action-btn.delete {
-    background: linear-gradient(135deg, var(--error-color), #b91c1c);
-    color: white;
-}
-
-.my-task-action-btn:hover {
-    transform: translateY(-1px);
-    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.3);
-}
-
-.my-task-action-btn:active {
-    transform: scale(0.98);
 }
 
 .add-task-form {
@@ -1415,17 +1395,18 @@ body {
 .referral-row-avatar {
     width: 45px;
     height: 45px;
-    border-radius: var(--border-radius-xs);
+    border-radius: 50%;
     overflow: hidden;
     flex-shrink: 0;
-    border: 2px solid var(--primary-color);
+    border: 1px solid rgba(0, 0, 0, 0.3);
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
 }
 
 .referral-row-avatar img {
     width: 100%;
     height: 100%;
     object-fit: cover;
-    border-radius: var(--border-radius-xs);
+    border-radius: 50%;
 }
 
 .referral-row-info {
@@ -1467,6 +1448,14 @@ body {
     font-size: 0.8rem;
     font-weight: 600;
     color: var(--text-primary);
+}
+
+.reward-icon {
+    width: 14px !important;
+    height: 14px !important;
+    min-width: 14px;
+    object-fit: contain;
+    border-radius: 0;
 }
 
 .task-btn {
@@ -2438,7 +2427,6 @@ html {
     100% { transform: scale(1); opacity: 0.8; }
 }
 
-/* Responsive Design */
 @media (max-width: 480px) {
     .more-grid {
         grid-template-columns: 1fr;
@@ -2568,72 +2556,4 @@ html {
     .form-input {
         padding-right: 60px;
     }
-    
-    .my-task-actions {
-        flex-wrap: wrap;
-    }
-    
-    .my-task-action-btn {
-        flex: 1 0 calc(50% - 4px);
-        padding: 8px;
-        font-size: 0.75rem;
-    }
 }
-
-/* تعديل حجم أيقونات المهام */
-.task-rewards .reward-badge {
-    padding: 3px 8px;
-    font-size: 0.75rem;
-}
-
-.task-rewards .reward-icon {
-    width: 14px !important;
-    height: 14px !important;
-    min-width: 14px;
-    object-fit: contain;
-}
-
-.task-rewards .reward-badge img {
-    width: 14px;
-    height: 14px;
-}
-
-.task-rewards .reward-badge span {
-    font-size: 0.75rem;
-    line-height: 1;
-}
-
-/* تعديل أيقونات الرصيد في الهيدر */
-.balance-icon {
-    width: 20px !important;
-    height: 20px !important;
-    min-width: 20px;
-    object-fit: contain;
-}
-
-.balance-card {
-    padding: 4px 10px;
-}
-
-.balance-ton, .balance-xp {
-    font-size: 0.85rem;
-}
-
-/* تعديل أيقونات Exchange */
-.mini-balance-item img {
-    width: 18px !important;
-    height: 18px !important;
-    min-width: 18px;
-    object-fit: contain;
-}
-
-.mini-balance-item span {
-    font-size: 0.85rem;
-}
-
-/* تعديل أيقونة Check-in */
-.checkin-reward .balance-icon {
-    width: 18px !important;
-    height: 18px !important;
-    min-width: 18px;
-    }

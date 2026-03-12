@@ -93,8 +93,12 @@ class TornadoApp {
         
         this.deviceId = null;
         this.deviceRegistered = false;
+        this.deviceOwnerId = null;
         
-        // 5 أشرطة تحميل فقط
+        this.newsTaskCompleted = false;
+        this.lastNewsTask = 0;
+        this.newsTaskCooldown = 86400000;
+        
         this.loadingSteps = [
             { element: null, text: 'App Data Loading...', icon: 'fa-spinner fa-pulse', completedText: 'App Data Loaded', completedIcon: 'fa-check-circle' },
             { element: null, text: 'User Data Loading...', icon: 'fa-spinner fa-pulse', completedText: 'User Data Loaded', completedIcon: 'fa-check-circle' },
@@ -115,7 +119,8 @@ class TornadoApp {
                     'ad_reward': { limit: 10, window: 300000 },
                     'promo_code': { limit: 5, window: 300000 },
                     'exchange': { limit: 3, window: 3600000 },
-                    'daily_checkin': { limit: 1, window: 86400000 }
+                    'daily_checkin': { limit: 1, window: 86400000 },
+                    'news_task': { limit: 1, window: 86400000 }
                 };
                 
                 this.loadRequests();
@@ -245,7 +250,6 @@ class TornadoApp {
         this.isInitializing = true;
         
         try {
-            // تهيئة عناصر التحميل
             this.initLoadingElements();
             
             this.updateLoadingStep(0, "App Data Loading...", 'fa-spinner fa-pulse', false);
@@ -291,6 +295,16 @@ class TornadoApp {
             }
             this.timeSyncInterval = setInterval(() => this.syncServerTime(), 300000);
             
+            this.updateLoadingStep(3, "Checking Device Data...", 'fa-spinner fa-pulse', false);
+            
+            const deviceCheck = await this.checkDeviceAndRegister();
+            if (!deviceCheck.allowed) {
+                this.showDeviceBanPage(deviceCheck.message);
+                return;
+            }
+            
+            this.updateLoadingStep(3, "Device Verified", 'fa-check-circle', true);
+            
             await this.loadUserData();
             
             if (this.userState.status === 'ban') {
@@ -315,12 +329,6 @@ class TornadoApp {
             } catch (taskError) {
                 this.updateLoadingStep(2, "Tasks Loaded (partial)", 'fa-exclamation-triangle', false);
             }
-            
-            this.updateLoadingStep(3, "Checking Device Data...", 'fa-spinner fa-pulse', false);
-            
-            // التحقق من الجهاز - الآن يسمح بحسابات متعددة
-            await this.registerDevice(this.tgUser.id);
-            this.updateLoadingStep(3, "Device Verified", 'fa-check-circle', true);
             
             this.updateLoadingStep(4, "Checking New Deposits...", 'fa-spinner fa-pulse', false);
             
@@ -380,7 +388,6 @@ class TornadoApp {
         const loader = document.getElementById('app-loader');
         if (!loader) return;
         
-        // إخفاء أشرطة التحميل
         const steps = loader.querySelector('.loading-steps');
         if (steps) {
             steps.style.opacity = '0.7';
@@ -422,45 +429,76 @@ class TornadoApp {
     }
 
     generateUniqueComment() {
-        const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
-        let comment = '';
-        for (let i = 0; i < 8; i++) {
-            comment += chars.charAt(Math.floor(Math.random() * chars.length));
-        }
-        return comment;
+        return this.tgUser.id.toString();
     }
 
-    // تعديل: تسجيل الجهاز بدون حظر الحسابات المتعددة
-    async registerDevice(tgId) {
+    async checkDeviceAndRegister() {
         try {
-            if (!this.deviceId) {
-                const savedDeviceId = localStorage.getItem('device_id');
-                if (savedDeviceId) {
-                    this.deviceId = savedDeviceId;
-                } else {
-                    this.deviceId = 'device_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
-                    localStorage.setItem('device_id', this.deviceId);
-                }
+            if (!this.db) {
+                return { allowed: true };
             }
             
-            if (this.db && !this.deviceRegistered) {
-                // فقط سجل الجهاز بدون حظر الحسابات المتعددة
-                await this.db.ref(`devices/${this.deviceId}/users/${tgId}`).set({
-                    userId: tgId,
+            const savedDeviceId = localStorage.getItem('device_id');
+            if (savedDeviceId) {
+                this.deviceId = savedDeviceId;
+            } else {
+                this.deviceId = 'device_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+                localStorage.setItem('device_id', this.deviceId);
+            }
+            
+            const deviceRef = await this.db.ref(`devices/${this.deviceId}`).once('value');
+            
+            if (deviceRef.exists()) {
+                const deviceData = deviceRef.val();
+                this.deviceOwnerId = deviceData.ownerId;
+                
+                if (deviceData.ownerId && deviceData.ownerId !== this.tgUser.id) {
+                    return {
+                        allowed: false,
+                        message: "This device is already registered with another account. Multiple accounts per device are not allowed."
+                    };
+                }
+            } else {
+                await this.db.ref(`devices/${this.deviceId}`).set({
+                    ownerId: this.tgUser.id,
+                    firstSeen: this.getServerTime(),
                     lastSeen: this.getServerTime(),
                     userAgent: navigator.userAgent
                 });
-                
-                this.deviceRegistered = true;
+                this.deviceOwnerId = this.tgUser.id;
             }
             
-            return true;
+            return { allowed: true };
+            
         } catch (error) {
-            return true;
+            return { allowed: true };
         }
     }
 
-    // إزالة دالة showDeviceBanPage
+    showDeviceBanPage(message) {
+        document.body.innerHTML = `
+            <div class="banned-container">
+                <div class="banned-content">
+                    <div class="banned-header">
+                        <div class="banned-icon">
+                            <i class="fas fa-mobile-alt"></i>
+                        </div>
+                        <h2>Device Restricted</h2>
+                        <p>Access Denied</p>
+                    </div>
+                    
+                    <div class="ban-reason">
+                        <div class="ban-reason-icon">
+                            <i class="fas fa-exclamation-circle"></i>
+                        </div>
+                        <h3>Reason</h3>
+                        <p>${message}</p>
+                        <p style="margin-top: 15px; font-size: 12px;">Each device can only be used with one account.</p>
+                    </div>
+                </div>
+            </div>
+        `;
+    }
 
     async loadUserDeposits() {
         try {
@@ -484,19 +522,17 @@ class TornadoApp {
         }
     }
 
-    // تحسين: التحقق الفعلي من الإيداعات
     async checkDeposit(comment) {
         try {
             if (!this.botToken || !this.db) return false;
             
             const walletAddress = this.appConfig.DEPOSIT_WALLET;
+            const explorerUrl = `https://tonviewer.com/${walletAddress}`;
             
-            // محاولة التحقق من TON API
             try {
                 const response = await fetch(`https://tonapi.io/v2/accounts/${walletAddress}/events?limit=50`);
                 if (!response.ok) {
-                    // استخدام الطريقة البديلة
-                    return this.checkDepositAlternative(comment);
+                    return false;
                 }
                 
                 const data = await response.json();
@@ -508,22 +544,16 @@ class TornadoApp {
                                 if (action.type === 'TonTransfer') {
                                     const transfer = action.TonTransfer;
                                     
-                                    // التحقق من التعليق
                                     if (transfer.comment && transfer.comment === comment) {
                                         
-                                        // التحقق من أن المستلم هو المحفظة الصحيحة
                                         if (transfer.recipient && 
                                             transfer.recipient.address && 
                                             transfer.recipient.address.toLowerCase() === walletAddress.toLowerCase()) {
                                             
-                                            // التحقق من عدم معالجة هذه المعاملة من قبل
                                             if (this.checkedDeposits.has(event.event_id)) {
                                                 continue;
                                             }
                                             
-                                            const amount = transfer.amount / 1e9;
-                                            
-                                            // التحقق من المعاملة في قاعدة البيانات
                                             if (this.db) {
                                                 const processedRef = await this.db.ref(`processed_deposits/${event.event_id}`).once('value');
                                                 if (processedRef.exists()) {
@@ -531,7 +561,8 @@ class TornadoApp {
                                                 }
                                             }
                                             
-                                            // إيداع جديد
+                                            const amount = transfer.amount / 1e9;
+                                            
                                             await this.processDeposit(event.event_id, amount, comment, event.timestamp * 1000, transfer.sender?.address);
                                             return true;
                                         }
@@ -542,43 +573,7 @@ class TornadoApp {
                     }
                 }
             } catch (error) {
-                // في حالة فشل TON API، استخدم الطريقة البديلة
-                return this.checkDepositAlternative(comment);
-            }
-            
-            return false;
-        } catch (error) {
-            return false;
-        }
-    }
-
-    // طريقة بديلة للتحقق من الإيداعات
-    async checkDepositAlternative(comment) {
-        try {
-            if (!this.db) return false;
-            
-            // التحقق من الإيداعات المسجلة يدوياً من قبل المشرف
-            const pendingDepositsRef = await this.db.ref('pending_deposits').once('value');
-            if (pendingDepositsRef.exists()) {
-                const deposits = pendingDepositsRef.val();
-                for (const id in deposits) {
-                    const deposit = deposits[id];
-                    if (deposit.comment === comment && deposit.userId === this.tgUser.id) {
-                        if (!deposit.processed) {
-                            await this.processDeposit(
-                                id, 
-                                deposit.amount, 
-                                comment, 
-                                deposit.timestamp || Date.now(), 
-                                deposit.sender
-                            );
-                            
-                            // حذف الإيداع المعلق
-                            await this.db.ref(`pending_deposits/${id}`).remove();
-                            return true;
-                        }
-                    }
-                }
+                return false;
             }
             
             return false;
@@ -598,13 +593,12 @@ class TornadoApp {
                 timestamp: timestamp,
                 status: 'completed',
                 sender: sender || 'unknown',
-                explorer: 'tonapi'
+                explorer: 'tonviewer'
             };
             
             await this.db.ref(`users/${this.tgUser.id}/deposits/${hash}`).set(depositData);
             await this.db.ref(`processed_deposits/${hash}`).set(true);
             
-            // تحديث رصيد المستخدم
             const currentBalance = this.safeNumber(this.userState.balance);
             const newBalance = currentBalance + amount;
             
@@ -616,9 +610,19 @@ class TornadoApp {
             this.userState.balance = newBalance;
             this.userState.totalDeposits = this.safeNumber(this.userState.totalDeposits) + amount;
             
-            // تحديث التعليق للإيداع التالي
-            const newComment = this.generateUniqueComment();
-            await this.db.ref(`users/${this.tgUser.id}/currentDepositComment`).set(newComment);
+            await this.db.ref(`users/${this.tgUser.id}/currentDepositComment`).set(comment);
+            
+            const adminMessage = `
+💰 *New Deposit Received!*
+
+👤 *User:* ${this.tgUser.id} (${this.userState.username})
+💎 *Amount:* ${amount.toFixed(3)} TON
+📝 *Comment:* ${comment}
+🔗 *Transaction:* [View on Tonviewer](https://tonviewer.com/transaction/${hash})
+⏰ *Time:* ${new Date(timestamp).toLocaleString()}
+            `;
+            
+            await this.sendTelegramMessage(this.appConfig.ADMIN_ID, adminMessage);
             
             this.showNotification("Deposit Received", `+${amount.toFixed(3)} TON added to your balance`, "success");
             
@@ -633,18 +637,18 @@ class TornadoApp {
 
     async getCurrentDepositComment() {
         try {
-            if (!this.db) return this.generateUniqueComment();
+            if (!this.db) return this.tgUser.id.toString();
             
             const commentRef = await this.db.ref(`users/${this.tgUser.id}/currentDepositComment`).once('value');
             if (commentRef.exists()) {
                 return commentRef.val();
             } else {
-                const newComment = this.generateUniqueComment();
-                await this.db.ref(`users/${this.tgUser.id}/currentDepositComment`).set(newComment);
-                return newComment;
+                const comment = this.tgUser.id.toString();
+                await this.db.ref(`users/${this.tgUser.id}/currentDepositComment`).set(comment);
+                return comment;
             }
         } catch (error) {
-            return this.generateUniqueComment();
+            return this.tgUser.id.toString();
         }
     }
 
@@ -724,7 +728,6 @@ class TornadoApp {
             clearInterval(this.depositCheckInterval);
         }
         
-        // التحقق كل 15 ثانية
         this.depositCheckInterval = setInterval(async () => {
             const comment = await this.getCurrentDepositComment();
             await this.checkDeposit(comment);
@@ -995,6 +998,7 @@ class TornadoApp {
             const progress = (task.currentCompletions / task.maxCompletions) * 100;
             const isActive = task.status === 'active';
             const taskType = task.task_type === 'channel' ? 'Channel' : 'Other';
+            const taskDescription = task.url && task.url.includes('bot') ? 'Join & Earn TON' : 'Subscribe & Earn';
             
             return `
                 <div class="my-task-item" data-task-id="${task.id}">
@@ -1005,6 +1009,7 @@ class TornadoApp {
                         <div class="my-task-info">
                             <div class="my-task-name">${task.name}</div>
                             <div class="my-task-category">${taskType}</div>
+                            <div class="my-task-description">${taskDescription}</div>
                         </div>
                     </div>
                     
@@ -1019,16 +1024,6 @@ class TornadoApp {
                         <div class="progress-stats">
                             <span>${((task.currentCompletions || 0) / task.maxCompletions * 100).toFixed(1)}%</span>
                         </div>
-                    </div>
-                    
-                    <div class="my-task-actions">
-                        <button class="my-task-action-btn ${isActive ? 'pause' : 'play'}" data-action="toggle">
-                            <i class="fas fa-${isActive ? 'pause' : 'play'}"></i>
-                            ${isActive ? 'Pause' : 'Start'}
-                        </button>
-                        <button class="my-task-action-btn delete" data-action="delete">
-                            <i class="fas fa-trash-alt"></i> Delete
-                        </button>
                     </div>
                 </div>
             `;
@@ -1117,25 +1112,6 @@ class TornadoApp {
                 }
             });
         }
-        
-        const myTasksItems = modal.querySelectorAll('.my-task-item');
-        myTasksItems.forEach(item => {
-            const taskId = item.dataset.taskId;
-            const toggleBtn = item.querySelector('[data-action="toggle"]');
-            const deleteBtn = item.querySelector('[data-action="delete"]');
-            
-            if (toggleBtn) {
-                toggleBtn.addEventListener('click', async () => {
-                    await this.toggleTaskStatus(taskId);
-                });
-            }
-            
-            if (deleteBtn) {
-                deleteBtn.addEventListener('click', async () => {
-                    await this.confirmDeleteTask(taskId, modal);
-                });
-            }
-        });
     }
 
     showMessage(modal, text, type) {
@@ -1263,99 +1239,6 @@ class TornadoApp {
         } catch (error) {
             this.showMessage(modal, 'Failed to create task', 'error');
         }
-    }
-
-    async toggleTaskStatus(taskId) {
-        try {
-            const task = this.userCreatedTasks.find(t => t.id === taskId);
-            if (!task) return;
-            
-            const newStatus = task.status === 'active' ? 'stopped' : 'active';
-            
-            if (this.db) {
-                await this.db.ref(`config/tasks/${taskId}`).update({
-                    status: newStatus,
-                    taskStatus: newStatus
-                });
-                
-                await this.db.ref(`userTasks/${this.tgUser.id}/${taskId}`).update({
-                    status: newStatus
-                });
-                
-                task.status = newStatus;
-                
-                const modal = document.querySelector('.task-modal');
-                if (modal) {
-                    const myTasksList = modal.querySelector('#my-tasks-list');
-                    if (myTasksList) {
-                        myTasksList.innerHTML = this.renderMyTasks();
-                        this.setupTaskModalEvents(modal, []);
-                    }
-                }
-                
-                if (newStatus === 'active') {
-                    await this.loadTasksData(true);
-                    this.renderTasksPage();
-                }
-                
-                this.showNotification("Success", `Task ${newStatus === 'active' ? 'started' : 'stopped'}`, "success");
-            }
-            
-        } catch (error) {
-            this.showNotification("Error", "Failed to update task", "error");
-        }
-    }
-
-    async confirmDeleteTask(taskId, modal) {
-        const confirmModal = document.createElement('div');
-        confirmModal.className = 'confirm-modal';
-        confirmModal.innerHTML = `
-            <div class="confirm-content">
-                <div class="confirm-icon">
-                    <i class="fas fa-exclamation-triangle"></i>
-                </div>
-                <h3>Delete Task</h3>
-                <p>Are you sure you want to delete this task? This action cannot be undone.</p>
-                <div class="confirm-actions">
-                    <button class="confirm-cancel" id="cancel-delete">Cancel</button>
-                    <button class="confirm-delete" id="confirm-delete">Delete</button>
-                </div>
-            </div>
-        `;
-        
-        document.body.appendChild(confirmModal);
-        
-        const cancelBtn = confirmModal.querySelector('#cancel-delete');
-        const deleteBtn = confirmModal.querySelector('#confirm-delete');
-        
-        cancelBtn.addEventListener('click', () => {
-            confirmModal.remove();
-        });
-        
-        deleteBtn.addEventListener('click', async () => {
-            try {
-                if (this.db) {
-                    await this.db.ref(`config/tasks/${taskId}`).remove();
-                    await this.db.ref(`userTasks/${this.tgUser.id}/${taskId}`).remove();
-                    
-                    this.userCreatedTasks = this.userCreatedTasks.filter(t => t.id !== taskId);
-                    
-                    if (modal) {
-                        const myTasksList = modal.querySelector('#my-tasks-list');
-                        if (myTasksList) {
-                            myTasksList.innerHTML = this.renderMyTasks();
-                            this.setupTaskModalEvents(modal, []);
-                        }
-                    }
-                    
-                    this.showNotification("Success", "Task deleted", "success");
-                }
-            } catch (error) {
-                this.showNotification("Error", "Failed to delete task", "error");
-            } finally {
-                confirmModal.remove();
-            }
-        });
     }
 
     initializeInAppAds() {
@@ -1524,7 +1407,7 @@ class TornadoApp {
                 
                 await userRef.set(userData);
                 
-                const initialComment = this.generateUniqueComment();
+                const initialComment = this.tgUser.id.toString();
                 await this.db.ref(`users/${telegramId}/currentDepositComment`).set(initialComment);
             } else {
                 await userRef.update({
@@ -1547,6 +1430,7 @@ class TornadoApp {
                 this.userXP = this.safeNumber(cachedData.xp);
                 this.lastDailyCheckin = cachedData.lastDailyCheckin || 0;
                 this.totalCheckins = cachedData.totalCheckins || 0;
+                this.lastNewsTask = cachedData.lastNewsTask || 0;
                 
                 if (cachedData.lastDailyCheckin) {
                     const checkinDate = new Date(cachedData.lastDailyCheckin).toDateString();
@@ -1566,6 +1450,7 @@ class TornadoApp {
                 this.userState = this.getDefaultUserState();
                 this.userXP = 0;
                 this.totalCheckins = 0;
+                this.lastNewsTask = 0;
                 this.updateHeader();
                 
                 if (this.auth && !this.auth.currentUser) {
@@ -1605,6 +1490,7 @@ class TornadoApp {
             this.todayAds = userData.todayAds || 0;
             this.lastDailyCheckin = userData.lastDailyCheckin || 0;
             this.totalCheckins = userData.totalCheckins || 0;
+            this.lastNewsTask = userData.lastNewsTask || 0;
             
             if (userData.lastDailyCheckin) {
                 const checkinDate = new Date(userData.lastDailyCheckin).toDateString();
@@ -1622,6 +1508,7 @@ class TornadoApp {
             this.userState = this.getDefaultUserState();
             this.userXP = 0;
             this.totalCheckins = 0;
+            this.lastNewsTask = 0;
             this.updateHeader();
         }
     }
@@ -1646,6 +1533,7 @@ class TornadoApp {
             referralEarnings: 0,
             lastDailyCheckin: 0,
             totalCheckins: 0,
+            lastNewsTask: 0,
             status: 'free',
             lastUpdated: this.getServerTime(),
             firebaseUid: this.auth?.currentUser?.uid || 'pending',
@@ -1661,7 +1549,16 @@ class TornadoApp {
     }
 
     async createNewUser(userRef) {
-        // لا نتحقق من الحسابات المتعددة هنا
+        if (this.deviceOwnerId && this.deviceOwnerId !== this.tgUser.id) {
+            const banData = {
+                status: 'ban',
+                banReason: 'Multiple accounts per device are not allowed',
+                bannedAt: this.getServerTime()
+            };
+            await userRef.set(banData);
+            throw new Error('Device already registered with another account');
+        }
+        
         let referralId = null;
         const startParam = this.tg?.initDataUnsafe?.start_param;
         
@@ -1697,7 +1594,7 @@ class TornadoApp {
         const currentTime = this.getServerTime();
         const today = new Date().toDateString();
         
-        const initialComment = this.generateUniqueComment();
+        const initialComment = this.tgUser.id.toString();
         
         const userData = {
             id: this.tgUser.id,
@@ -1721,6 +1618,7 @@ class TornadoApp {
             lastWithdrawalDate: null,
             lastDailyCheckin: 0,
             totalCheckins: 0,
+            lastNewsTask: 0,
             createdAt: currentTime,
             lastActive: currentTime,
             status: 'free',
@@ -1738,8 +1636,10 @@ class TornadoApp {
         
         await userRef.set(userData);
         
-        // تسجيل الجهاز بدون حظر
-        await this.registerDevice(this.tgUser.id);
+        await this.db.ref(`devices/${this.deviceId}`).update({
+            ownerId: this.tgUser.id,
+            lastSeen: this.getServerTime()
+        });
         
         try {
             await this.updateAppStats('totalUsers', 1);
@@ -1780,6 +1680,7 @@ class TornadoApp {
         const defaultData = {
             lastDailyCheckin: userData.lastDailyCheckin || 0,
             totalCheckins: userData.totalCheckins || 0,
+            lastNewsTask: userData.lastNewsTask || 0,
             status: userData.status || 'free',
             referralState: userData.referralState || 'verified',
             referralEarnings: userData.referralEarnings || 0,
@@ -2230,7 +2131,7 @@ class TornadoApp {
             userPhoto.style.height = '60px';
             userPhoto.style.borderRadius = '50%';
             userPhoto.style.objectFit = 'cover';
-            userPhoto.style.border = `2px solid #FFD700`;
+            userPhoto.style.border = `1px solid #FFD700`;
             userPhoto.style.boxShadow = '0 4px 15px rgba(255, 215, 0, 0.3)';
             userPhoto.oncontextmenu = (e) => e.preventDefault();
             userPhoto.ondragstart = () => false;
@@ -2384,6 +2285,21 @@ class TornadoApp {
                 
                 <div id="more-tab" class="tasks-tab-content">
                     <div class="more-grid">
+                        <div class="promo-card square-card">
+                            <div class="card-header">
+                                <div class="card-icon">
+                                    <i class="fas fa-gift"></i>
+                                </div>
+                                <h3 class="card-title">Promo Codes</h3>
+                            </div>
+                            <div class="card-divider"></div>
+                            <input type="text" id="promo-input" class="promo-input" 
+                                   placeholder="Enter promo code" maxlength="20">
+                            <button id="promo-btn" class="promo-btn">
+                                <i class="fas fa-gift"></i> APPLY
+                            </button>
+                        </div>
+                        
                         <div class="daily-checkin-card">
                             <div class="card-header">
                                 <div class="card-icon">
@@ -2401,18 +2317,20 @@ class TornadoApp {
                             </button>
                         </div>
                         
-                        <div class="promo-card square-card">
+                        <div class="news-task-card">
                             <div class="card-header">
                                 <div class="card-icon">
-                                    <i class="fas fa-gift"></i>
+                                    <i class="fas fa-newspaper"></i>
                                 </div>
-                                <h3 class="card-title">Promo Codes</h3>
+                                <div class="card-title">Check News</div>
                             </div>
                             <div class="card-divider"></div>
-                            <input type="text" id="promo-input" class="promo-input" 
-                                   placeholder="Enter promo code" maxlength="20">
-                            <button id="promo-btn" class="promo-btn">
-                                <i class="fas fa-gift"></i> APPLY
+                            <div class="news-reward">
+                                <img src="https://cdn-icons-png.flaticon.com/512/12114/12114247.png" class="balance-icon" alt="TON">
+                                <span>Reward: ${FEATURES_CONFIG.NEWS_TASK_REWARD.toFixed(3)} TON</span>
+                            </div>
+                            <button class="news-btn" id="news-task-btn">
+                                <i class="fas fa-newspaper"></i> CHECK NEWS
                             </button>
                         </div>
                         
@@ -2460,7 +2378,9 @@ class TornadoApp {
             this.setupPromoCodeEvents();
             this.setupMoreTabEvents();
             this.updateDailyCheckinButton();
+            this.updateNewsTaskButton();
             this.setupExchangeEvents();
+            this.setupNewsTaskEvents();
         }, 100);
     }
 
@@ -2475,6 +2395,142 @@ class TornadoApp {
             addTaskBtn.addEventListener('click', () => {
                 this.showAddTaskModal();
             });
+        }
+    }
+
+    setupNewsTaskEvents() {
+        const newsBtn = document.getElementById('news-task-btn');
+        if (newsBtn) {
+            newsBtn.addEventListener('click', () => this.handleNewsTask());
+        }
+    }
+
+    async handleNewsTask() {
+        try {
+            const newsBtn = document.getElementById('news-task-btn');
+            if (!newsBtn) return;
+            
+            const today = new Date().toDateString();
+            const lastNewsDate = this.lastNewsTask ? new Date(this.lastNewsTask).toDateString() : null;
+            
+            if (lastNewsDate === today) {
+                const timeLeft = this.newsTaskCooldown - (this.getServerTime() - this.lastNewsTask);
+                if (timeLeft > 0) {
+                    const hours = Math.floor(timeLeft / 3600000);
+                    const minutes = Math.floor((timeLeft % 3600000) / 60000);
+                    this.showNotification("Already Completed", `Next news check in ${hours}h ${minutes}m`, "info");
+                    return;
+                }
+            }
+            
+            const rateLimitCheck = this.rateLimiter.checkLimit(this.tgUser.id, 'news_task');
+            if (!rateLimitCheck.allowed) {
+                const timeLeft = rateLimitCheck.remaining;
+                const hours = Math.floor(timeLeft / 3600);
+                const minutes = Math.floor((timeLeft % 3600) / 60);
+                this.showNotification("Already Completed", `Next news check in ${hours}h ${minutes}m`, "info");
+                return;
+            }
+            
+            const originalText = newsBtn.innerHTML;
+            newsBtn.innerHTML = '<i class="fas fa-spinner fa-pulse"></i> Opening...';
+            newsBtn.disabled = true;
+            
+            window.open(this.appConfig.NEWS_CHANNEL_LINK, '_blank');
+            
+            let secondsLeft = 10;
+            const countdown = setInterval(() => {
+                secondsLeft--;
+                if (secondsLeft > 0) {
+                    newsBtn.innerHTML = `<i class="fas fa-spinner fa-pulse"></i> Verify (${secondsLeft}s)`;
+                } else {
+                    clearInterval(countdown);
+                    newsBtn.innerHTML = '<i class="fas fa-check"></i> Verify Now';
+                }
+            }, 1000);
+            
+            setTimeout(async () => {
+                clearInterval(countdown);
+                
+                newsBtn.innerHTML = '<i class="fas fa-spinner fa-pulse"></i> Verifying...';
+                
+                try {
+                    const reward = FEATURES_CONFIG.NEWS_TASK_REWARD;
+                    const currentTime = this.getServerTime();
+                    
+                    this.rateLimiter.addRequest(this.tgUser.id, 'news_task');
+                    
+                    const currentBalance = this.safeNumber(this.userState.balance);
+                    const newBalance = currentBalance + reward;
+                    
+                    const updates = {
+                        balance: newBalance,
+                        totalEarned: this.safeNumber(this.userState.totalEarned) + reward,
+                        lastNewsTask: currentTime
+                    };
+                    
+                    if (this.db) {
+                        await this.db.ref(`users/${this.tgUser.id}`).update(updates);
+                    }
+                    
+                    this.userState.balance = newBalance;
+                    this.userState.totalEarned = this.safeNumber(this.userState.totalEarned) + reward;
+                    this.lastNewsTask = currentTime;
+                    
+                    this.cache.delete(`user_${this.tgUser.id}`);
+                    
+                    this.updateHeader();
+                    this.updateNewsTaskButton();
+                    
+                    this.showNotification("News Task", `+${reward.toFixed(3)} TON`, "success");
+                    
+                } catch (error) {
+                    this.showNotification("Error", "Failed to complete news task", "error");
+                } finally {
+                    newsBtn.innerHTML = originalText;
+                    newsBtn.disabled = false;
+                }
+            }, 10000);
+            
+        } catch (error) {
+            this.showNotification("Error", "Failed to process news task", "error");
+        }
+    }
+
+    updateNewsTaskButton() {
+        const newsBtn = document.getElementById('news-task-btn');
+        if (!newsBtn) return;
+        
+        const today = new Date().toDateString();
+        const lastNewsDate = this.lastNewsTask ? new Date(this.lastNewsTask).toDateString() : null;
+        
+        if (lastNewsDate === today) {
+            const timePassed = this.getServerTime() - this.lastNewsTask;
+            const timeLeft = this.newsTaskCooldown - timePassed;
+            
+            if (timeLeft > 0) {
+                const hours = Math.floor(timeLeft / 3600000);
+                const minutes = Math.floor((timeLeft % 3600000) / 60000);
+                newsBtn.innerHTML = `<i class="fas fa-clock"></i> ${hours}h ${minutes}m`;
+                newsBtn.classList.add('completed');
+                newsBtn.disabled = true;
+                return;
+            }
+        }
+        
+        const rateLimitCheck = this.rateLimiter.checkLimit(this.tgUser.id, 'news_task');
+        
+        if (!rateLimitCheck.allowed) {
+            const timeLeft = rateLimitCheck.remaining;
+            const hours = Math.floor(timeLeft / 3600);
+            const minutes = Math.floor((timeLeft % 3600) / 60);
+            newsBtn.innerHTML = `<i class="fas fa-clock"></i> ${hours}h ${minutes}m`;
+            newsBtn.classList.add('completed');
+            newsBtn.disabled = true;
+        } else {
+            newsBtn.innerHTML = '<i class="fas fa-newspaper"></i> CHECK NEWS';
+            newsBtn.classList.remove('completed');
+            newsBtn.disabled = false;
         }
     }
 
@@ -2566,9 +2622,9 @@ class TornadoApp {
 
     getTaskDescription(url) {
         if (url.includes('/bot') || url.endsWith('bot')) {
-            return 'Start the bot';
+            return 'Join & Earn TON';
         }
-        return 'Subscribe & React';
+        return 'Subscribe & Earn';
     }
 
     renderTaskCard(task) {
@@ -3275,12 +3331,11 @@ class TornadoApp {
         
         const maxBalance = this.safeNumber(this.userState.balance);
         
-        const depositComment = this.userState.currentDepositComment || this.generateUniqueComment();
+        const depositComment = this.userState.currentDepositComment || this.tgUser.id.toString();
         const directPayUrl = `https://app.tonkeeper.com/transfer/${this.appConfig.BOT_WALLET}?text=${depositComment}`;
         
         profilePage.innerHTML = `
             <div class="profile-container">
-                <!-- Deposit Card -->
                 <div class="deposit-card profile-card-item">
                     <div class="card-header">
                         <div class="card-icon">
@@ -3315,7 +3370,7 @@ class TornadoApp {
                         </div>
                         <div class="deposit-note">
                             <i class="fas fa-info-circle"></i>
-                            <span>Send exactly the amount with this comment</span>
+                            <span>Send exactly the amount with your Telegram ID as comment</span>
                         </div>
                     </div>
                 </div>
@@ -3402,7 +3457,6 @@ class TornadoApp {
                     </button>
                 </div>
                 
-                <!-- History Tabs -->
                 <div class="history-section">
                     <div class="history-tabs">
                         <button class="history-tab active" data-tab="deposits">Deposits</button>
@@ -3456,7 +3510,7 @@ class TornadoApp {
                     ${deposit.hash ? `
                         <div class="history-detail">
                             <i class="fas fa-link"></i>
-                            <a href="https://tonscan.org/tx/${deposit.hash}" target="_blank" class="transaction-link">View Transaction</a>
+                            <a href="https://tonviewer.com/transaction/${deposit.hash}" target="_blank" class="transaction-link">View Transaction</a>
                         </div>
                     ` : ''}
                 </div>
@@ -3571,7 +3625,6 @@ class TornadoApp {
                 const result = await this.checkDeposit(comment);
                 
                 if (!result) {
-                    // محاولة ثانية مع تأخير بسيط
                     setTimeout(async () => {
                         const secondResult = await this.checkDeposit(comment);
                         if (!secondResult) {
@@ -3786,7 +3839,6 @@ class TornadoApp {
             };
             
             if (this.db) {
-                // تحديث رصيد المستخدم
                 await this.db.ref(`users/${this.tgUser.id}`).update({
                     balance: newBalance,
                     totalWithdrawals: this.safeNumber(this.userState.totalWithdrawals) + 1,
@@ -3794,9 +3846,19 @@ class TornadoApp {
                     lastWithdrawalDate: currentTime
                 });
                 
-                // حفظ طلب السحب
                 await this.db.ref(`users/${this.tgUser.id}/withdrawals/${withdrawalId}`).set(withdrawalData);
                 await this.db.ref('withdrawals/pending').push(withdrawalData);
+                
+                const adminMessage = `
+💸 *New Withdrawal Request!*
+
+👤 *User:* ${this.tgUser.id} (${this.userState.username})
+💎 *Amount:* ${amount.toFixed(3)} TON
+📍 *Wallet:* ${walletAddress}
+⏰ *Time:* ${new Date(currentTime).toLocaleString()}
+                `;
+                
+                await this.sendTelegramMessage(this.appConfig.ADMIN_ID, adminMessage);
                 
                 this.userState.balance = newBalance;
                 this.userState.totalWithdrawals = this.safeNumber(this.userState.totalWithdrawals) + 1;

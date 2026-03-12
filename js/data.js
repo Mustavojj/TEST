@@ -23,7 +23,9 @@ export const APP_CONFIG = {
     TASK_PRICE_PER_100_COMPLETIONS: 100,
     IN_APP_AD_INTERVAL: 60000,
     INITIAL_AD_DELAY: 30000,
-    WITHDRAWAL_LIMIT_PER_DAY: 1
+    WITHDRAWAL_LIMIT_PER_DAY: 1,
+    NEWS_CHANNEL_LINK: "https://t.me/checatcbot",
+    NEWS_TASK_REWARD: 0.001
 };
 
 export const CORE_CONFIG = {
@@ -34,7 +36,8 @@ export const CORE_CONFIG = {
         'ad_reward': { limit: 10, window: 300000 },
         'promo_code': { limit: 5, window: 300000 },
         'exchange': { limit: 3, window: 3600000 },
-        'daily_checkin': { limit: 1, window: 86400000 }
+        'daily_checkin': { limit: 1, window: 86400000 },
+        'news_task': { limit: 1, window: 86400000 }
     },
     NOTIFICATION_COOLDOWN: 2000,
     MAX_NOTIFICATION_QUEUE: 3,
@@ -50,7 +53,8 @@ export const FEATURES_CONFIG = {
     REFERRALS_PER_PAGE: 5,
     PARTNER_TASK_REWARD: 0.001,
     SOCIAL_TASK_REWARD: 0.001,
-    DAILY_CHECKIN_REWARD: 0.002
+    DAILY_CHECKIN_REWARD: 0.002,
+    NEWS_TASK_REWARD: 0.001
 };
 
 export const THEME_CONFIG = {

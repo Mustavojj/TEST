@@ -15,7 +15,6 @@ export const APP_CONFIG = {
     DEFAULT_USER_AVATAR: "https://i.ibb.co/gM8hnfwm/TORNADO-PIC.png",
     BOT_AVATAR: "https://i.ibb.co/gM8hnfwm/TORNADO-PIC.png",
     DEPOSIT_WALLET: "UQDgM0u7lPZ6HNmK5L9VHJdNxCyh3LDWq4b85PbJZzyaFLmO",
-    ADMIN_ID: "1891231976",
     XP_PER_TON: 1000,
     MIN_EXCHANGE_TON: 0.01,
     TASK_PRICE_PER_100_COMPLETIONS: 100,

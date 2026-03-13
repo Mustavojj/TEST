@@ -4,9 +4,9 @@ class TaskManager {
     constructor(app) {
         this.app = app;
         this.mainTasks = [];
-        this.partnerTasks = [];
         this.socialTasks = [];
         this.taskTimers = new Map();
+        this.userCompletedTasks = new Set();
     }
 
     async loadTasksData(forceRefresh = false) {
@@ -17,21 +17,24 @@ class TaskManager {
             if (cached) {
                 this.mainTasks = cached.mainTasks || [];
                 this.socialTasks = cached.socialTasks || [];
+                this.userCompletedTasks = new Set(cached.completedTasks || []);
                 return;
             }
         }
         
         try {
+            this.userCompletedTasks = new Set(this.app.userState.completedTasks || []);
+            
             this.mainTasks = await this.loadTasksFromDatabase('main');
             this.socialTasks = await this.loadTasksFromDatabase('social');
             
             this.app.cache.set(cacheKey, {
                 mainTasks: this.mainTasks,
-                socialTasks: this.socialTasks
+                socialTasks: this.socialTasks,
+                completedTasks: Array.from(this.userCompletedTasks)
             }, 30000);
             
         } catch (error) {
-            this.app.showNotification("Warning", "Failed to load tasks", "warning");
             this.mainTasks = [];
             this.socialTasks = [];
         }
@@ -43,8 +46,7 @@ class TaskManager {
             
             const tasks = [];
             
-            // تحميل المهام العامة
-            const tasksSnapshot = await this.app.db.ref(`config/tasks`).once('value');
+            const tasksSnapshot = await this.app.db.ref('config/tasks').once('value');
             if (tasksSnapshot.exists()) {
                 tasksSnapshot.forEach(child => {
                     try {
@@ -69,10 +71,9 @@ class TaskManager {
                             return;
                         }
                         
-                        const task = { 
-                            id: child.key, 
+                        const task = {
+                            id: child.key,
                             name: taskData.name || 'Unknown Task',
-                            description: taskData.description || 'Join & Get Reward',
                             picture: taskData.picture || this.app.appConfig.BOT_AVATAR,
                             url: taskData.url || '',
                             type: taskData.type || 'channel',
@@ -82,21 +83,19 @@ class TaskManager {
                             currentCompletions: currentCompletions,
                             maxCompletions: maxCompletions,
                             status: taskData.status || 'active',
-                            owner: null // مهمة عامة
+                            owner: null
                         };
                         
-                        if (!this.app.userCompletedTasks.has(task.id)) {
+                        if (!this.userCompletedTasks.has(task.id)) {
                             tasks.push(task);
                         }
                     } catch (error) {}
                 });
             }
             
-            // تحميل مهام المستخدمين
-            const userTasksSnapshot = await this.app.db.ref(`config/userTasks`).once('value');
+            const userTasksSnapshot = await this.app.db.ref('config/userTasks').once('value');
             if (userTasksSnapshot.exists()) {
                 userTasksSnapshot.forEach(ownerSnapshot => {
-                    const ownerId = ownerSnapshot.key;
                     ownerSnapshot.forEach(taskSnapshot => {
                         try {
                             const taskData = taskSnapshot.val();
@@ -113,17 +112,16 @@ class TaskManager {
                             const maxCompletions = taskData.maxCompletions || 999999;
                             
                             if (currentCompletions >= maxCompletions) {
-                                this.app.db.ref(`config/userTasks/${ownerId}/${taskSnapshot.key}`).update({
+                                this.app.db.ref(`config/userTasks/${ownerSnapshot.key}/${taskSnapshot.key}`).update({
                                     status: 'completed',
                                     taskStatus: 'completed'
                                 });
                                 return;
                             }
                             
-                            const task = { 
-                                id: taskSnapshot.key, 
+                            const task = {
+                                id: taskSnapshot.key,
                                 name: taskData.name || 'Unknown Task',
-                                description: taskData.description || 'Join & Get Reward',
                                 picture: taskData.picture || this.app.appConfig.BOT_AVATAR,
                                 url: taskData.url || '',
                                 type: taskData.type || 'channel',
@@ -133,10 +131,10 @@ class TaskManager {
                                 currentCompletions: currentCompletions,
                                 maxCompletions: maxCompletions,
                                 status: taskData.status || 'active',
-                                owner: ownerId // معرف المالك
+                                owner: ownerSnapshot.key
                             };
                             
-                            if (!this.app.userCompletedTasks.has(task.id)) {
+                            if (!this.userCompletedTasks.has(task.id)) {
                                 tasks.push(task);
                             }
                         } catch (error) {}
@@ -148,98 +146,6 @@ class TaskManager {
             
         } catch (error) {
             return [];
-        }
-    }
-
-    getMainTasks() {
-        return this.mainTasks;
-    }
-
-    getSocialTasks() {
-        return this.socialTasks;
-    }
-
-    async verifyTaskCompletion(taskId, chatId, userId, initData, botToken) {
-        try {
-            if (!botToken) {
-                return { success: true, message: "Auto-verified (no bot token)" };
-            }
-            
-            const isBotAdmin = await this.checkBotAdminStatus(chatId, botToken);
-            
-            if (!isBotAdmin) {
-                return { success: true, message: "Auto-verified (bot not admin)" };
-            }
-            
-            try {
-                const response = await fetch(`https://api.telegram.org/bot${botToken}/getChatMember`, {
-                    method: 'POST',
-                    headers: { 
-                        'Content-Type': 'application/json',
-                    },
-                    body: JSON.stringify({
-                        chat_id: chatId,
-                        user_id: parseInt(userId)
-                    })
-                });
-                
-                if (!response.ok) {
-                    return { success: false, message: "Verification failed" };
-                }
-                
-                const data = await response.json();
-                if (data.ok === true && data.result) {
-                    const status = data.result.status;
-                    const validStatuses = ['member', 'administrator', 'creator', 'restricted'];
-                    const isMember = validStatuses.includes(status);
-                    
-                    return { 
-                        success: isMember, 
-                        message: isMember ? "Verified successfully" : "Please join the channel/group first!"
-                    };
-                } else {
-                    return { success: false, message: "Verification failed" };
-                }
-            } catch (apiError) {
-                return { success: false, message: "Verification error" };
-            }
-            
-        } catch (error) {
-            return { success: false, message: "Verification error" };
-        }
-    }
-
-    async checkBotAdminStatus(chatId, botToken) {
-        try {
-            if (!botToken) {
-                return false;
-            }
-            
-            const response = await fetch(`https://api.telegram.org/bot${botToken}/getChatAdministrators`, {
-                method: 'POST',
-                headers: { 
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({ chat_id: chatId })
-            });
-            
-            if (!response.ok) {
-                return false;
-            }
-            
-            const data = await response.json();
-            if (data.ok && data.result) {
-                const admins = data.result;
-                const isBotAdmin = admins.some(admin => {
-                    const isBot = admin.user?.is_bot;
-                    const isThisBot = admin.user?.username === this.app.appConfig.BOT_USERNAME.replace('@', '');
-                    return isBot && isThisBot;
-                });
-                return isBotAdmin;
-            }
-            return false;
-        } catch (error) {
-            return false;
         }
     }
 
@@ -270,28 +176,10 @@ class TaskManager {
     }
 }
 
-class QuestManager {
-    constructor(app) {
-        this.app = app;
-    }
-
-    async loadQuestsData() {
-        return;
-    }
-
-    async updateQuestsProgress() {
-        return;
-    }
-}
-
 class ReferralManager {
     constructor(app) {
         this.app = app;
         this.recentReferrals = [];
-        this.currentPage = 1;
-        this.itemsPerPage = 5;
-        this.isLoading = false;
-        this.hasMore = true;
     }
 
     async loadRecentReferrals() {
@@ -372,7 +260,7 @@ class ReferralManager {
                     if (newUserRef.exists()) {
                         const newUserData = newUserRef.val();
                         
-                        if (newUserData.welcomeTasksCompleted) {
+                        if (newUserData.isNewUser === false) {
                             await this.app.processReferralRegistrationWithBonus(this.app.tgUser.id, referralId);
                             updated = true;
                         }
@@ -391,18 +279,6 @@ class ReferralManager {
             
         } catch (error) {}
     }
-
-    async handleReferralBonus(referralId) {
-        return false;
-    }
-
-    async renderReferralsPage() {
-        return;
-    }
-
-    setupReferralsPageEvents() {
-        return;
-    }
 }
 
-export { TaskManager, QuestManager, ReferralManager };
+export { TaskManager, ReferralManager };

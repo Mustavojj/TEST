@@ -83,6 +83,7 @@ class TaskManager {
                             currentCompletions: currentCompletions,
                             maxCompletions: maxCompletions,
                             status: taskData.status || 'active',
+                            verification: taskData.verification || 'NO',
                             owner: null
                         };
                         
@@ -131,6 +132,7 @@ class TaskManager {
                                 currentCompletions: currentCompletions,
                                 maxCompletions: maxCompletions,
                                 status: taskData.status || 'active',
+                                verification: taskData.verification || 'NO',
                                 owner: ownerSnapshot.key
                             };
                             

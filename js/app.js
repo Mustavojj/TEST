@@ -623,33 +623,7 @@ class TornadoApp {
     }
 
     async sendTelegramMessage(chatId, message, buttons = null) {
-        try {
-            if (!this.botToken) return false;
-            
-            const url = `https://api.telegram.org/bot${this.botToken}/sendMessage`;
-            
-            const payload = {
-                chat_id: chatId,
-                text: message,
-                parse_mode: 'Markdown'
-            };
-            
-            if (buttons && buttons.length > 0) {
-                payload.reply_markup = {
-                    inline_keyboard: buttons
-                };
-            }
-            
-            const response = await fetch(url, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(payload)
-            });
-            
-            return response.ok;
-        } catch (error) {
-            return false;
-        }
+        return false;
     }
 
     async dailyCheckin() {
@@ -1103,10 +1077,6 @@ class TornadoApp {
                     });
                     
                     this.userState.xp = newXP;
-                    
-                    const adminMessage = `📢 *New Task Created!*\n\n📌 *Name:* ${taskName}\n🔗 *Link:* ${taskLink}\n🔒 *Verification:* ${verification}\n🎯 *Completions:* ${completions}\n💰 *Price:* ${price} XP\n👤 *Creator:* ${this.tgUser.id}`;
-                    
-                    await this.sendTelegramMessage(this.appConfig.ADMIN_ID, adminMessage);
                     
                     await this.loadUserCreatedTasks();
                     
@@ -1722,14 +1692,6 @@ class TornadoApp {
                 balance: newBalance,
                 referralEarnings: newReferralEarnings,
                 totalEarned: newTotalEarned
-            });
-            
-            await this.db.ref(`referralTasks/${referrerId}`).push({
-                userId: this.tgUser.id,
-                taskReward: taskReward,
-                referralBonus: referralBonus,
-                percentage: referralPercentage,
-                createdAt: this.getServerTime()
             });
             
             if (referrerId === this.tgUser.id) {
@@ -2451,7 +2413,7 @@ class TornadoApp {
                          ondragstart="return false;">
                 </div>
                 <div class="referral-row-info">
-                    <p class="referral-row-username">${task.name}</p>
+                    <p class="referral-row-username">${task.name} ${verificationIcon}</p>
                     <p class="task-description">Join & Earn TON</p>
                     <div class="task-rewards">
                         <span class="reward-badge">
@@ -2884,6 +2846,10 @@ class TornadoApp {
                             currentCompletions: newCompletions
                         });
                     }
+                    
+                    await this.db.ref(`userTasks/${task.owner}/${taskId}`).update({
+                        currentCompletions: newCompletions
+                    });
                 }
             } else {
                 const taskRef = this.db.ref(`config/tasks/${taskId}`);
@@ -2906,11 +2872,6 @@ class TornadoApp {
                     }
                 }
             }
-            
-            await this.db.ref(`userTasks/${task.owner || 'system'}/${taskId}/completions`).push({
-                userId: this.tgUser.id,
-                completedAt: this.getServerTime()
-            });
             
             this.userState.balance = currentBalance + taskReward;
             this.userState.xp = currentXP + taskXpReward;
@@ -3559,17 +3520,6 @@ class TornadoApp {
                 
                 await this.db.ref(`users/${this.tgUser.id}/withdrawals/${withdrawalId}`).set(withdrawalData);
                 await this.db.ref('withdrawals/pending').push(withdrawalData);
-                
-                const adminMessage = `
-💸 *New Withdrawal Request!*
-
-👤 *User:* ${this.tgUser.id} (${this.userState.username})
-💎 *Amount:* ${amount.toFixed(3)} TON
-📍 *Wallet:* ${walletAddress}
-⏰ *Time:* ${new Date(currentTime).toLocaleString()}
-                `;
-                
-                await this.sendTelegramMessage(this.appConfig.ADMIN_ID, adminMessage);
                 
                 this.userState.balance = newBalance;
                 this.userState.totalWithdrawals = this.safeNumber(this.userState.totalWithdrawals) + 1;

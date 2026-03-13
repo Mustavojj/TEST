@@ -3240,7 +3240,7 @@ class TornadoApp {
         
         const maxBalance = this.safeNumber(this.userState.balance);
         
-        const depositComment = this.userState.currentDepositComment || this.tgUser.id.toString(); // استخدام Telegram ID
+        const depositComment = this.tgUser.id.toString(); 
         const directPayUrl = `https://app.tonkeeper.com/transfer/${this.appConfig.BOT_WALLET}?text=${depositComment}`;
         
         profilePage.innerHTML = `

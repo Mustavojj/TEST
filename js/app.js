@@ -1540,7 +1540,7 @@ class TornadoApp {
         const currentTime = this.getServerTime();
         const today = new Date().toDateString();
         
-        // استخدام Telegram ID كتعليق للإيداع
+        
         const initialComment = this.tgUser.id.toString();
         
         const userData = {
@@ -1571,14 +1571,11 @@ class TornadoApp {
             status: 'free',
             referralState: referralId ? 'pending' : null,
             firebaseUid: this.auth?.currentUser?.uid || 'pending',
-            isNewUser: true,
             totalWithdrawnAmount: 0,
             totalWatchAds: 0,
             todayAds: 0,
             lastAdResetDate: today,
-            theme: 'dark',
             deviceId: this.deviceId,
-            currentDepositComment: initialComment
         };
         
         await userRef.set(userData);

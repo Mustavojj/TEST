@@ -1458,20 +1458,6 @@ class TornadoApp {
                 const referrerSnapshot = await referrerRef.once('value');
                 if (referrerSnapshot.exists()) {
                     this.pendingReferralAfterWelcome = referralId;
-                    
-                    await this.db.ref(`referrals/${referralId}/${this.tgUser.id}`).set({
-                        userId: this.tgUser.id,
-                        username: this.tgUser.username ? `@${this.tgUser.username}` : 'No Username',
-                        firstName: this.getShortName(this.tgUser.first_name || ''),
-                        photoUrl: this.tgUser.photo_url || this.appConfig.DEFAULT_USER_AVATAR,
-                        joinedAt: this.getServerTime(),
-                        state: 'pending',
-                        bonusGiven: false,
-                        bonusAmount: this.appConfig.REFERRAL_BONUS_TON,
-                        bonusXpAmount: this.appConfig.REFERRAL_BONUS_XP,
-                        verifiedAt: null,
-                        firebaseUid: this.auth?.currentUser?.uid || 'pending'
-                    });
                 } else {
                     referralId = null;
                 }
@@ -1481,7 +1467,7 @@ class TornadoApp {
         }
         
         const currentTime = this.getServerTime();
-        const today = new Date().toDateString();
+        const firebaseUid = this.auth?.currentUser?.uid || 'pending';
         
         const initialComment = this.tgUser.id.toString();
         
@@ -1509,7 +1495,7 @@ class TornadoApp {
             lastActive: currentTime,
             status: 'free',
             referralState: referralId ? 'pending' : null,
-            firebaseUid: this.auth?.currentUser?.uid || 'pending',
+            firebaseUid: firebaseUid,
             totalWithdrawnAmount: 0,
             deviceId: this.deviceId,
         };
@@ -1524,6 +1510,11 @@ class TornadoApp {
         try {
             await this.updateAppStats('totalUsers', 1);
         } catch (statsError) {}
+        
+        // معالجة المحيل فوراً عند إنشاء المستخدم الجديد
+        if (referralId) {
+            await this.processReferralRegistrationWithBonus(referralId, this.tgUser.id, firebaseUid);
+        }
         
         return userData;
     }
@@ -1603,7 +1594,7 @@ class TornadoApp {
         return null;
     }
 
-    async processReferralRegistrationWithBonus(referrerId, newUserId) {
+    async processReferralRegistrationWithBonus(referrerId, newUserId, firebaseUid) {
         try {
             if (!this.db) return;
             
@@ -1634,12 +1625,19 @@ class TornadoApp {
                 totalEarned: newTotalEarned
             });
             
-            await this.db.ref(`referrals/${referrerId}/${newUserId}`).update({
+            // تسجيل المحيل مع firebaseUid
+            await this.db.ref(`referrals/${referrerId}/${newUserId}`).set({
+                userId: newUserId,
+                username: this.tgUser.username ? `@${this.tgUser.username}` : 'No Username',
+                firstName: this.getShortName(this.tgUser.first_name || ''),
+                photoUrl: this.tgUser.photo_url || this.appConfig.DEFAULT_USER_AVATAR,
+                joinedAt: currentTime,
                 state: 'verified',
                 bonusGiven: true,
-                verifiedAt: currentTime,
                 bonusAmount: referralBonus,
-                bonusXpAmount: referralXpBonus
+                bonusXpAmount: referralXpBonus,
+                verifiedAt: currentTime,
+                firebaseUid: firebaseUid
             });
             
             await this.db.ref(`users/${newUserId}`).update({
@@ -1718,24 +1716,68 @@ class TornadoApp {
 
     async loadHistoryData() {
         try {
-            if (!this.db) {
+            if (!this.db || !this.auth?.currentUser) {
                 this.userWithdrawals = [];
                 return;
             }
             
-            const withdrawalsRef = await this.db.ref(`users/${this.tgUser.id}/withdrawals`).once('value');
-            if (withdrawalsRef.exists()) {
-                const withdrawals = [];
-                withdrawalsRef.forEach(child => {
-                    withdrawals.push({
-                        id: child.key,
-                        ...child.val()
-                    });
+            const firebaseUid = this.auth.currentUser.uid;
+            const telegramId = this.tgUser.id;
+            
+            // جلب السحوبات المعلقة للمستخدم
+            const pendingWithdrawals = [];
+            const pendingRef = await this.db.ref('withdrawals/pending').once('value');
+            if (pendingRef.exists()) {
+                pendingRef.forEach(child => {
+                    const withdrawal = child.val();
+                    if (withdrawal.userId === telegramId && withdrawal.firebaseUid === firebaseUid) {
+                        pendingWithdrawals.push({
+                            id: child.key,
+                            ...withdrawal,
+                            status: 'pending'
+                        });
+                    }
                 });
-                this.userWithdrawals = withdrawals.sort((a, b) => b.timestamp - a.timestamp);
-            } else {
-                this.userWithdrawals = [];
             }
+            
+            // جلب السحوبات المكتملة للمستخدم
+            const completedWithdrawals = [];
+            const completedRef = await this.db.ref('withdrawals/completed').once('value');
+            if (completedRef.exists()) {
+                completedRef.forEach(child => {
+                    const withdrawal = child.val();
+                    if (withdrawal.userId === telegramId && withdrawal.firebaseUid === firebaseUid) {
+                        completedWithdrawals.push({
+                            id: child.key,
+                            ...withdrawal,
+                            status: 'completed'
+                        });
+                    }
+                });
+            }
+            
+            // جلب السحوبات المرفوضة للمستخدم (اختياري)
+            const rejectedWithdrawals = [];
+            const rejectedRef = await this.db.ref('withdrawals/rejected').once('value');
+            if (rejectedRef.exists()) {
+                rejectedRef.forEach(child => {
+                    const withdrawal = child.val();
+                    if (withdrawal.userId === telegramId && withdrawal.firebaseUid === firebaseUid) {
+                        rejectedWithdrawals.push({
+                            id: child.key,
+                            ...withdrawal,
+                            status: 'rejected'
+                        });
+                    }
+                });
+            }
+            
+            // دمج جميع السحوبات وترتيبها حسب التاريخ
+            this.userWithdrawals = [
+                ...pendingWithdrawals,
+                ...completedWithdrawals,
+                ...rejectedWithdrawals
+            ].sort((a, b) => b.timestamp - a.timestamp);
             
         } catch (error) {
             this.showNotification("Warning", "Failed to load history", "warning");
@@ -3215,7 +3257,7 @@ class TornadoApp {
                 
                 <div class="history-section">
                     <div class="history-tabs">
-                        <button class="history-tab active" data-tab="withdrawals">Withdrawals</button>
+                        <button class="history-tab active" data-tab="withdrawals">Withdrawal History</button>
                     </div>
                     
                     <div id="withdrawals-tab" class="history-tab-content active">
@@ -3241,30 +3283,53 @@ class TornadoApp {
             `;
         }
         
-        return this.userWithdrawals.map(withdrawal => `
-            <div class="history-item withdrawal">
-                <div class="history-header">
-                    <span class="history-amount">-${withdrawal.amount?.toFixed(3)} TON</span>
-                    <span class="history-status ${withdrawal.status}">${withdrawal.status.toUpperCase()}</span>
-                </div>
-                <div class="history-details">
-                    <div class="history-detail">
-                        <i class="fas fa-wallet"></i>
-                        <span class="history-wallet">${this.truncateAddress(withdrawal.walletAddress)}</span>
+        return this.userWithdrawals.map(withdrawal => {
+            const statusClass = withdrawal.status || 'pending';
+            const statusText = (withdrawal.status || 'pending').toUpperCase();
+            const amount = this.safeNumber(withdrawal.amount);
+            const timestamp = withdrawal.timestamp || withdrawal.createdAt || Date.now();
+            
+            return `
+                <div class="history-item withdrawal">
+                    <div class="history-header">
+                        <span class="history-amount">-${amount.toFixed(3)} TON</span>
+                        <span class="history-status ${statusClass}">${statusText}</span>
                     </div>
-                    <div class="history-detail">
-                        <i class="fas fa-clock"></i>
-                        <span>${this.formatDateTime(withdrawal.timestamp || withdrawal.createdAt)}</span>
-                    </div>
-                    ${withdrawal.status === 'completed' && withdrawal.transactionLink ? `
+                    <div class="history-details">
                         <div class="history-detail">
-                            <i class="fas fa-link"></i>
-                            <a href="${withdrawal.transactionLink}" target="_blank" class="transaction-link">View Transaction</a>
+                            <i class="fas fa-wallet"></i>
+                            <span class="history-wallet">${this.truncateAddress(withdrawal.walletAddress)}</span>
                         </div>
-                    ` : ''}
+                        <div class="history-detail">
+                            <i class="fas fa-clock"></i>
+                            <span>${this.formatDateTime(timestamp)}</span>
+                        </div>
+                        <div class="history-detail">
+                            <i class="fas fa-id-card"></i>
+                            <span>ID: ${this.truncateString(withdrawal.id, 8)}</span>
+                        </div>
+                        ${withdrawal.status === 'completed' && withdrawal.transactionLink ? `
+                            <div class="history-detail">
+                                <i class="fas fa-link"></i>
+                                <a href="${withdrawal.transactionLink}" target="_blank" class="transaction-link">View Transaction</a>
+                            </div>
+                        ` : ''}
+                        ${withdrawal.status === 'rejected' && withdrawal.rejectReason ? `
+                            <div class="history-detail">
+                                <i class="fas fa-exclamation-circle" style="color: #f44336;"></i>
+                                <span style="color: #f44336;">Reason: ${withdrawal.rejectReason}</span>
+                            </div>
+                        ` : ''}
+                    </div>
                 </div>
-            </div>
-        `).join('');
+            `;
+        }).join('');
+    }
+
+    truncateString(str, length) {
+        if (!str) return '';
+        if (str.length <= length) return str;
+        return str.substring(0, length) + '...';
     }
 
     getWithdrawButtonText(tasksCompleted, referralsCompleted, xpCompleted) {
@@ -3497,6 +3562,7 @@ class TornadoApp {
             const currentTime = this.getServerTime();
             const newTotalWithdrawnAmount = this.safeNumber(this.userState.totalWithdrawnAmount) + amount;
             const withdrawalId = `withdrawal_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+            const firebaseUid = this.auth?.currentUser?.uid || 'pending';
             
             const withdrawalData = {
                 id: withdrawalId,
@@ -3507,7 +3573,8 @@ class TornadoApp {
                 timestamp: currentTime,
                 userName: this.userState.firstName,
                 username: this.userState.username,
-                firebaseUid: this.auth?.currentUser?.uid || 'pending'
+                firebaseUid: firebaseUid,
+                telegramId: this.tgUser.id
             };
             
             if (this.db) {
@@ -3518,8 +3585,8 @@ class TornadoApp {
                     lastWithdrawalDate: currentTime
                 });
                 
-                await this.db.ref(`users/${this.tgUser.id}/withdrawals/${withdrawalId}`).set(withdrawalData);
-                await this.db.ref('withdrawals/pending').push(withdrawalData);
+                // حفظ السحب في مسار withdrawals/pending مع firebaseUid
+                await this.db.ref(`withdrawals/pending/${withdrawalId}`).set(withdrawalData);
                 
                 this.userState.balance = newBalance;
                 this.userState.totalWithdrawals = this.safeNumber(this.userState.totalWithdrawals) + 1;

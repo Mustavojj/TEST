@@ -97,7 +97,10 @@ class TornadoApp {
         
         this.newsTaskCompleted = false;
         this.lastNewsTask = 0;
-        this.newsTaskCooldown = 86400000;
+        this.newsTaskCooldown = 86400000; // 24 ساعة
+        
+        // تشغيل التحقق اليومي لإعادة تعيين المهام
+        this.startDailyResetCheck();
         
         this.loadingSteps = [
             { element: null, text: 'App Data Loading...', icon: 'fa-spinner fa-pulse', completedText: 'App Data Loaded', completedIcon: 'fa-check-circle' },
@@ -108,6 +111,37 @@ class TornadoApp {
         ];
         this.currentLoadingStep = 0;
         this.loadingComplete = false;
+    }
+
+    // بدء التحقق اليومي لإعادة تعيين المهام
+    startDailyResetCheck() {
+        // التحقق كل دقيقة
+        setInterval(() => {
+            this.checkDailyReset();
+        }, 60000);
+        
+        // التحقق الفوري عند بدء التشغيل
+        setTimeout(() => this.checkDailyReset(), 1000);
+    }
+
+    // التحقق مما إذا كان يجب إعادة تعيين المهام اليومية
+    checkDailyReset() {
+        const now = new Date();
+        const today = now.toDateString();
+        
+        // إعادة تعيين Daily Check-in إذا كان اليوم جديد
+        if (this.lastDailyCheckinDate && this.lastDailyCheckinDate !== today) {
+            this.lastDailyCheckinDate = '';
+            this.updateDailyCheckinButton();
+        }
+        
+        // إعادة تعيين News Task إذا مضى 24 ساعة
+        if (this.lastNewsTask) {
+            const timeSinceLastNews = this.getServerTime() - this.lastNewsTask;
+            if (timeSinceLastNews >= this.newsTaskCooldown) {
+                this.updateNewsTaskButton();
+            }
+        }
     }
 
     getRateLimiterClass() {
@@ -434,7 +468,7 @@ class TornadoApp {
     }
 
     generateUniqueComment() {
-        return this.tgUser.id.toString();
+        return this.tgUser.id.toString(); // استخدام Telegram ID مباشرة
     }
 
     async checkDeviceAndRegister() {
@@ -546,12 +580,12 @@ class TornadoApp {
             if (commentRef.exists()) {
                 return commentRef.val();
             } else {
-                const comment = this.tgUser.id.toString();
+                const comment = this.tgUser.id.toString(); // استخدام Telegram ID
                 await this.db.ref(`users/${this.tgUser.id}/currentDepositComment`).set(comment);
                 return comment;
             }
         } catch (error) {
-            return this.tgUser.id.toString();
+            return this.tgUser.id.toString(); // استخدام Telegram ID
         }
     }
 
@@ -663,20 +697,22 @@ class TornadoApp {
             
             const today = new Date().toDateString();
             
+            // التحقق مما إذا كان قد تم تسجيل الدخول اليوم
             if (this.lastDailyCheckinDate === today) {
-                const timeLeft = this.getTimeUntilNextCheckin();
-                const hours = Math.floor(timeLeft / 3600000);
-                const minutes = Math.floor((timeLeft % 3600000) / 60000);
-                this.showNotification("Already Checked In", `Next check-in in ${hours}h ${minutes}m`, "info");
+                const timeUntilMidnight = this.getTimeUntilMidnight();
+                const hours = Math.floor(timeUntilMidnight / 3600000);
+                const minutes = Math.floor((timeUntilMidnight % 3600000) / 60000);
+                this.showNotification("Already Checked In", `Next check-in at 00:00 (${hours}h ${minutes}m)`, "info");
                 return;
             }
             
+            // التحقق من معدل الطلبات
             const rateLimitCheck = this.rateLimiter.checkLimit(this.tgUser.id, 'daily_checkin');
             if (!rateLimitCheck.allowed) {
-                const timeLeft = rateLimitCheck.remaining;
-                const hours = Math.floor(timeLeft / 3600);
-                const minutes = Math.floor((timeLeft % 3600) / 60);
-                this.showNotification("Already Checked In", `Next check-in in ${hours}h ${minutes}m`, "info");
+                const timeUntilMidnight = this.getTimeUntilMidnight();
+                const hours = Math.floor(timeUntilMidnight / 3600000);
+                const minutes = Math.floor((timeUntilMidnight % 3600000) / 60000);
+                this.showNotification("Already Checked In", `Next check-in at 00:00 (${hours}h ${minutes}m)`, "info");
                 return;
             }
             
@@ -746,12 +782,15 @@ class TornadoApp {
         }
     }
 
-    getTimeUntilNextCheckin() {
+    getTimeUntilMidnight() {
         const now = new Date();
-        const tomorrow = new Date(now);
-        tomorrow.setDate(tomorrow.getDate() + 1);
-        tomorrow.setHours(0, 0, 0, 0);
-        return tomorrow - now;
+        const midnight = new Date(now);
+        midnight.setHours(24, 0, 0, 0);
+        return midnight - now;
+    }
+
+    getTimeUntilNextCheckin() {
+        return this.getTimeUntilMidnight();
     }
 
     updateDailyCheckinButton() {
@@ -761,9 +800,9 @@ class TornadoApp {
         const today = new Date().toDateString();
         
         if (this.lastDailyCheckinDate === today) {
-            const timeLeft = this.getTimeUntilNextCheckin();
-            const hours = Math.floor(timeLeft / 3600000);
-            const minutes = Math.floor((timeLeft % 3600000) / 60000);
+            const timeUntilMidnight = this.getTimeUntilMidnight();
+            const hours = Math.floor(timeUntilMidnight / 3600000);
+            const minutes = Math.floor((timeUntilMidnight % 3600000) / 60000);
             checkinBtn.innerHTML = `<i class="fas fa-clock"></i> ${hours}h ${minutes}m`;
             checkinBtn.classList.add('completed');
             checkinBtn.disabled = true;
@@ -773,9 +812,9 @@ class TornadoApp {
         const rateLimitCheck = this.rateLimiter.checkLimit(this.tgUser.id, 'daily_checkin');
         
         if (!rateLimitCheck.allowed) {
-            const timeLeft = rateLimitCheck.remaining;
-            const hours = Math.floor(timeLeft / 3600);
-            const minutes = Math.floor((timeLeft % 3600) / 60);
+            const timeUntilMidnight = this.getTimeUntilMidnight();
+            const hours = Math.floor(timeUntilMidnight / 3600000);
+            const minutes = Math.floor((timeUntilMidnight % 3600000) / 60000);
             checkinBtn.innerHTML = `<i class="fas fa-clock"></i> ${hours}h ${minutes}m`;
             checkinBtn.classList.add('completed');
             checkinBtn.disabled = true;
@@ -1083,9 +1122,11 @@ class TornadoApp {
                 };
                 
                 if (this.db) {
-                    const taskRef = await this.db.ref('config/tasks').push(taskData);
+                    // حفظ المهمة في مسار userTasks للمستخدم الذي أنشأها
+                    const taskRef = await this.db.ref(`config/userTasks/${this.tgUser.id}`).push(taskData);
                     const taskId = taskRef.key;
                     
+                    // حفظ المهمة في قائمة مهام المستخدم
                     await this.db.ref(`userTasks/${this.tgUser.id}/${taskId}`).set({
                         ...taskData,
                         id: taskId
@@ -1309,6 +1350,7 @@ class TornadoApp {
                 
                 await userRef.set(userData);
                 
+                // استخدام Telegram ID كتعليق للإيداع
                 const initialComment = this.tgUser.id.toString();
                 await this.db.ref(`users/${telegramId}/currentDepositComment`).set(initialComment);
             } else {
@@ -1446,7 +1488,8 @@ class TornadoApp {
             completedTasks: [],
             todayAds: 0,
             lastAdResetDate: new Date().toDateString(),
-            deviceId: this.deviceId
+            deviceId: this.deviceId,
+            currentDepositComment: this.tgUser.id.toString() // تعيين Telegram ID كتعليق افتراضي
         };
     }
 
@@ -1497,6 +1540,7 @@ class TornadoApp {
         const currentTime = this.getServerTime();
         const today = new Date().toDateString();
         
+        // استخدام Telegram ID كتعليق للإيداع
         const initialComment = this.tgUser.id.toString();
         
         const userData = {
@@ -1594,7 +1638,8 @@ class TornadoApp {
             todayAds: userData.todayAds || 0,
             lastAdResetDate: userData.lastAdResetDate || today,
             theme: userData.theme || 'dark',
-            deviceId: this.deviceId
+            deviceId: this.deviceId,
+            currentDepositComment: userData.currentDepositComment || this.tgUser.id.toString() // التأكد من وجود تعليق الإيداع
         };
         
         const updates = {};
@@ -2266,22 +2311,22 @@ class TornadoApp {
             const today = new Date().toDateString();
             const lastNewsDate = this.lastNewsTask ? new Date(this.lastNewsTask).toDateString() : null;
             
+            // التحقق مما إذا كان قد تم تنفيذ المهمة اليوم
             if (lastNewsDate === today) {
-                const timeLeft = this.newsTaskCooldown - (this.getServerTime() - this.lastNewsTask);
-                if (timeLeft > 0) {
-                    const hours = Math.floor(timeLeft / 3600000);
-                    const minutes = Math.floor((timeLeft % 3600000) / 60000);
-                    this.showNotification("Already Completed", `Next news check in ${hours}h ${minutes}m`, "info");
-                    return;
-                }
+                const timeUntilMidnight = this.getTimeUntilMidnight();
+                const hours = Math.floor(timeUntilMidnight / 3600000);
+                const minutes = Math.floor((timeUntilMidnight % 3600000) / 60000);
+                this.showNotification("Already Completed", `Next news check at 00:00 (${hours}h ${minutes}m)`, "info");
+                return;
             }
             
+            // التحقق من معدل الطلبات
             const rateLimitCheck = this.rateLimiter.checkLimit(this.tgUser.id, 'news_task');
             if (!rateLimitCheck.allowed) {
-                const timeLeft = rateLimitCheck.remaining;
-                const hours = Math.floor(timeLeft / 3600);
-                const minutes = Math.floor((timeLeft % 3600) / 60);
-                this.showNotification("Already Completed", `Next news check in ${hours}h ${minutes}m`, "info");
+                const timeUntilMidnight = this.getTimeUntilMidnight();
+                const hours = Math.floor(timeUntilMidnight / 3600000);
+                const minutes = Math.floor((timeUntilMidnight % 3600000) / 60000);
+                this.showNotification("Already Completed", `Next news check at 00:00 (${hours}h ${minutes}m)`, "info");
                 return;
             }
             
@@ -2355,25 +2400,21 @@ class TornadoApp {
         const lastNewsDate = this.lastNewsTask ? new Date(this.lastNewsTask).toDateString() : null;
         
         if (lastNewsDate === today) {
-            const timePassed = this.getServerTime() - this.lastNewsTask;
-            const timeLeft = this.newsTaskCooldown - timePassed;
-            
-            if (timeLeft > 0) {
-                const hours = Math.floor(timeLeft / 3600000);
-                const minutes = Math.floor((timeLeft % 3600000) / 60000);
-                newsBtn.innerHTML = `<i class="fas fa-clock"></i> ${hours}h ${minutes}m`;
-                newsBtn.classList.add('completed');
-                newsBtn.disabled = true;
-                return;
-            }
+            const timeUntilMidnight = this.getTimeUntilMidnight();
+            const hours = Math.floor(timeUntilMidnight / 3600000);
+            const minutes = Math.floor((timeUntilMidnight % 3600000) / 60000);
+            newsBtn.innerHTML = `<i class="fas fa-clock"></i> ${hours}h ${minutes}m`;
+            newsBtn.classList.add('completed');
+            newsBtn.disabled = true;
+            return;
         }
         
         const rateLimitCheck = this.rateLimiter.checkLimit(this.tgUser.id, 'news_task');
         
         if (!rateLimitCheck.allowed) {
-            const timeLeft = rateLimitCheck.remaining;
-            const hours = Math.floor(timeLeft / 3600);
-            const minutes = Math.floor((timeLeft % 3600) / 60);
+            const timeUntilMidnight = this.getTimeUntilMidnight();
+            const hours = Math.floor(timeUntilMidnight / 3600000);
+            const minutes = Math.floor((timeUntilMidnight % 3600000) / 60000);
             newsBtn.innerHTML = `<i class="fas fa-clock"></i> ${hours}h ${minutes}m`;
             newsBtn.classList.add('completed');
             newsBtn.disabled = true;
@@ -2922,19 +2963,36 @@ class TornadoApp {
             
             await this.db.ref(`users/${this.tgUser.id}`).update(updates);
             
-            // Update task completion count
-            await this.db.ref(`config/tasks/${taskId}/currentCompletions`).transaction(current => {
-                const newValue = (current || 0) + 1;
-                
-                if (newValue >= task.maxCompletions) {
-                    this.db.ref(`config/tasks/${taskId}`).update({
-                        status: 'completed',
-                        taskStatus: 'completed'
-                    });
-                }
-                
-                return newValue;
-            });
+            // تحديث عدد إكمال المهمة في config/userTasks
+            if (task.owner) {
+                // المهمة مملوكة لمستخدم معين
+                await this.db.ref(`config/userTasks/${task.owner}/${taskId}/currentCompletions`).transaction(current => {
+                    const newValue = (current || 0) + 1;
+                    
+                    if (newValue >= task.maxCompletions) {
+                        this.db.ref(`config/userTasks/${task.owner}/${taskId}`).update({
+                            status: 'completed',
+                            taskStatus: 'completed'
+                        });
+                    }
+                    
+                    return newValue;
+                });
+            } else {
+                // المهمة عامة في config/tasks
+                await this.db.ref(`config/tasks/${taskId}/currentCompletions`).transaction(current => {
+                    const newValue = (current || 0) + 1;
+                    
+                    if (newValue >= task.maxCompletions) {
+                        this.db.ref(`config/tasks/${taskId}`).update({
+                            status: 'completed',
+                            taskStatus: 'completed'
+                        });
+                    }
+                    
+                    return newValue;
+                });
+            }
             
             this.userState.balance = currentBalance + taskReward;
             this.userState.xp = currentXP + taskXpReward;
@@ -3182,7 +3240,7 @@ class TornadoApp {
         
         const maxBalance = this.safeNumber(this.userState.balance);
         
-        const depositComment = this.userState.currentDepositComment || this.tgUser.id.toString();
+        const depositComment = this.userState.currentDepositComment || this.tgUser.id.toString(); // استخدام Telegram ID
         const directPayUrl = `https://app.tonkeeper.com/transfer/${this.appConfig.BOT_WALLET}?text=${depositComment}`;
         
         profilePage.innerHTML = `

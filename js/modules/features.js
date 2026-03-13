@@ -42,8 +42,9 @@ class TaskManager {
             if (!this.app.db) return [];
             
             const tasks = [];
-            const tasksSnapshot = await this.app.db.ref(`config/tasks`).once('value');
             
+            // تحميل المهام العامة
+            const tasksSnapshot = await this.app.db.ref(`config/tasks`).once('value');
             if (tasksSnapshot.exists()) {
                 tasksSnapshot.forEach(child => {
                     try {
@@ -81,13 +82,65 @@ class TaskManager {
                             currentCompletions: currentCompletions,
                             maxCompletions: maxCompletions,
                             status: taskData.status || 'active',
-                            owner: taskData.owner || taskData.createdBy || null
+                            owner: null // مهمة عامة
                         };
                         
                         if (!this.app.userCompletedTasks.has(task.id)) {
                             tasks.push(task);
                         }
                     } catch (error) {}
+                });
+            }
+            
+            // تحميل مهام المستخدمين
+            const userTasksSnapshot = await this.app.db.ref(`config/userTasks`).once('value');
+            if (userTasksSnapshot.exists()) {
+                userTasksSnapshot.forEach(ownerSnapshot => {
+                    const ownerId = ownerSnapshot.key;
+                    ownerSnapshot.forEach(taskSnapshot => {
+                        try {
+                            const taskData = taskSnapshot.val();
+                            
+                            if (taskData.status !== 'active' && taskData.taskStatus !== 'active') {
+                                return;
+                            }
+                            
+                            if (taskData.category !== category) {
+                                return;
+                            }
+                            
+                            const currentCompletions = taskData.currentCompletions || 0;
+                            const maxCompletions = taskData.maxCompletions || 999999;
+                            
+                            if (currentCompletions >= maxCompletions) {
+                                this.app.db.ref(`config/userTasks/${ownerId}/${taskSnapshot.key}`).update({
+                                    status: 'completed',
+                                    taskStatus: 'completed'
+                                });
+                                return;
+                            }
+                            
+                            const task = { 
+                                id: taskSnapshot.key, 
+                                name: taskData.name || 'Unknown Task',
+                                description: taskData.description || 'Join & Get Reward',
+                                picture: taskData.picture || this.app.appConfig.BOT_AVATAR,
+                                url: taskData.url || '',
+                                type: taskData.type || 'channel',
+                                category: category,
+                                reward: this.app.safeNumber(taskData.reward || 0.0001),
+                                xpReward: this.app.safeNumber(taskData.xpReward || 1),
+                                currentCompletions: currentCompletions,
+                                maxCompletions: maxCompletions,
+                                status: taskData.status || 'active',
+                                owner: ownerId // معرف المالك
+                            };
+                            
+                            if (!this.app.userCompletedTasks.has(task.id)) {
+                                tasks.push(task);
+                            }
+                        } catch (error) {}
+                    });
                 });
             }
             

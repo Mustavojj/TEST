@@ -63,14 +63,6 @@ class TaskManager {
                         const currentCompletions = taskData.currentCompletions || 0;
                         const maxCompletions = taskData.maxCompletions || 999999;
                         
-                        if (currentCompletions >= maxCompletions) {
-                            this.app.db.ref(`config/tasks/${child.key}`).update({
-                                status: 'completed',
-                                taskStatus: 'completed'
-                            });
-                            return;
-                        }
-                        
                         const task = {
                             id: child.key,
                             name: taskData.name || 'Unknown Task',
@@ -111,14 +103,6 @@ class TaskManager {
                             
                             const currentCompletions = taskData.currentCompletions || 0;
                             const maxCompletions = taskData.maxCompletions || 999999;
-                            
-                            if (currentCompletions >= maxCompletions) {
-                                this.app.db.ref(`config/userTasks/${ownerSnapshot.key}/${taskSnapshot.key}`).update({
-                                    status: 'completed',
-                                    taskStatus: 'completed'
-                                });
-                                return;
-                            }
                             
                             const task = {
                                 id: taskSnapshot.key,

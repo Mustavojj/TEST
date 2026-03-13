@@ -186,7 +186,8 @@ class ReferralManager {
                 }
             });
             
-            this.recentReferrals = referralsList.sort((a, b) => b.joinedAt - a.joinedAt).slice(0, 5);
+            // ترتيب حسب تاريخ الانضمام (الأحدث أولاً)
+            this.recentReferrals = referralsList.sort((a, b) => (b.joinedAt || 0) - (a.joinedAt || 0)).slice(0, 5);
             
             return this.recentReferrals;
             
@@ -247,7 +248,7 @@ class ReferralManager {
                         const newUserData = newUserRef.val();
                         
                         if (newUserData.isNewUser === false) {
-                            await this.app.processReferralRegistrationWithBonus(this.app.tgUser.id, referralId);
+                            await this.app.processReferralRegistrationWithBonus(this.app.tgUser.id, referralId, newUserData.firebaseUid);
                             updated = true;
                         }
                     }

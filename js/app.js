@@ -2451,7 +2451,7 @@ class TornadoApp {
                          ondragstart="return false;">
                 </div>
                 <div class="referral-row-info">
-                    <p class="referral-row-username">${task.name} ${verificationIcon}</p>
+                    <p class="referral-row-username">${task.name}</p>
                     <p class="task-description">Join & Earn TON</p>
                     <div class="task-rewards">
                         <span class="reward-badge">

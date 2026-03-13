@@ -1,6 +1,6 @@
 import { APP_CONFIG, THEME_CONFIG, FEATURES_CONFIG } from './data.js';
 import { CacheManager, NotificationManager, SecurityManager } from './modules/core.js';
-import { TaskManager, QuestManager, ReferralManager } from './modules/features.js';
+import { TaskManager, ReferralManager } from './modules/features.js';
 
 class TornadoApp {
     
@@ -17,11 +17,9 @@ class TornadoApp {
         this.themeConfig = THEME_CONFIG;
         
         this.userCompletedTasks = new Set();
-        this.partnerTasks = [];
         this.isInitialized = false;
         this.isInitializing = false;
         this.userWithdrawals = [];
-        this.userDeposits = [];
         this.appStats = {
             totalUsers: 0,
             onlineUsers: 0,
@@ -43,26 +41,13 @@ class TornadoApp {
         this.tgUser = null;
         
         this.taskManager = null;
-        this.questManager = null;
         this.referralManager = null;
         
         this.currentTasksTab = 'main';
-        this.isProcessingAd = false;
         this.isCopying = false;
         this.pendingReferral = null;
         
         this.referralBonusGiven = new Set();
-        
-        this.adTimers = {
-            ad1: 0,
-            ad2: 0
-        };
-        
-        this.adCooldown = APP_CONFIG.AD_COOLDOWN;
-        this.todayAds = 0;
-        this.lastAdResetDate = null;
-        
-        this.referralMonitorInterval = null;
         
         this.remoteConfig = null;
         this.configCache = null;
@@ -87,8 +72,6 @@ class TornadoApp {
         this.userCreatedTasks = [];
         this.lastDailyCheckin = 0;
         this.lastDailyCheckinDate = '';
-        this.depositCheckInterval = null;
-        this.checkedDeposits = new Set();
         this.totalCheckins = 0;
         
         this.deviceId = null;
@@ -97,9 +80,8 @@ class TornadoApp {
         
         this.newsTaskCompleted = false;
         this.lastNewsTask = 0;
-        this.newsTaskCooldown = 86400000; // 24 ساعة
+        this.newsTaskCooldown = 86400000;
         
-        // تشغيل التحقق اليومي لإعادة تعيين المهام
         this.startDailyResetCheck();
         
         this.loadingSteps = [
@@ -113,29 +95,23 @@ class TornadoApp {
         this.loadingComplete = false;
     }
 
-    // بدء التحقق اليومي لإعادة تعيين المهام
     startDailyResetCheck() {
-        // التحقق كل دقيقة
         setInterval(() => {
             this.checkDailyReset();
         }, 60000);
         
-        // التحقق الفوري عند بدء التشغيل
         setTimeout(() => this.checkDailyReset(), 1000);
     }
 
-    // التحقق مما إذا كان يجب إعادة تعيين المهام اليومية
     checkDailyReset() {
         const now = new Date();
         const today = now.toDateString();
         
-        // إعادة تعيين Daily Check-in إذا كان اليوم جديد
         if (this.lastDailyCheckinDate && this.lastDailyCheckinDate !== today) {
             this.lastDailyCheckinDate = '';
             this.updateDailyCheckinButton();
         }
         
-        // إعادة تعيين News Task إذا مضى 24 ساعة
         if (this.lastNewsTask) {
             const timeSinceLastNews = this.getServerTime() - this.lastNewsTask;
             if (timeSinceLastNews >= this.newsTaskCooldown) {
@@ -277,7 +253,6 @@ class TornadoApp {
             this.updateLoadingStep(this.currentLoadingStep, this.loadingSteps[this.currentLoadingStep].text, 'fa-spinner fa-pulse', false);
         }
         
-        // Check if all steps are completed
         if (success && step === this.loadingSteps.length - 1) {
             this.loadingComplete = true;
             this.showLaunchButton();
@@ -292,7 +267,6 @@ class TornadoApp {
         try {
             this.initLoadingElements();
             
-            // Step 1: App Data Loading
             this.updateLoadingStep(0, "App Data Loading...", 'fa-spinner fa-pulse', false);
             
             if (!window.Telegram || !window.Telegram.WebApp) {
@@ -311,7 +285,6 @@ class TornadoApp {
             
             this.updateLoadingStep(0, "App Data Loaded", 'fa-check-circle', true);
             
-            // Step 2: User Data Loading
             this.updateLoadingStep(1, "User Data Loading...", 'fa-spinner fa-pulse', false);
             
             this.telegramVerified = await this.verifyTelegramUser();
@@ -346,7 +319,6 @@ class TornadoApp {
             
             this.updateLoadingStep(1, "User Data Loaded", 'fa-check-circle', true);
             
-            // Step 3: Device Data Checking
             this.updateLoadingStep(2, "Checking Device Data...", 'fa-spinner fa-pulse', false);
             
             const deviceCheck = await this.checkDeviceAndRegister();
@@ -357,11 +329,9 @@ class TornadoApp {
             
             this.updateLoadingStep(2, "Device Verified", 'fa-check-circle', true);
             
-            // Step 4: User Tasks Loading
             this.updateLoadingStep(3, "User Tasks Loading...", 'fa-spinner fa-pulse', false);
             
             this.taskManager = new TaskManager(this);
-            this.questManager = new QuestManager(this);
             this.referralManager = new ReferralManager(this);
             
             this.startReferralMonitor();
@@ -374,7 +344,6 @@ class TornadoApp {
                 this.updateLoadingStep(3, "Tasks Loaded (partial)", 'fa-exclamation-triangle', false);
             }
             
-            // Step 5: Loading App Data (Final step)
             this.updateLoadingStep(4, "Loading App Data...", 'fa-spinner fa-pulse', false);
             
             try {
@@ -468,7 +437,7 @@ class TornadoApp {
     }
 
     generateUniqueComment() {
-        return this.tgUser.id.toString(); // استخدام Telegram ID مباشرة
+        return this.tgUser.id.toString();
     }
 
     async checkDeviceAndRegister() {
@@ -477,13 +446,11 @@ class TornadoApp {
                 return { allowed: true };
             }
             
-            // Generate device fingerprint
             const userAgent = navigator.userAgent;
             const screenRes = `${window.screen.width}x${window.screen.height}`;
             const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
             const language = navigator.language;
             
-            // Create unique device ID
             const deviceComponents = [
                 userAgent,
                 screenRes,
@@ -503,20 +470,17 @@ class TornadoApp {
             
             const savedDeviceId = localStorage.getItem('device_fingerprint');
             if (savedDeviceId && savedDeviceId !== this.deviceId) {
-                // Device fingerprint changed - possible emulator or different device
                 this.deviceId = savedDeviceId;
             } else {
                 localStorage.setItem('device_fingerprint', this.deviceId);
             }
             
-            // Check if device is already registered
             const deviceRef = await this.db.ref(`devices/${this.deviceId}`).once('value');
             
             if (deviceRef.exists()) {
                 const deviceData = deviceRef.val();
                 this.deviceOwnerId = deviceData.ownerId;
                 
-                // If device is registered to a different user, block access
                 if (deviceData.ownerId && deviceData.ownerId !== this.tgUser.id) {
                     return {
                         allowed: false,
@@ -524,13 +488,11 @@ class TornadoApp {
                     };
                 }
                 
-                // Update last seen
                 await this.db.ref(`devices/${this.deviceId}`).update({
                     lastSeen: this.getServerTime(),
                     lastUserId: this.tgUser.id
                 });
             } else {
-                // Register this device
                 await this.db.ref(`devices/${this.deviceId}`).set({
                     ownerId: this.tgUser.id,
                     firstSeen: this.getServerTime(),
@@ -580,12 +542,12 @@ class TornadoApp {
             if (commentRef.exists()) {
                 return commentRef.val();
             } else {
-                const comment = this.tgUser.id.toString(); // استخدام Telegram ID
+                const comment = this.tgUser.id.toString();
                 await this.db.ref(`users/${this.tgUser.id}/currentDepositComment`).set(comment);
                 return comment;
             }
         } catch (error) {
-            return this.tgUser.id.toString(); // استخدام Telegram ID
+            return this.tgUser.id.toString();
         }
     }
 
@@ -697,7 +659,6 @@ class TornadoApp {
             
             const today = new Date().toDateString();
             
-            // التحقق مما إذا كان قد تم تسجيل الدخول اليوم
             if (this.lastDailyCheckinDate === today) {
                 const timeUntilMidnight = this.getTimeUntilMidnight();
                 const hours = Math.floor(timeUntilMidnight / 3600000);
@@ -706,7 +667,6 @@ class TornadoApp {
                 return;
             }
             
-            // التحقق من معدل الطلبات
             const rateLimitCheck = this.rateLimiter.checkLimit(this.tgUser.id, 'daily_checkin');
             if (!rateLimitCheck.allowed) {
                 const timeUntilMidnight = this.getTimeUntilMidnight();
@@ -716,7 +676,6 @@ class TornadoApp {
                 return;
             }
             
-            // Show ad first
             let adShown = false;
             
             if (typeof window.AdBlock2 !== 'undefined') {
@@ -787,10 +746,6 @@ class TornadoApp {
         const midnight = new Date(now);
         midnight.setHours(24, 0, 0, 0);
         return midnight - now;
-    }
-
-    getTimeUntilNextCheckin() {
-        return this.getTimeUntilMidnight();
     }
 
     updateDailyCheckinButton() {
@@ -944,7 +899,7 @@ class TornadoApp {
             const currentCompletions = task.currentCompletions || 0;
             const maxCompletions = task.maxCompletions || 100;
             const progress = (currentCompletions / maxCompletions) * 100;
-            const taskType = task.task_type === 'channel' ? 'Channel' : 'Other';
+            const taskType = task.type === 'channel' ? 'Channel' : 'Other';
             
             return `
                 <div class="my-task-item" data-task-id="${task.id}">
@@ -1106,8 +1061,7 @@ class TornadoApp {
                     name: taskName,
                     url: taskLink,
                     category: 'social',
-                    task_type: taskType,
-                    type: taskType === 'channel' ? 'channel' : 'other',
+                    type: taskType,
                     maxCompletions: completions,
                     currentCompletions: 0,
                     status: 'active',
@@ -1117,16 +1071,13 @@ class TornadoApp {
                     createdBy: this.tgUser.id,
                     owner: this.tgUser.id,
                     createdAt: currentTime,
-                    picture: this.appConfig.BOT_AVATAR,
-                    firebaseUid: this.auth?.currentUser?.uid || 'pending'
+                    picture: this.appConfig.BOT_AVATAR
                 };
                 
                 if (this.db) {
-                    // حفظ المهمة في مسار userTasks للمستخدم الذي أنشأها
                     const taskRef = await this.db.ref(`config/userTasks/${this.tgUser.id}`).push(taskData);
                     const taskId = taskRef.key;
                     
-                    // حفظ المهمة في قائمة مهام المستخدم
                     await this.db.ref(`userTasks/${this.tgUser.id}/${taskId}`).set({
                         ...taskData,
                         id: taskId
@@ -1139,16 +1090,7 @@ class TornadoApp {
                     
                     this.userState.xp = newXP;
                     
-                    const adminMessage = `
-📢 *New Task Created!*
-
-📌 *Name:* ${taskName}
-🔗 *Link:* ${taskLink}
-📊 *Type:* ${taskType}
-🎯 *Completions:* ${completions}
-💰 *Price:* ${price} XP
-👤 *Creator:* ${this.tgUser.id} (${this.userState.username})
-                    `;
+                    const adminMessage = `📢 *New Task Created!*\n\n📌 *Name:* ${taskName}\n🔗 *Link:* ${taskLink}\n📊 *Type:* ${taskType}\n🎯 *Completions:* ${completions}\n💰 *Price:* ${price} XP\n👤 *Creator:* ${this.tgUser.id}`;
                     
                     await this.sendTelegramMessage(this.appConfig.ADMIN_ID, adminMessage);
                     
@@ -1169,7 +1111,6 @@ class TornadoApp {
                     }, 3000);
                     
                     this.updateHeader();
-                    
                 }
                 
             } catch (error) {
@@ -1350,7 +1291,6 @@ class TornadoApp {
                 
                 await userRef.set(userData);
                 
-                // استخدام Telegram ID كتعليق للإيداع
                 const initialComment = this.tgUser.id.toString();
                 await this.db.ref(`users/${telegramId}/currentDepositComment`).set(initialComment);
             } else {
@@ -1431,7 +1371,6 @@ class TornadoApp {
             this.userState = userData;
             this.userXP = this.safeNumber(userData.xp);
             this.userCompletedTasks = new Set(userData.completedTasks || []);
-            this.todayAds = userData.todayAds || 0;
             this.lastDailyCheckin = userData.lastDailyCheckin || 0;
             this.totalCheckins = userData.totalCheckins || 0;
             this.lastNewsTask = userData.lastNewsTask || 0;
@@ -1468,11 +1407,8 @@ class TornadoApp {
             xp: 0,
             referrals: 0,
             totalEarned: 0,
-            totalTasks: 0,
             totalWithdrawals: 0,
             totalDeposits: 0,
-            totalAds: 0,
-            totalPromoCodes: 0,
             totalTasksCompleted: 0,
             referralEarnings: 0,
             lastDailyCheckin: 0,
@@ -1483,13 +1419,9 @@ class TornadoApp {
             firebaseUid: this.auth?.currentUser?.uid || 'pending',
             isNewUser: false,
             totalWithdrawnAmount: 0,
-            totalWatchAds: 0,
-            theme: 'dark',
             completedTasks: [],
-            todayAds: 0,
-            lastAdResetDate: new Date().toDateString(),
             deviceId: this.deviceId,
-            currentDepositComment: this.tgUser.id.toString() // تعيين Telegram ID كتعليق افتراضي
+            currentDepositComment: this.tgUser.id.toString()
         };
     }
 
@@ -1540,7 +1472,6 @@ class TornadoApp {
         const currentTime = this.getServerTime();
         const today = new Date().toDateString();
         
-        
         const initialComment = this.tgUser.id.toString();
         
         const userData = {
@@ -1554,11 +1485,8 @@ class TornadoApp {
             referrals: 0,
             referredBy: referralId,
             totalEarned: 0,
-            totalTasks: 0,
             totalWithdrawals: 0,
             totalDeposits: 0,
-            totalAds: 0,
-            totalPromoCodes: 0,
             totalTasksCompleted: 0,
             referralEarnings: 0,
             completedTasks: [],
@@ -1572,9 +1500,6 @@ class TornadoApp {
             referralState: referralId ? 'pending' : null,
             firebaseUid: this.auth?.currentUser?.uid || 'pending',
             totalWithdrawnAmount: 0,
-            totalWatchAds: 0,
-            todayAds: 0,
-            lastAdResetDate: today,
             deviceId: this.deviceId,
         };
         
@@ -1619,11 +1544,8 @@ class TornadoApp {
             referralState: userData.referralState || 'verified',
             referralEarnings: userData.referralEarnings || 0,
             totalEarned: userData.totalEarned || 0,
-            totalTasks: userData.totalTasks || 0,
             totalWithdrawals: userData.totalWithdrawals || 0,
             totalDeposits: userData.totalDeposits || 0,
-            totalAds: userData.totalAds || 0,
-            totalPromoCodes: userData.totalPromoCodes || 0,
             totalTasksCompleted: userData.totalTasksCompleted || 0,
             balance: userData.balance || 0,
             xp: userData.xp || 0,
@@ -1631,12 +1553,8 @@ class TornadoApp {
             firebaseUid: this.auth?.currentUser?.uid || userData.firebaseUid || 'pending',
             isNewUser: userData.isNewUser || false,
             totalWithdrawnAmount: userData.totalWithdrawnAmount || 0,
-            totalWatchAds: userData.totalWatchAds || 0,
-            todayAds: userData.todayAds || 0,
-            lastAdResetDate: userData.lastAdResetDate || today,
-            theme: userData.theme || 'dark',
             deviceId: this.deviceId,
-            currentDepositComment: userData.currentDepositComment || this.tgUser.id.toString() // التأكد من وجود تعليق الإيداع
+            currentDepositComment: userData.currentDepositComment || this.tgUser.id.toString()
         };
         
         const updates = {};
@@ -1730,7 +1648,7 @@ class TornadoApp {
             this.cache.delete(`user_${referrerId}`);
             this.cache.delete(`referrals_${referrerId}`);
             
-            await this.refreshReferralsList();
+            await this.referralManager.refreshReferralsList();
             
         } catch (error) {}
     }
@@ -1787,12 +1705,11 @@ class TornadoApp {
     async loadTasksData() {
         try {
             if (this.taskManager) {
-                return await this.taskManager.loadTasksData();
+                await this.taskManager.loadTasksData();
+                this.taskManager.userCompletedTasks = this.userCompletedTasks;
             }
-            return [];
         } catch (error) {
             this.showNotification("Warning", "Failed to load tasks", "warning");
-            return [];
         }
     }
 
@@ -1898,46 +1815,8 @@ class TornadoApp {
         }
         
         this.referralMonitorInterval = setInterval(async () => {
-            await this.checkReferralsVerification();
+            await this.referralManager.checkReferralsVerification();
         }, 30000);
-    }
-
-    async checkReferralsVerification() {
-        try {
-            if (!this.db || !this.tgUser) return;
-            
-            const referralsRef = await this.db.ref(`referrals/${this.tgUser.id}`).once('value');
-            if (!referralsRef.exists()) return;
-            
-            const referrals = referralsRef.val();
-            let updated = false;
-            
-            for (const referralId in referrals) {
-                const referral = referrals[referralId];
-                
-                if (referral.state === 'pending') {
-                    const newUserRef = await this.db.ref(`users/${referralId}`).once('value');
-                    if (newUserRef.exists()) {
-                        const newUserData = newUserRef.val();
-                        
-                        if (newUserData.isNewUser === false) {
-                            await this.processReferralRegistrationWithBonus(this.tgUser.id, referralId);
-                            updated = true;
-                        }
-                    }
-                }
-            }
-            
-            if (updated) {
-                this.cache.delete(`user_${this.tgUser.id}`);
-                this.cache.delete(`referrals_${this.tgUser.id}`);
-                
-                if (document.getElementById('referrals-page')?.classList.contains('active')) {
-                    this.renderReferralsPage();
-                }
-            }
-            
-        } catch (error) {}
     }
 
     setupTelegramTheme() {
@@ -2308,7 +2187,6 @@ class TornadoApp {
             const today = new Date().toDateString();
             const lastNewsDate = this.lastNewsTask ? new Date(this.lastNewsTask).toDateString() : null;
             
-            // التحقق مما إذا كان قد تم تنفيذ المهمة اليوم
             if (lastNewsDate === today) {
                 const timeUntilMidnight = this.getTimeUntilMidnight();
                 const hours = Math.floor(timeUntilMidnight / 3600000);
@@ -2317,7 +2195,6 @@ class TornadoApp {
                 return;
             }
             
-            // التحقق من معدل الطلبات
             const rateLimitCheck = this.rateLimiter.checkLimit(this.tgUser.id, 'news_task');
             if (!rateLimitCheck.allowed) {
                 const timeUntilMidnight = this.getTimeUntilMidnight();
@@ -2449,7 +2326,8 @@ class TornadoApp {
         try {
             let mainTasks = [];
             if (this.taskManager) {
-                mainTasks = await this.taskManager.loadTasksFromDatabase('main');
+                await this.taskManager.loadTasksData();
+                mainTasks = this.taskManager.mainTasks || [];
             }
             
             if (mainTasks.length > 0) {
@@ -2481,7 +2359,8 @@ class TornadoApp {
         try {
             let socialTasks = [];
             if (this.taskManager) {
-                socialTasks = await this.taskManager.loadTasksFromDatabase('social');
+                await this.taskManager.loadTasksData();
+                socialTasks = this.taskManager.socialTasks || [];
             }
             
             socialTasks = socialTasks.filter(task => task.status !== 'stopped');
@@ -2508,22 +2387,13 @@ class TornadoApp {
         }
     }
 
-    getTaskDescription(url) {
-        if (url.includes('/bot') || url.endsWith('bot')) {
-            return 'Join & Earn TON';
-        }
-        return 'Subscribe & Earn';
-    }
-
     renderTaskCard(task) {
         const isCompleted = this.userCompletedTasks.has(task.id);
         const defaultIcon = this.appConfig.BOT_AVATAR;
-        const description = this.getTaskDescription(task.url);
         
         let buttonIcon = 'fa-arrow-right';
         let buttonClass = 'start';
         let isDisabled = isCompleted || this.isProcessingTask;
-        let buttonText = '';
         
         if (isCompleted) {
             buttonIcon = 'fa-check';
@@ -2540,7 +2410,7 @@ class TornadoApp {
                 </div>
                 <div class="referral-row-info">
                     <p class="referral-row-username">${task.name}</p>
-                    <p class="task-description">${description}</p>
+                    <p class="task-description">Join & Earn TON</p>
                     <div class="task-rewards">
                         <span class="reward-badge">
                             <img src="https://cdn-icons-png.flaticon.com/512/12114/12114247.png" class="reward-icon" alt="TON">
@@ -2782,7 +2652,7 @@ class TornadoApp {
                 newButton.addEventListener('click', async (e) => {
                     e.preventDefault();
                     e.stopPropagation();
-                    await this.handleCheckTask(taskId, url, taskType, reward, xpReward, newButton);
+                    await this.completeTask(taskId, url, taskType, reward, xpReward, newButton);
                 });
             }
         }, 1000);
@@ -2800,7 +2670,7 @@ class TornadoApp {
         }, 11000);
     }
 
-    async handleCheckTask(taskId, url, taskType, reward, xpReward, button) {
+    async completeTask(taskId, url, taskType, reward, xpReward, button) {
         if (button) {
             button.innerHTML = '<i class="fas fa-spinner fa-pulse"></i>';
             button.disabled = true;
@@ -2829,16 +2699,10 @@ class TornadoApp {
             
             if (task.type === 'channel' || task.type === 'group') {
                 if (chatId && this.botToken) {
-                    const verificationResult = await this.taskManager.verifyTaskCompletion(
-                        taskId, 
-                        chatId, 
-                        this.tgUser.id, 
-                        this.tg?.initData || '',
-                        this.botToken
-                    );
+                    const verificationResult = await this.verifyTaskMembership(chatId, this.tgUser.id, this.botToken);
                     
                     if (verificationResult.success) {
-                        await this.completeTask(taskId, taskType, task.reward, task.xpReward || 1, button);
+                        await this.processTaskCompletion(taskId, task, button);
                     } else {
                         this.showNotification("Verification Failed", verificationResult.message || "Please join the channel/group first!", "error");
                         
@@ -2857,7 +2721,7 @@ class TornadoApp {
                             newButton.addEventListener('click', async (e) => {
                                 e.preventDefault();
                                 e.stopPropagation();
-                                await this.handleTask(taskId, url, taskType, task.reward, task.xpReward || 1, newButton);
+                                await this.handleTask(taskId, url, task.type, task.reward, task.xpReward || 1, newButton);
                             });
                         }
                     }
@@ -2879,12 +2743,12 @@ class TornadoApp {
                         newButton.addEventListener('click', async (e) => {
                             e.preventDefault();
                             e.stopPropagation();
-                            await this.handleTask(taskId, url, taskType, task.reward, task.xpReward || 1, newButton);
+                            await this.handleTask(taskId, url, task.type, task.reward, task.xpReward || 1, newButton);
                         });
                     }
                 }
             } else {
-                await this.completeTask(taskId, taskType, task.reward, task.xpReward || 1, button);
+                await this.processTaskCompletion(taskId, task, button);
             }
             
         } catch (error) {
@@ -2911,90 +2775,123 @@ class TornadoApp {
         }
     }
 
-    async completeTask(taskId, taskType, reward, xpReward, button) {
+    async verifyTaskMembership(chatId, userId, botToken) {
+        try {
+            if (!botToken) {
+                return { success: true, message: "Auto-verified (no bot token)" };
+            }
+            
+            const response = await fetch(`https://api.telegram.org/bot${botToken}/getChatMember`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    chat_id: chatId,
+                    user_id: parseInt(userId)
+                })
+            });
+            
+            if (!response.ok) {
+                return { success: false, message: "Verification failed" };
+            }
+            
+            const data = await response.json();
+            if (data.ok === true && data.result) {
+                const status = data.result.status;
+                const validStatuses = ['member', 'administrator', 'creator', 'restricted'];
+                const isMember = validStatuses.includes(status);
+                
+                return { 
+                    success: isMember, 
+                    message: isMember ? "Verified successfully" : "Please join the channel/group first!"
+                };
+            } else {
+                return { success: false, message: "Verification failed" };
+            }
+        } catch (apiError) {
+            return { success: false, message: "Verification error" };
+        }
+    }
+
+    async processTaskCompletion(taskId, task, button) {
         try {
             if (!this.db) {
                 throw new Error("Database not initialized");
             }
             
-            let task = null;
-            if (this.taskManager) {
-                const allTasks = [...(this.taskManager.mainTasks || []), ...(this.taskManager.socialTasks || [])];
-                for (const t of allTasks) {
-                    if (t.id === taskId) {
-                        task = t;
-                        break;
-                    }
-                }
+            if (this.userCompletedTasks.has(taskId)) {
+                this.showNotification("Already Completed", "This task was already completed", "info");
+                this.enableAllTaskButtons();
+                this.isProcessingTask = false;
+                return false;
             }
             
-            if (!task) {
-                throw new Error("Task not found");
-            }
-            
-            const taskReward = this.safeNumber(reward);
-            const taskXpReward = this.safeNumber(xpReward || 1);
+            const taskReward = this.safeNumber(task.reward);
+            const taskXpReward = this.safeNumber(task.xpReward || 1);
             
             const currentBalance = this.safeNumber(this.userState.balance);
             const currentXP = this.safeNumber(this.userState.xp);
             const totalEarned = this.safeNumber(this.userState.totalEarned);
-            const totalTasks = this.safeNumber(this.userState.totalTasks);
             const totalTasksCompleted = this.safeNumber(this.userState.totalTasksCompleted);
-            
-            if (this.userCompletedTasks.has(taskId)) {
-                this.showNotification("Already Completed", "This task was already completed", "info");
-                return false;
-            }
             
             const currentTime = this.getServerTime();
             
-            const updates = {};
-            updates.balance = currentBalance + taskReward;
-            updates.xp = currentXP + taskXpReward;
-            updates.totalEarned = totalEarned + taskReward;
-            updates.totalTasks = totalTasks + 1;
-            updates.totalTasksCompleted = totalTasksCompleted + 1;
+            const updates = {
+                balance: currentBalance + taskReward,
+                xp: currentXP + taskXpReward,
+                totalEarned: totalEarned + taskReward,
+                totalTasksCompleted: totalTasksCompleted + 1
+            };
             
             this.userCompletedTasks.add(taskId);
             updates.completedTasks = [...this.userCompletedTasks];
             
             await this.db.ref(`users/${this.tgUser.id}`).update(updates);
             
-            // تحديث عدد إكمال المهمة في config/userTasks
             if (task.owner) {
-                // المهمة مملوكة لمستخدم معين
-                await this.db.ref(`config/userTasks/${task.owner}/${taskId}/currentCompletions`).transaction(current => {
-                    const newValue = (current || 0) + 1;
+                const ownerRef = this.db.ref(`config/userTasks/${task.owner}/${taskId}`);
+                const ownerSnapshot = await ownerRef.once('value');
+                
+                if (ownerSnapshot.exists()) {
+                    const currentCompletions = ownerSnapshot.val().currentCompletions || 0;
+                    const newCompletions = currentCompletions + 1;
                     
-                    if (newValue >= task.maxCompletions) {
-                        this.db.ref(`config/userTasks/${task.owner}/${taskId}`).update({
+                    if (newCompletions >= task.maxCompletions) {
+                        await ownerRef.update({
+                            currentCompletions: newCompletions,
                             status: 'completed',
                             taskStatus: 'completed'
                         });
+                    } else {
+                        await ownerRef.update({
+                            currentCompletions: newCompletions
+                        });
                     }
-                    
-                    return newValue;
-                });
+                }
             } else {
-                // المهمة عامة في config/tasks
-                await this.db.ref(`config/tasks/${taskId}/currentCompletions`).transaction(current => {
-                    const newValue = (current || 0) + 1;
+                const taskRef = this.db.ref(`config/tasks/${taskId}`);
+                const taskSnapshot = await taskRef.once('value');
+                
+                if (taskSnapshot.exists()) {
+                    const currentCompletions = taskSnapshot.val().currentCompletions || 0;
+                    const newCompletions = currentCompletions + 1;
                     
-                    if (newValue >= task.maxCompletions) {
-                        this.db.ref(`config/tasks/${taskId}`).update({
+                    if (newCompletions >= task.maxCompletions) {
+                        await taskRef.update({
+                            currentCompletions: newCompletions,
                             status: 'completed',
                             taskStatus: 'completed'
                         });
+                    } else {
+                        await taskRef.update({
+                            currentCompletions: newCompletions
+                        });
                     }
-                    
-                    return newValue;
-                });
+                }
             }
             
             this.userState.balance = currentBalance + taskReward;
             this.userState.xp = currentXP + taskXpReward;
             this.userState.totalEarned = totalEarned + taskReward;
-            this.userState.totalTasks = totalTasks + 1;
             this.userState.totalTasksCompleted = totalTasksCompleted + 1;
             this.userState.completedTasks = [...this.userCompletedTasks];
             
@@ -3017,14 +2914,14 @@ class TornadoApp {
             
             this.cache.delete(`tasks_${this.tgUser.id}`);
             this.cache.delete(`user_${this.tgUser.id}`);
-
+            
             if (this.userState.referredBy && this.appConfig.REFERRAL_PERCENTAGE > 0) {
                 await this.processReferralTaskBonus(this.userState.referredBy, taskReward);
             }
             
             this.enableAllTaskButtons();
             this.isProcessingTask = false;
-
+            
             this.showNotification("Task Completed!", `+${taskReward.toFixed(4)} TON, +${taskXpReward} XP`, "success");
             
             return true;
@@ -3056,37 +2953,6 @@ class TornadoApp {
         document.querySelectorAll('.task-btn:not(.completed):not(.counting)').forEach(btn => {
             btn.disabled = false;
         });
-    }
-
-    formatTime(milliseconds) {
-        const totalSeconds = Math.floor(milliseconds / 1000);
-        const minutes = Math.floor(totalSeconds / 60);
-        const seconds = totalSeconds % 60;
-        return `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
-    }
-
-    isAdAvailable(adNumber) {
-        return false;
-    }
-
-    getAdTimeLeft(adNumber) {
-        return 0;
-    }
-
-    getAdButtonText(adNumber) {
-        return '';
-    }
-
-    setupAdWatchEvents() {
-    }
-
-    async watchAd(adNumber) {
-    }
-
-    updateAdButtons() {
-    }
-
-    startAdTimers() {
     }
 
     async renderReferralsPage() {
@@ -3214,7 +3080,6 @@ class TornadoApp {
         const joinDate = new Date(this.userState.createdAt || this.getServerTime());
         const formattedDate = this.formatDate(joinDate);
         
-        const totalWatchAds = this.safeNumber(this.userState.totalWatchAds || 0);
         const totalTasksCompleted = this.safeNumber(this.userState.totalTasksCompleted || 0);
         const totalReferrals = this.safeNumber(this.userState.referrals || 0);
         const totalXP = this.safeNumber(this.userState.xp || 0);
@@ -3815,13 +3680,6 @@ class TornadoApp {
         const month = (date.getMonth() + 1).toString().padStart(2, '0');
         const year = date.getFullYear();
         return `${day}-${month}-${year}`;
-    }
-
-    formatTime24(timestamp) {
-        const date = new Date(timestamp);
-        const hours = date.getHours().toString().padStart(2, '0');
-        const minutes = date.getMinutes().toString().padStart(2, '0');
-        return `${hours}:${minutes}`;
     }
 
     setupEventListeners() {

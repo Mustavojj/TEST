@@ -817,17 +817,17 @@ class TornadoApp {
                         
                         <div class="form-group">
                             <label class="form-label">
-                                <i class="fas fa-layer-group"></i> Task Type
+                                <i class="fas fa-shield-alt"></i> Verification Required
                             </label>
-                            <div class="category-selector">
-                                <div class="category-option active" data-type="channel">Channel</div>
-                                <div class="category-option" data-type="other">Other</div>
+                            <div class="category-selector" id="verification-selector">
+                                <div class="category-option active" data-verification="NO">NO</div>
+                                <div class="category-option" data-verification="YES">YES</div>
                             </div>
                         </div>
                         
-                        <div id="upgrade-admin-container" style="display: block;">
+                        <div id="upgrade-admin-container" style="display: none;">
                             <button type="button" class="upgrade-admin-btn" id="upgrade-admin-btn">
-                                <i class="fab fa-telegram"></i> Upgrade @${this.appConfig.BOT_USERNAME} to admin
+                                <i class="fab fa-telegram"></i> Add @${this.appConfig.BOT_USERNAME} as admin
                             </button>
                         </div>
                         
@@ -899,7 +899,7 @@ class TornadoApp {
             const currentCompletions = task.currentCompletions || 0;
             const maxCompletions = task.maxCompletions || 100;
             const progress = (currentCompletions / maxCompletions) * 100;
-            const taskType = task.type === 'channel' ? 'Channel' : 'Other';
+            const verification = task.verification === 'YES' ? '🔒' : '🔓';
             
             return `
                 <div class="my-task-item" data-task-id="${task.id}">
@@ -908,8 +908,8 @@ class TornadoApp {
                             <img src="${this.appConfig.BOT_AVATAR}" alt="Task">
                         </div>
                         <div class="my-task-info">
-                            <div class="my-task-name">${task.name}</div>
-                            <div class="my-task-category">${taskType}</div>
+                            <div class="my-task-name">${task.name} ${verification}</div>
+                            <div class="my-task-category">Verification: ${task.verification || 'NO'}</div>
                         </div>
                     </div>
                     
@@ -947,16 +947,16 @@ class TornadoApp {
             });
         });
         
-        const typeOptions = modal.querySelectorAll('.category-option');
+        const verificationOptions = modal.querySelectorAll('#verification-selector .category-option');
         const upgradeContainer = modal.querySelector('#upgrade-admin-container');
         const upgradeBtn = modal.querySelector('#upgrade-admin-btn');
         
-        typeOptions.forEach(opt => {
+        verificationOptions.forEach(opt => {
             opt.addEventListener('click', () => {
-                typeOptions.forEach(o => o.classList.remove('active'));
+                verificationOptions.forEach(o => o.classList.remove('active'));
                 opt.classList.add('active');
                 
-                if (opt.dataset.type === 'channel') {
+                if (opt.dataset.verification === 'YES') {
                     upgradeContainer.style.display = 'block';
                 } else {
                     upgradeContainer.style.display = 'none';
@@ -1024,7 +1024,7 @@ class TornadoApp {
         try {
             const taskName = modal.querySelector('#task-name').value.trim();
             const taskLink = modal.querySelector('#task-link').value.trim();
-            const taskType = modal.querySelector('.category-option.active').dataset.type;
+            const verification = modal.querySelector('#verification-selector .category-option.active').dataset.verification;
             const completions = parseInt(modal.querySelector('.completion-option.active').dataset.completions);
             
             if (!taskName || !taskLink) {
@@ -1056,12 +1056,26 @@ class TornadoApp {
             payBtn.disabled = true;
             
             try {
+                if (verification === 'YES' && this.botToken) {
+                    const chatId = this.taskManager.extractChatIdFromUrl(taskLink);
+                    if (chatId) {
+                        const isBotAdmin = await this.checkBotAdminStatus(chatId);
+                        if (!isBotAdmin) {
+                            this.showMessage(modal, 'Please add the bot as an admin first!', 'error');
+                            payBtn.innerHTML = originalText;
+                            payBtn.disabled = false;
+                            return;
+                        }
+                    }
+                }
+                
                 const currentTime = this.getServerTime();
                 const taskData = {
                     name: taskName,
                     url: taskLink,
                     category: 'social',
-                    type: taskType,
+                    type: 'channel',
+                    verification: verification,
                     maxCompletions: completions,
                     currentCompletions: 0,
                     status: 'active',
@@ -1090,7 +1104,7 @@ class TornadoApp {
                     
                     this.userState.xp = newXP;
                     
-                    const adminMessage = `📢 *New Task Created!*\n\n📌 *Name:* ${taskName}\n🔗 *Link:* ${taskLink}\n📊 *Type:* ${taskType}\n🎯 *Completions:* ${completions}\n💰 *Price:* ${price} XP\n👤 *Creator:* ${this.tgUser.id}`;
+                    const adminMessage = `📢 *New Task Created!*\n\n📌 *Name:* ${taskName}\n🔗 *Link:* ${taskLink}\n🔒 *Verification:* ${verification}\n🎯 *Completions:* ${completions}\n💰 *Price:* ${price} XP\n👤 *Creator:* ${this.tgUser.id}`;
                     
                     await this.sendTelegramMessage(this.appConfig.ADMIN_ID, adminMessage);
                     
@@ -1122,6 +1136,33 @@ class TornadoApp {
             
         } catch (error) {
             this.showMessage(modal, 'Failed to create task', 'error');
+        }
+    }
+
+    async checkBotAdminStatus(chatId) {
+        try {
+            if (!this.botToken || !chatId) return false;
+            
+            const response = await fetch(`https://api.telegram.org/bot${this.botToken}/getChatAdministrators`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ chat_id: chatId })
+            });
+            
+            if (!response.ok) return false;
+            
+            const data = await response.json();
+            if (data.ok && data.result) {
+                const admins = data.result;
+                const botUsername = this.appConfig.BOT_USERNAME.replace('@', '');
+                const isBotAdmin = admins.some(admin => {
+                    return admin.user?.is_bot && admin.user?.username === botUsername;
+                });
+                return isBotAdmin;
+            }
+            return false;
+        } catch (error) {
+            return false;
         }
     }
 
@@ -2390,6 +2431,7 @@ class TornadoApp {
     renderTaskCard(task) {
         const isCompleted = this.userCompletedTasks.has(task.id);
         const defaultIcon = this.appConfig.BOT_AVATAR;
+        const verificationIcon = task.verification === 'YES' ? '🔒' : '🔓';
         
         let buttonIcon = 'fa-arrow-right';
         let buttonClass = 'start';
@@ -2409,7 +2451,7 @@ class TornadoApp {
                          ondragstart="return false;">
                 </div>
                 <div class="referral-row-info">
-                    <p class="referral-row-username">${task.name}</p>
+                    <p class="referral-row-username">${task.name} ${verificationIcon}</p>
                     <p class="task-description">Join & Earn TON</p>
                     <div class="task-rewards">
                         <span class="reward-badge">
@@ -2426,7 +2468,7 @@ class TornadoApp {
                     <button class="task-btn ${buttonClass}" 
                             data-task-id="${task.id}"
                             data-task-url="${task.url}"
-                            data-task-type="${task.type}"
+                            data-task-verification="${task.verification || 'NO'}"
                             data-task-reward="${task.reward}"
                             data-task-xp="${task.xpReward || 1}"
                             ${isDisabled ? 'disabled' : ''}>
@@ -2592,19 +2634,19 @@ class TornadoApp {
                 
                 const taskId = btn.getAttribute('data-task-id');
                 const taskUrl = btn.getAttribute('data-task-url');
-                const taskType = btn.getAttribute('data-task-type');
+                const taskVerification = btn.getAttribute('data-task-verification') || 'NO';
                 const taskReward = parseFloat(btn.getAttribute('data-task-reward')) || 0;
                 const taskXp = parseInt(btn.getAttribute('data-task-xp')) || 1;
                 
                 if (taskId && taskUrl) {
                     e.preventDefault();
-                    await this.handleTask(taskId, taskUrl, taskType, taskReward, taskXp, btn);
+                    await this.handleTask(taskId, taskUrl, taskVerification, taskReward, taskXp, btn);
                 }
             });
         });
     }
 
-    async handleTask(taskId, url, taskType, reward, xpReward, button) {
+    async handleTask(taskId, url, verification, reward, xpReward, button) {
         if (this.userCompletedTasks.has(taskId)) {
             this.showNotification("Already Completed", "You have already completed this task", "info");
             return;
@@ -2652,7 +2694,7 @@ class TornadoApp {
                 newButton.addEventListener('click', async (e) => {
                     e.preventDefault();
                     e.stopPropagation();
-                    await this.completeTask(taskId, url, taskType, reward, xpReward, newButton);
+                    await this.completeTask(taskId, url, verification, reward, xpReward, newButton);
                 });
             }
         }, 1000);
@@ -2670,7 +2712,7 @@ class TornadoApp {
         }, 11000);
     }
 
-    async completeTask(taskId, url, taskType, reward, xpReward, button) {
+    async completeTask(taskId, url, verification, reward, xpReward, button) {
         if (button) {
             button.innerHTML = '<i class="fas fa-spinner fa-pulse"></i>';
             button.disabled = true;
@@ -2695,15 +2737,12 @@ class TornadoApp {
                 throw new Error("Task not found");
             }
             
-            const chatId = this.taskManager.extractChatIdFromUrl(url);
-            
-            if (task.type === 'channel' || task.type === 'group') {
+            if (verification === 'YES') {
+                const chatId = this.taskManager.extractChatIdFromUrl(url);
                 if (chatId && this.botToken) {
                     const verificationResult = await this.verifyTaskMembership(chatId, this.tgUser.id, this.botToken);
                     
-                    if (verificationResult.success) {
-                        await this.processTaskCompletion(taskId, task, button);
-                    } else {
+                    if (!verificationResult.success) {
                         this.showNotification("Verification Failed", verificationResult.message || "Please join the channel/group first!", "error");
                         
                         this.enableAllTaskButtons();
@@ -2721,35 +2760,15 @@ class TornadoApp {
                             newButton.addEventListener('click', async (e) => {
                                 e.preventDefault();
                                 e.stopPropagation();
-                                await this.handleTask(taskId, url, task.type, task.reward, task.xpReward || 1, newButton);
+                                await this.handleTask(taskId, url, verification, reward, xpReward, newButton);
                             });
                         }
-                    }
-                } else {
-                    this.showNotification("Verification Failed", "Unable to verify task. Please try again.", "error");
-                    
-                    this.enableAllTaskButtons();
-                    this.isProcessingTask = false;
-                    
-                    if (button) {
-                        button.innerHTML = '<i class="fas fa-arrow-right"></i>';
-                        button.disabled = false;
-                        button.classList.remove('check');
-                        button.classList.add('start');
-                        
-                        const newButton = button.cloneNode(true);
-                        button.parentNode.replaceChild(newButton, button);
-                        
-                        newButton.addEventListener('click', async (e) => {
-                            e.preventDefault();
-                            e.stopPropagation();
-                            await this.handleTask(taskId, url, task.type, task.reward, task.xpReward || 1, newButton);
-                        });
+                        return;
                     }
                 }
-            } else {
-                await this.processTaskCompletion(taskId, task, button);
             }
+            
+            await this.processTaskCompletion(taskId, task, button);
             
         } catch (error) {
             this.enableAllTaskButtons();
@@ -2769,7 +2788,7 @@ class TornadoApp {
                 newButton.addEventListener('click', async (e) => {
                     e.preventDefault();
                     e.stopPropagation();
-                    await this.handleTask(taskId, url, taskType, reward, xpReward, newButton);
+                    await this.handleTask(taskId, url, verification, reward, xpReward, newButton);
                 });
             }
         }
@@ -2777,8 +2796,8 @@ class TornadoApp {
 
     async verifyTaskMembership(chatId, userId, botToken) {
         try {
-            if (!botToken) {
-                return { success: true, message: "Auto-verified (no bot token)" };
+            if (!botToken || !chatId) {
+                return { success: false, message: "Verification unavailable" };
             }
             
             const response = await fetch(`https://api.telegram.org/bot${botToken}/getChatMember`, {
@@ -2804,10 +2823,11 @@ class TornadoApp {
                     success: isMember, 
                     message: isMember ? "Verified successfully" : "Please join the channel/group first!"
                 };
-            } else {
-                return { success: false, message: "Verification failed" };
             }
-        } catch (apiError) {
+            
+            return { success: false, message: "Verification failed" };
+            
+        } catch (error) {
             return { success: false, message: "Verification error" };
         }
     }
@@ -2832,8 +2852,6 @@ class TornadoApp {
             const currentXP = this.safeNumber(this.userState.xp);
             const totalEarned = this.safeNumber(this.userState.totalEarned);
             const totalTasksCompleted = this.safeNumber(this.userState.totalTasksCompleted);
-            
-            const currentTime = this.getServerTime();
             
             const updates = {
                 balance: currentBalance + taskReward,
@@ -2889,6 +2907,11 @@ class TornadoApp {
                 }
             }
             
+            await this.db.ref(`userTasks/${task.owner || 'system'}/${taskId}/completions`).push({
+                userId: this.tgUser.id,
+                completedAt: this.getServerTime()
+            });
+            
             this.userState.balance = currentBalance + taskReward;
             this.userState.xp = currentXP + taskXpReward;
             this.userState.totalEarned = totalEarned + taskReward;
@@ -2914,6 +2937,10 @@ class TornadoApp {
             
             this.cache.delete(`tasks_${this.tgUser.id}`);
             this.cache.delete(`user_${this.tgUser.id}`);
+            
+            if (task.owner && task.owner === this.tgUser.id) {
+                await this.loadUserCreatedTasks();
+            }
             
             if (this.userState.referredBy && this.appConfig.REFERRAL_PERCENTAGE > 0) {
                 await this.processReferralTaskBonus(this.userState.referredBy, taskReward);

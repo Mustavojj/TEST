@@ -1995,8 +1995,15 @@ body {
 .history-item {
     background: rgba(0,0,0,0.3);
     border-radius: 16px;
-    padding: 12px;
-    margin-bottom: 10px;
+    padding: 15px;
+    margin-bottom: 12px;
+    border: 1px solid var(--card-border);
+    transition: all 0.2s ease;
+}
+
+.history-item:hover {
+    border-color: var(--primary-color);
+    transform: translateY(-1px);
 }
 
 .history-item.deposit {
@@ -2011,7 +2018,7 @@ body {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    margin-bottom: 8px;
+    margin-bottom: 12px;
 }
 
 .history-amount {
@@ -2028,25 +2035,29 @@ body {
 }
 
 .history-status {
-    font-size: 12px;
-    font-weight: 600;
-    padding: 4px 8px;
+    font-size: 11px;
+    font-weight: 700;
+    padding: 4px 10px;
     border-radius: 20px;
+    letter-spacing: 0.5px;
 }
 
 .history-status.completed {
-    background: rgba(76, 175, 80, 0.2);
+    background: rgba(76, 175, 80, 0.15);
     color: #4CAF50;
+    border: 1px solid rgba(76, 175, 80, 0.3);
 }
 
 .history-status.pending {
-    background: rgba(255, 193, 7, 0.2);
+    background: rgba(255, 193, 7, 0.15);
     color: #ffc107;
+    border: 1px solid rgba(255, 193, 7, 0.3);
 }
 
 .history-status.rejected {
-    background: rgba(244, 67, 54, 0.2);
+    background: rgba(244, 67, 54, 0.15);
     color: #f44336;
+    border: 1px solid rgba(244, 67, 54, 0.3);
 }
 
 .history-details {
@@ -2057,29 +2068,39 @@ body {
 .history-detail {
     display: flex;
     align-items: center;
-    gap: 6px;
-    margin-top: 4px;
+    gap: 8px;
+    margin-top: 6px;
+    padding: 4px 0;
 }
 
 .history-detail i {
     width: 16px;
     color: #FFD700;
     opacity: 0.7;
+    font-size: 12px;
 }
 
 .history-wallet {
     font-family: monospace;
     font-size: 11px;
+    color: var(--text-light);
+    word-break: break-all;
 }
 
 .transaction-link {
     color: #FFD700;
     text-decoration: none;
     font-weight: 600;
+    font-size: 11px;
+    padding: 2px 8px;
+    background: rgba(255,215,0,0.1);
+    border-radius: 12px;
+    transition: all 0.2s;
 }
 
 .transaction-link:hover {
-    text-decoration: underline;
+    background: rgba(255,215,0,0.2);
+    text-decoration: none;
 }
 
 .error-container {
@@ -2510,6 +2531,23 @@ html {
         padding: 10px 3px;
         font-size: 0.75rem;
     }
+    
+    .history-item {
+        padding: 12px;
+    }
+    
+    .history-amount {
+        font-size: 14px;
+    }
+    
+    .history-status {
+        font-size: 10px;
+        padding: 3px 8px;
+    }
+    
+    .history-detail {
+        font-size: 11px;
+    }
 }
 
 @media (max-width: 360px) {
@@ -2555,5 +2593,21 @@ html {
     
     .form-input {
         padding-right: 60px;
+    }
+    
+    .history-item {
+        padding: 10px;
+    }
+    
+    .history-amount {
+        font-size: 13px;
+    }
+    
+    .history-detail {
+        font-size: 10px;
+    }
+    
+    .history-wallet {
+        font-size: 10px;
     }
 }

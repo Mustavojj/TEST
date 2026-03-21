@@ -2109,7 +2109,7 @@ class TornadoApp {
                 </div>
                 
                 <div id="tasks-tab" class="tasks-tab-content active">
-                    <div class="tasks-tabs tasks-subtabs">
+                    <div class="tasks-subtabs">
                         <button class="tab-btn active" data-subtab="main-tasks-sub">
                             <i class="fas fa-star"></i> Main
                         </button>

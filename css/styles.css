@@ -1935,3 +1935,17 @@ body {
 .task-subtab.active {
     display: block;
 } 
+
+.tasks-subtabs {
+    display: flex;
+    background: var(--card-bg);
+    border-radius: var(--border-radius-sm);
+    padding: 4px;
+    margin: 0 0 20px;
+    border: 1px solid var(--card-border);
+    gap: 4px;
+}
+
+.tasks-subtabs .tab-btn {
+    flex: 1;
+} 

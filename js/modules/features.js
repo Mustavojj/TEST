@@ -1,10 +1,13 @@
+// features.js
 import { APP_CONFIG, FEATURES_CONFIG } from '../data.js';
 
 class TaskManager {
     constructor(app) {
         this.app = app;
         this.mainTasks = [];
+        this.partnerTasks = [];
         this.socialTasks = [];
+        this.dailyTasks = [];
         this.taskTimers = new Map();
         this.userCompletedTasks = new Set();
     }
@@ -16,7 +19,9 @@ class TaskManager {
             const cached = this.app.cache.get(cacheKey);
             if (cached) {
                 this.mainTasks = cached.mainTasks || [];
+                this.partnerTasks = cached.partnerTasks || [];
                 this.socialTasks = cached.socialTasks || [];
+                this.dailyTasks = cached.dailyTasks || [];
                 this.userCompletedTasks = new Set(cached.completedTasks || []);
                 return;
             }
@@ -26,17 +31,23 @@ class TaskManager {
             this.userCompletedTasks = new Set(this.app.userState.completedTasks || []);
             
             this.mainTasks = await this.loadTasksFromDatabase('main');
+            this.partnerTasks = await this.loadTasksFromDatabase('partner');
             this.socialTasks = await this.loadTasksFromDatabase('social');
+            this.dailyTasks = await this.loadDailyTasksFromDatabase();
             
             this.app.cache.set(cacheKey, {
                 mainTasks: this.mainTasks,
+                partnerTasks: this.partnerTasks,
                 socialTasks: this.socialTasks,
+                dailyTasks: this.dailyTasks,
                 completedTasks: Array.from(this.userCompletedTasks)
             }, 30000);
             
         } catch (error) {
             this.mainTasks = [];
+            this.partnerTasks = [];
             this.socialTasks = [];
+            this.dailyTasks = [];
         }
     }
 
@@ -71,7 +82,7 @@ class TaskManager {
                             type: taskData.type || 'channel',
                             category: category,
                             reward: this.app.safeNumber(taskData.reward || 0.0001),
-                            xpReward: this.app.safeNumber(taskData.xpReward || 1),
+                            popReward: this.app.safeNumber(taskData.popReward || 1),
                             currentCompletions: currentCompletions,
                             maxCompletions: maxCompletions,
                             status: taskData.status || 'active',
@@ -112,7 +123,7 @@ class TaskManager {
                                 type: taskData.type || 'channel',
                                 category: category,
                                 reward: this.app.safeNumber(taskData.reward || 0.0001),
-                                xpReward: this.app.safeNumber(taskData.xpReward || 1),
+                                popReward: this.app.safeNumber(taskData.popReward || 1),
                                 currentCompletions: currentCompletions,
                                 maxCompletions: maxCompletions,
                                 status: taskData.status || 'active',
@@ -129,6 +140,45 @@ class TaskManager {
             }
             
             return tasks;
+            
+        } catch (error) {
+            return [];
+        }
+    }
+
+    async loadDailyTasksFromDatabase() {
+        try {
+            if (!this.app.db) return [];
+            
+            const dailyTasks = [];
+            
+            const dailySnapshot = await this.app.db.ref('config/dailyTasks').once('value');
+            if (dailySnapshot.exists()) {
+                dailySnapshot.forEach(child => {
+                    try {
+                        const taskData = child.val();
+                        
+                        if (taskData.status !== 'active') {
+                            return;
+                        }
+                        
+                        const task = {
+                            id: child.key,
+                            name: taskData.name || 'Daily Task',
+                            picture: taskData.picture || this.app.appConfig.BOT_AVATAR,
+                            url: taskData.url || '',
+                            reward: this.app.safeNumber(taskData.reward || 0),
+                            popReward: this.app.safeNumber(taskData.popReward || 0),
+                            verification: taskData.verification || 'NO',
+                            type: 'daily'
+                        };
+                        
+                        dailyTasks.push(task);
+                    } catch (error) {}
+                });
+            }
+            
+            return dailyTasks;
             
         } catch (error) {
             return [];
@@ -186,7 +236,6 @@ class ReferralManager {
                 }
             });
             
-            // ترتيب حسب تاريخ الانضمام (الأحدث أولاً)
             this.recentReferrals = referralsList.sort((a, b) => (b.joinedAt || 0) - (a.joinedAt || 0)).slice(0, 5);
             
             return this.recentReferrals;

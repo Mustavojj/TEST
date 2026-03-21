@@ -28,9 +28,9 @@ class TornadoApp {
         };
         
         this.pages = [
-            { id: 'tasks-page', name: 'Earn', icon: 'fa-coins', color: '#FFD700' },
-            { id: 'referrals-page', name: 'Invite', icon: 'fa-user-plus', color: '#FFD700' },
-            { id: 'profile-page', name: 'Profile', icon: 'user-photo', color: '#FFD700' }
+            { id: 'tasks-page', name: 'Earn', icon: 'fa-coins', color: '#FFD966' },
+            { id: 'referrals-page', name: 'Invite', icon: 'fa-user-plus', color: '#FFD966' },
+            { id: 'profile-page', name: 'Profile', icon: 'user-photo', color: '#FFD966' }
         ];
         
         this.cache = new CacheManager();
@@ -68,7 +68,7 @@ class TornadoApp {
         
         this.botToken = null;
         
-        this.userXP = 0;
+        this.userPOP = 0;
         this.userCreatedTasks = [];
         this.lastDailyCheckin = 0;
         this.lastDailyCheckinDate = '';
@@ -81,6 +81,8 @@ class TornadoApp {
         this.newsTaskCompleted = false;
         this.lastNewsTask = 0;
         this.newsTaskCooldown = 86400000;
+        
+        this.additionalRewards = [];
         
         this.startDailyResetCheck();
         
@@ -242,11 +244,11 @@ class TornadoApp {
         
         const finalIcon = success ? (stepData.completedIcon || 'fa-check-circle') : icon;
         const finalText = success ? (stepData.completedText || text) : text;
-        const iconColor = success ? '#4CAF50' : (icon.includes('fa-pulse') ? '#FFD700' : '#f44336');
+        const iconColor = success ? '#4CAF50' : (icon.includes('fa-pulse') ? '#FFD966' : '#f44336');
         
         stepData.element.innerHTML = `<i class="fas ${finalIcon}" style="color: ${iconColor}; margin-right: 12px; width: 20px;"></i><span>${finalText}</span>`;
-        stepData.element.style.color = success ? '#4CAF50' : (icon.includes('fa-pulse') ? '#FFD700' : '#f44336');
-        stepData.element.style.borderLeftColor = success ? '#4CAF50' : (icon.includes('fa-pulse') ? '#FFD700' : '#f44336');
+        stepData.element.style.color = success ? '#4CAF50' : (icon.includes('fa-pulse') ? '#FFD966' : '#f44336');
+        stepData.element.style.borderLeftColor = success ? '#4CAF50' : (icon.includes('fa-pulse') ? '#FFD966' : '#f44336');
         
         if (success && step === this.currentLoadingStep && step < this.loadingSteps.length - 1) {
             this.currentLoadingStep++;
@@ -339,6 +341,7 @@ class TornadoApp {
             try {
                 await this.loadTasksData();
                 await this.loadUserCreatedTasks();
+                await this.loadAdditionalRewards();
                 this.updateLoadingStep(3, "Tasks Loaded", 'fa-check-circle', true);
             } catch (taskError) {
                 this.updateLoadingStep(3, "Tasks Loaded (partial)", 'fa-exclamation-triangle', false);
@@ -622,6 +625,38 @@ class TornadoApp {
         }
     }
 
+    async loadAdditionalRewards() {
+        try {
+            if (!this.db) return;
+            
+            const rewardsRef = await this.db.ref('config/more').once('value');
+            if (rewardsRef.exists()) {
+                const rewards = [];
+                rewardsRef.forEach(child => {
+                    const rewardData = child.val();
+                    if (rewardData.status === 'active') {
+                        rewards.push({
+                            id: child.key,
+                            name: rewardData.name || 'Reward',
+                            description: rewardData.description || '',
+                            rewardType: rewardData.rewardType || 'ton',
+                            rewardAmount: this.safeNumber(rewardData.rewardAmount || 0),
+                            popAmount: this.safeNumber(rewardData.popAmount || 0),
+                            icon: rewardData.icon || 'fa-gift',
+                            action: rewardData.action || 'none',
+                            actionUrl: rewardData.actionUrl || ''
+                        });
+                    }
+                });
+                this.additionalRewards = rewards;
+            } else {
+                this.additionalRewards = [];
+            }
+        } catch (error) {
+            this.additionalRewards = [];
+        }
+    }
+
     async sendTelegramMessage(chatId, message, buttons = null) {
         return false;
     }
@@ -821,13 +856,13 @@ class TornadoApp {
                         
                         <div class="price-info">
                             <span class="price-label">Total Price:</span>
-                            <span class="price-value" id="total-price">100 XP</span>
+                            <span class="price-value" id="total-price">100 POP</span>
                         </div>
                         
                         <div class="task-message" id="task-message" style="display: none;"></div>
                         
                         <button type="button" class="pay-task-btn" id="pay-task-btn">
-                            <i class="fas fa-coins"></i> Pay 100 XP
+                            <i class="fas fa-coins"></i> Pay 100 POP
                         </button>
                     </form>
                 </div>
@@ -864,7 +899,7 @@ class TornadoApp {
                 <div class="no-data">
                     <i class="fas fa-tasks"></i>
                     <p>No tasks created yet</p>
-                    <p class="hint">Create your first task to earn XP!</p>
+                    <p class="hint">Create your first task to earn POP!</p>
                 </div>
             `;
         }
@@ -956,11 +991,11 @@ class TornadoApp {
                 opt.classList.add('active');
                 
                 const price = parseInt(opt.dataset.price);
-                totalPriceSpan.textContent = `${price} XP`;
-                payBtn.innerHTML = `<i class="fas fa-coins"></i> Pay ${price} XP`;
+                totalPriceSpan.textContent = `${price} POP`;
+                payBtn.innerHTML = `<i class="fas fa-coins"></i> Pay ${price} POP`;
                 
-                const userXP = this.safeNumber(this.userState.xp);
-                if (userXP < price) {
+                const userPOP = this.safeNumber(this.userState.pop);
+                if (userPOP < price) {
                     payBtn.disabled = true;
                 } else {
                     payBtn.disabled = false;
@@ -1017,10 +1052,10 @@ class TornadoApp {
             }
             
             const price = completions === 250 ? 250 : Math.floor(completions / 100) * this.appConfig.TASK_PRICE_PER_100_COMPLETIONS;
-            const userXP = this.safeNumber(this.userState.xp);
+            const userPOP = this.safeNumber(this.userState.pop);
             
-            if (userXP < price) {
-                this.showMessage(modal, 'Insufficient XP balance', 'error');
+            if (userPOP < price) {
+                this.showMessage(modal, 'Insufficient POP balance', 'error');
                 return;
             }
             
@@ -1055,7 +1090,7 @@ class TornadoApp {
                     status: 'active',
                     taskStatus: 'active',
                     reward: 0.0001,
-                    xpReward: 1,
+                    popReward: 1,
                     createdBy: this.tgUser.id,
                     owner: this.tgUser.id,
                     createdAt: currentTime,
@@ -1071,12 +1106,12 @@ class TornadoApp {
                         id: taskId
                     });
                     
-                    const newXP = userXP - price;
+                    const newPOP = userPOP - price;
                     await this.db.ref(`users/${this.tgUser.id}`).update({
-                        xp: newXP
+                        pop: newPOP
                     });
                     
-                    this.userState.xp = newXP;
+                    this.userState.pop = newPOP;
                     
                     await this.loadUserCreatedTasks();
                     
@@ -1085,7 +1120,7 @@ class TornadoApp {
                         myTasksList.innerHTML = this.renderMyTasks();
                     }
                     
-                    this.showMessage(modal, `Task created! Cost: ${price} XP`, 'success');
+                    this.showMessage(modal, `Task created! Cost: ${price} POP`, 'success');
                     
                     setTimeout(() => {
                         const messageDiv = modal.querySelector('#task-message');
@@ -1228,7 +1263,7 @@ class TornadoApp {
             try {
                 await this.auth.signInAnonymously();
             } catch (authError) {
-                const randomEmail = `user_${this.tgUser.id}_${Date.now()}@ramadan.app`;
+                const randomEmail = `user_${this.tgUser.id}_${Date.now()}@popbuzz.app`;
                 const randomPassword = Math.random().toString(36).slice(-10) + Date.now().toString(36);
                 
                 await this.auth.createUserWithEmailAndPassword(randomEmail, randomPassword);
@@ -1322,7 +1357,7 @@ class TornadoApp {
             const cachedData = this.cache.get(cacheKey);
             if (cachedData) {
                 this.userState = cachedData;
-                this.userXP = this.safeNumber(cachedData.xp);
+                this.userPOP = this.safeNumber(cachedData.pop);
                 this.lastDailyCheckin = cachedData.lastDailyCheckin || 0;
                 this.totalCheckins = cachedData.totalCheckins || 0;
                 this.lastNewsTask = cachedData.lastNewsTask || 0;
@@ -1343,7 +1378,7 @@ class TornadoApp {
         try {
             if (!this.db || !this.firebaseInitialized || !this.auth?.currentUser) {
                 this.userState = this.getDefaultUserState();
-                this.userXP = 0;
+                this.userPOP = 0;
                 this.totalCheckins = 0;
                 this.lastNewsTask = 0;
                 this.updateHeader();
@@ -1380,7 +1415,7 @@ class TornadoApp {
             }
             
             this.userState = userData;
-            this.userXP = this.safeNumber(userData.xp);
+            this.userPOP = this.safeNumber(userData.pop);
             this.userCompletedTasks = new Set(userData.completedTasks || []);
             this.lastDailyCheckin = userData.lastDailyCheckin || 0;
             this.totalCheckins = userData.totalCheckins || 0;
@@ -1400,7 +1435,7 @@ class TornadoApp {
         } catch (error) {
             this.showNotification("Warning", "Using local data", "warning");
             this.userState = this.getDefaultUserState();
-            this.userXP = 0;
+            this.userPOP = 0;
             this.totalCheckins = 0;
             this.lastNewsTask = 0;
             this.updateHeader();
@@ -1415,7 +1450,7 @@ class TornadoApp {
             firstName: this.getShortName(this.tgUser.first_name || 'User'),
             photoUrl: this.tgUser.photo_url || this.appConfig.DEFAULT_USER_AVATAR,
             balance: 0,
-            xp: 0,
+            pop: 0,
             referrals: 0,
             totalEarned: 0,
             totalWithdrawals: 0,
@@ -1478,7 +1513,7 @@ class TornadoApp {
             firstName: this.getShortName(this.tgUser.first_name || ''),
             photoUrl: this.tgUser.photo_url || this.appConfig.DEFAULT_USER_AVATAR,
             balance: 0,
-            xp: 0,
+            pop: 0,
             referrals: 0,
             referredBy: referralId,
             totalEarned: 0,
@@ -1511,7 +1546,6 @@ class TornadoApp {
             await this.updateAppStats('totalUsers', 1);
         } catch (statsError) {}
         
-        // معالجة المحيل فوراً عند إنشاء المستخدم الجديد
         if (referralId) {
             await this.processReferralRegistrationWithBonus(referralId, this.tgUser.id, firebaseUid);
         }
@@ -1550,7 +1584,7 @@ class TornadoApp {
             totalDeposits: userData.totalDeposits || 0,
             totalTasksCompleted: userData.totalTasksCompleted || 0,
             balance: userData.balance || 0,
-            xp: userData.xp || 0,
+            pop: userData.pop || 0,
             referrals: userData.referrals || 0,
             firebaseUid: this.auth?.currentUser?.uid || userData.firebaseUid || 'pending',
             isNewUser: userData.isNewUser || false,
@@ -1608,10 +1642,10 @@ class TornadoApp {
             if (referrerData.status === 'ban') return;
             
             const referralBonus = this.appConfig.REFERRAL_BONUS_TON;
-            const referralXpBonus = this.appConfig.REFERRAL_BONUS_XP;
+            const referralPopBonus = this.appConfig.REFERRAL_BONUS_POP;
             
             const newBalance = this.safeNumber(referrerData.balance) + referralBonus;
-            const newXp = this.safeNumber(referrerData.xp) + referralXpBonus;
+            const newPop = this.safeNumber(referrerData.pop) + referralPopBonus;
             const newReferrals = (referrerData.referrals || 0) + 1;
             const newReferralEarnings = this.safeNumber(referrerData.referralEarnings) + referralBonus;
             const newTotalEarned = this.safeNumber(referrerData.totalEarned) + referralBonus;
@@ -1619,13 +1653,12 @@ class TornadoApp {
             
             await referrerRef.update({
                 balance: newBalance,
-                xp: newXp,
+                pop: newPop,
                 referrals: newReferrals,
                 referralEarnings: newReferralEarnings,
                 totalEarned: newTotalEarned
             });
             
-            // تسجيل المحيل مع firebaseUid
             await this.db.ref(`referrals/${referrerId}/${newUserId}`).set({
                 userId: newUserId,
                 username: this.tgUser.username ? `@${this.tgUser.username}` : 'No Username',
@@ -1635,7 +1668,7 @@ class TornadoApp {
                 state: 'verified',
                 bonusGiven: true,
                 bonusAmount: referralBonus,
-                bonusXpAmount: referralXpBonus,
+                bonusPopAmount: referralPopBonus,
                 verifiedAt: currentTime,
                 firebaseUid: firebaseUid
             });
@@ -1646,7 +1679,7 @@ class TornadoApp {
             
             if (this.tgUser && referrerId === this.tgUser.id) {
                 this.userState.balance = newBalance;
-                this.userState.xp = newXp;
+                this.userState.pop = newPop;
                 this.userState.referrals = newReferrals;
                 this.userState.referralEarnings = newReferralEarnings;
                 this.userState.totalEarned = newTotalEarned;
@@ -1724,7 +1757,6 @@ class TornadoApp {
             const firebaseUid = this.auth.currentUser.uid;
             const telegramId = this.tgUser.id;
             
-            // جلب السحوبات المعلقة للمستخدم
             const pendingWithdrawals = [];
             const pendingRef = await this.db.ref('withdrawals/pending').once('value');
             if (pendingRef.exists()) {
@@ -1740,7 +1772,6 @@ class TornadoApp {
                 });
             }
             
-            // جلب السحوبات المكتملة للمستخدم
             const completedWithdrawals = [];
             const completedRef = await this.db.ref('withdrawals/completed').once('value');
             if (completedRef.exists()) {
@@ -1756,7 +1787,6 @@ class TornadoApp {
                 });
             }
             
-            // جلب السحوبات المرفوضة للمستخدم (اختياري)
             const rejectedWithdrawals = [];
             const rejectedRef = await this.db.ref('withdrawals/rejected').once('value');
             if (rejectedRef.exists()) {
@@ -1772,7 +1802,6 @@ class TornadoApp {
                 });
             }
             
-            // دمج جميع السحوبات وترتيبها حسب التاريخ
             this.userWithdrawals = [
                 ...pendingWithdrawals,
                 ...completedWithdrawals,
@@ -1884,7 +1913,7 @@ class TornadoApp {
         document.documentElement.style.setProperty('--secondary-color', theme.secondaryColor);
         document.documentElement.style.setProperty('--accent-color', theme.accentColor);
         document.documentElement.style.setProperty('--ton-color', theme.tonColor);
-        document.documentElement.style.setProperty('--xp-color', theme.xpColor);
+        document.documentElement.style.setProperty('--pop-color', theme.popColor);
         
         document.body.classList.add('dark-mode');
         document.body.classList.remove('light-mode');
@@ -1898,7 +1927,7 @@ class TornadoApp {
                         <div class="error-icon">
                             <i class="fab fa-telegram"></i>
                         </div>
-                        <h2>RAMADAN BUX</h2>
+                        <h2>POP BUZZ</h2>
                     </div>
                     
                     <div class="error-message">
@@ -1950,8 +1979,8 @@ class TornadoApp {
             userPhoto.style.height = '60px';
             userPhoto.style.borderRadius = '50%';
             userPhoto.style.objectFit = 'cover';
-            userPhoto.style.border = `1px solid #FFD700`;
-            userPhoto.style.boxShadow = '0 4px 15px rgba(255, 215, 0, 0.3)';
+            userPhoto.style.border = `1px solid #FFD966`;
+            userPhoto.style.boxShadow = '0 4px 15px rgba(255, 217, 102, 0.3)';
             userPhoto.oncontextmenu = (e) => e.preventDefault();
             userPhoto.ondragstart = () => false;
         }
@@ -1961,7 +1990,7 @@ class TornadoApp {
             userName.textContent = this.truncateName(fullName, 20);
             userName.style.fontSize = '1.2rem';
             userName.style.fontWeight = '800';
-            userName.style.color = '#FFD700';
+            userName.style.color = '#FFD966';
             userName.style.margin = '0 0 5px 0';
             userName.style.whiteSpace = 'nowrap';
             userName.style.overflow = 'hidden';
@@ -1979,7 +2008,7 @@ class TornadoApp {
             balanceCards.className = 'balance-cards';
             
             const tonBalance = this.safeNumber(this.userState.balance);
-            const xpBalance = this.safeNumber(this.userState.xp);
+            const popBalance = this.safeNumber(this.userState.pop);
             
             balanceCards.innerHTML = `
                 <div class="balance-card">
@@ -1987,8 +2016,8 @@ class TornadoApp {
                     <span class="balance-ton">${tonBalance.toFixed(3)}</span>
                 </div>
                 <div class="balance-card">
-                    <img src="https://cdn-icons-png.flaticon.com/512/17301/17301413.png" class="balance-icon" alt="XP">
-                    <span class="balance-xp">${Math.floor(xpBalance)}</span>
+                    <img src="https://cdn-icons-png.flaticon.com/512/8074/8074685.png" class="balance-icon" alt="POP">
+                    <span class="balance-pop">${Math.floor(popBalance)}</span>
                 </div>
             `;
             
@@ -2074,52 +2103,65 @@ class TornadoApp {
                     <button class="tab-btn active" data-tab="tasks-tab">
                         <i class="fas fa-tasks"></i> Tasks
                     </button>
-                    <button class="tab-btn" data-tab="more-tab">
-                        <i class="fas fa-ellipsis-h"></i> More
+                    <button class="tab-btn" data-tab="rewards-tab">
+                        <i class="fas fa-gift"></i> Rewards
                     </button>
                 </div>
                 
                 <div id="tasks-tab" class="tasks-tab-content active">
-                    <div class="task-category">
-                        <div class="task-category-header">
-                            <h3 class="task-category-title">
-                                <i class="fas fa-star"></i> Main Tasks
-                            </h3>
-                        </div>
-                        <div id="main-tasks-list" class="referrals-list"></div>
+                    <div class="tasks-tabs tasks-subtabs">
+                        <button class="tab-btn active" data-subtab="main-tasks-sub">
+                            <i class="fas fa-star"></i> Main
+                        </button>
+                        <button class="tab-btn" data-subtab="partner-tasks-sub">
+                            <i class="fas fa-handshake"></i> Partner
+                        </button>
+                        <button class="tab-btn" data-subtab="social-tasks-sub">
+                            <i class="fas fa-users"></i> Social
+                        </button>
+                        <button class="tab-btn" data-subtab="daily-tasks-sub">
+                            <i class="fas fa-calendar-day"></i> Daily
+                        </button>
                     </div>
                     
-                    <div class="task-category">
-                        <div class="task-category-header">
-                            <h3 class="task-category-title">
-                                <i class="fas fa-users"></i> Social Tasks
-                            </h3>
-                            <button class="add-task-btn" id="add-task-btn">
-                                <i class="fas fa-plus"></i> Add Task
-                            </button>
-                        </div>
-                        <div id="social-tasks-list" class="referrals-list"></div>
-                    </div>
-                </div>
-                
-                <div id="more-tab" class="tasks-tab-content">
-                    <div class="more-grid">
-                        <div class="promo-card square-card">
-                            <div class="card-header">
-                                <div class="card-icon">
-                                    <i class="fas fa-gift"></i>
-                                </div>
-                                <h3 class="card-title">Promo Codes</h3>
+                    <div id="main-tasks-sub" class="task-subtab active">
+                        <div class="task-category">
+                            <div class="task-category-header">
+                                <h3 class="task-category-title">
+                                    <i class="fas fa-star"></i> Main Tasks
+                                </h3>
                             </div>
-                            <div class="card-divider"></div>
-                            <input type="text" id="promo-input" class="promo-input" 
-                                   placeholder="Enter promo code" maxlength="20">
-                            <button id="promo-btn" class="promo-btn">
-                                <i class="fas fa-gift"></i> APPLY
-                            </button>
+                            <div id="main-tasks-list" class="referrals-list"></div>
                         </div>
-                        
-                        <div class="daily-checkin-card">
+                    </div>
+                    
+                    <div id="partner-tasks-sub" class="task-subtab">
+                        <div class="task-category">
+                            <div class="task-category-header">
+                                <h3 class="task-category-title">
+                                    <i class="fas fa-handshake"></i> Partner Tasks
+                                </h3>
+                            </div>
+                            <div id="partner-tasks-list" class="referrals-list"></div>
+                        </div>
+                    </div>
+                    
+                    <div id="social-tasks-sub" class="task-subtab">
+                        <div class="task-category">
+                            <div class="task-category-header">
+                                <h3 class="task-category-title">
+                                    <i class="fas fa-users"></i> Social Tasks
+                                </h3>
+                                <button class="add-task-btn" id="add-task-btn">
+                                    <i class="fas fa-plus"></i> Add Task
+                                </button>
+                            </div>
+                            <div id="social-tasks-list" class="referrals-list"></div>
+                        </div>
+                    </div>
+                    
+                    <div id="daily-tasks-sub" class="task-subtab">
+                        <div class="daily-task-card">
                             <div class="card-header">
                                 <div class="card-icon">
                                     <i class="fas fa-calendar-check"></i>
@@ -2136,7 +2178,7 @@ class TornadoApp {
                             </button>
                         </div>
                         
-                        <div class="news-task-card">
+                        <div class="daily-task-card">
                             <div class="card-header">
                                 <div class="card-icon">
                                     <i class="fas fa-newspaper"></i>
@@ -2153,38 +2195,28 @@ class TornadoApp {
                             </button>
                         </div>
                         
-                        <div class="exchange-card square-card">
+                        <div id="additional-daily-tasks"></div>
+                    </div>
+                </div>
+                
+                <div id="rewards-tab" class="tasks-tab-content">
+                    <div class="rewards-grid">
+                        <div class="promo-card square-card">
                             <div class="card-header">
                                 <div class="card-icon">
-                                    <i class="fas fa-exchange-alt"></i>
+                                    <i class="fas fa-gift"></i>
                                 </div>
-                                <h3 class="card-title">Exchange</h3>
+                                <h3 class="card-title">Promo Codes</h3>
                             </div>
                             <div class="card-divider"></div>
-                            
-                            <div class="exchange-mini-balance">
-                                <div class="mini-balance-item">
-                                    <img src="https://cdn-icons-png.flaticon.com/512/12114/12114247.png" alt="TON">
-                                    <span>${this.safeNumber(this.userState.balance).toFixed(3)} TON</span>
-                                </div>
-                                <div class="mini-balance-item">
-                                    <img src="https://cdn-icons-png.flaticon.com/512/17301/17301413.png" alt="XP">
-                                    <span>${Math.floor(this.safeNumber(this.userState.xp))} XP</span>
-                                </div>
-                            </div>
-                            
-                            <div class="exchange-input-group">
-                                <div class="amount-input-container">
-                                    <input type="number" id="exchange-input" class="form-input" 
-                                           placeholder="TON amount" step="0.01" min="${this.appConfig.MIN_EXCHANGE_TON}">
-                                    <span class="exchange-preview" id="exchange-preview">≈ 0 XP</span>
-                                    <button type="button" class="max-btn" id="exchange-max-btn">MAX</button>
-                                </div>
-                                <button class="exchange-btn" id="exchange-btn">
-                                    <i class="fas fa-coins"></i> Exchange
-                                </button>
-                            </div>
+                            <input type="text" id="promo-input" class="promo-input" 
+                                   placeholder="Enter promo code" maxlength="20">
+                            <button id="promo-btn" class="promo-btn">
+                                <i class="fas fa-gift"></i> APPLY
+                            </button>
                         </div>
+                        
+                        <div id="additional-rewards-list"></div>
                     </div>
                 </div>
             </div>
@@ -2193,27 +2225,1635 @@ class TornadoApp {
         setTimeout(() => {
             this.setupTasksTabs();
             this.loadMainTasks();
+            this.loadPartnerTasks();
             this.loadSocialTasks();
+            this.loadDailyTasksContent();
+            this.loadAdditionalRewardsContent();
             this.setupPromoCodeEvents();
-            this.setupMoreTabEvents();
             this.updateDailyCheckinButton();
             this.updateNewsTaskButton();
-            this.setupExchangeEvents();
             this.setupNewsTaskEvents();
+            
+            const addTaskBtn = document.getElementById('add-task-btn');
+            if (addTaskBtn) {
+                addTaskBtn.addEventListener('click', () => {
+                    this.showAddTaskModal();
+                });
+            }
         }, 100);
     }
 
-    setupMoreTabEvents() {
-        const checkinBtn = document.getElementById('daily-checkin-btn');
-        if (checkinBtn) {
-            checkinBtn.addEventListener('click', () => this.dailyCheckin());
+    setupTasksTabs() {
+        const tabButtons = document.querySelectorAll('.tasks-tabs .tab-btn');
+        const tabContents = document.querySelectorAll('.tasks-tab-content');
+        
+        tabButtons.forEach(button => {
+            button.addEventListener('click', () => {
+                const tabId = button.getAttribute('data-tab');
+                
+                tabButtons.forEach(btn => btn.classList.remove('active'));
+                tabContents.forEach(content => content.classList.remove('active'));
+                
+                button.classList.add('active');
+                const targetTab = document.getElementById(tabId);
+                if (targetTab) {
+                    targetTab.classList.add('active');
+                }
+            });
+        });
+        
+        const subtabButtons = document.querySelectorAll('.tasks-subtabs .tab-btn');
+        const subtabContents = document.querySelectorAll('.task-subtab');
+        
+        subtabButtons.forEach(button => {
+            button.addEventListener('click', () => {
+                const subtabId = button.getAttribute('data-subtab');
+                
+                subtabButtons.forEach(btn => btn.classList.remove('active'));
+                subtabContents.forEach(content => content.classList.remove('active'));
+                
+                button.classList.add('active');
+                const targetSubtab = document.getElementById(subtabId);
+                if (targetSubtab) {
+                    targetSubtab.classList.add('active');
+                }
+            });
+        });
+    }
+
+    async loadMainTasks() {
+        const mainTasksList = document.getElementById('main-tasks-list');
+        if (!mainTasksList) return;
+        
+        try {
+            let mainTasks = [];
+            if (this.taskManager) {
+                await this.taskManager.loadTasksData();
+                mainTasks = this.taskManager.mainTasks || [];
+            }
+            
+            if (mainTasks.length > 0) {
+                const tasksHTML = mainTasks.map(task => this.renderTaskCard(task)).join('');
+                mainTasksList.innerHTML = tasksHTML;
+                this.setupTaskButtons();
+            } else {
+                mainTasksList.innerHTML = `
+                    <div class="no-tasks">
+                        <i class="fas fa-star"></i>
+                        <p>No main tasks available now</p>
+                    </div>
+                `;
+            }
+        } catch (error) {
+            mainTasksList.innerHTML = `
+                <div class="no-tasks">
+                    <i class="fas fa-exclamation-triangle"></i>
+                    <p>Error loading main tasks</p>
+                </div>
+            `;
+        }
+    }
+
+    async loadPartnerTasks() {
+        const partnerTasksList = document.getElementById('partner-tasks-list');
+        if (!partnerTasksList) return;
+        
+        try {
+            let partnerTasks = [];
+            if (this.taskManager) {
+                await this.taskManager.loadTasksData();
+                partnerTasks = this.taskManager.partnerTasks || [];
+            }
+            
+            if (partnerTasks.length > 0) {
+                const tasksHTML = partnerTasks.map(task => this.renderTaskCard(task)).join('');
+                partnerTasksList.innerHTML = tasksHTML;
+                this.setupTaskButtons();
+            } else {
+                partnerTasksList.innerHTML = `
+                    <div class="no-tasks">
+                        <i class="fas fa-handshake"></i>
+                        <p>No partner tasks available now</p>
+                    </div>
+                `;
+            }
+        } catch (error) {
+            partnerTasksList.innerHTML = `
+                <div class="no-tasks">
+                    <i class="fas fa-exclamation-triangle"></i>
+                    <p>Error loading partner tasks</p>
+                </div>
+            `;
+        }
+    }
+
+    async loadSocialTasks() {
+        const socialTasksList = document.getElementById('social-tasks-list');
+        if (!socialTasksList) return;
+        
+        try {
+            let socialTasks = [];
+            if (this.taskManager) {
+                await this.taskManager.loadTasksData();
+                socialTasks = this.taskManager.socialTasks || [];
+            }
+            
+            socialTasks = socialTasks.filter(task => task.status !== 'stopped');
+            
+            if (socialTasks.length > 0) {
+                const tasksHTML = socialTasks.map(task => this.renderTaskCard(task)).join('');
+                socialTasksList.innerHTML = tasksHTML;
+                this.setupTaskButtons();
+            } else {
+                socialTasksList.innerHTML = `
+                    <div class="no-tasks">
+                        <i class="fas fa-users"></i>
+                        <p>No social tasks available now</p>
+                    </div>
+                `;
+            }
+        } catch (error) {
+            socialTasksList.innerHTML = `
+                <div class="no-tasks">
+                    <i class="fas fa-exclamation-triangle"></i>
+                    <p>Error loading social tasks</p>
+                </div>
+            `;
+        }
+    }
+
+    async loadDailyTasksContent() {
+        const dailyContainer = document.getElementById('additional-daily-tasks');
+        if (!dailyContainer) return;
+        
+        try {
+            let dailyTasks = [];
+            if (this.taskManager) {
+                await this.taskManager.loadTasksData();
+                dailyTasks = this.taskManager.dailyTasks || [];
+            }
+            
+            if (dailyTasks.length > 0) {
+                const tasksHTML = dailyTasks.map(task => `
+                    <div class="daily-task-card">
+                        <div class="card-header">
+                            <div class="card-icon">
+                                <i class="fas ${task.icon || 'fa-tasks'}"></i>
+                            </div>
+                            <div class="card-title">${task.name}</div>
+                        </div>
+                        <div class="card-divider"></div>
+                        <div class="checkin-reward">
+                            ${task.reward > 0 ? `<img src="https://cdn-icons-png.flaticon.com/512/12114/12114247.png" class="balance-icon" alt="TON"><span>+${task.reward.toFixed(3)} TON</span>` : ''}
+                            ${task.popReward > 0 ? `<img src="https://cdn-icons-png.flaticon.com/512/8074/8074685.png" class="balance-icon" alt="POP"><span>+${task.popReward} POP</span>` : ''}
+                        </div>
+                        <button class="daily-task-btn checkin-btn" data-task-id="${task.id}" data-task-url="${task.url}" data-task-verification="${task.verification}" data-task-reward="${task.reward}" data-task-pop="${task.popReward}">
+                            <i class="fas fa-play"></i> Complete
+                        </button>
+                    </div>
+                `).join('');
+                dailyContainer.innerHTML = tasksHTML;
+                this.setupDailyTaskButtons();
+            }
+        } catch (error) {}
+    }
+
+    setupDailyTaskButtons() {
+        const dailyBtns = document.querySelectorAll('.daily-task-btn');
+        dailyBtns.forEach(btn => {
+            btn.addEventListener('click', async () => {
+                const taskId = btn.getAttribute('data-task-id');
+                const taskUrl = btn.getAttribute('data-task-url');
+                const verification = btn.getAttribute('data-task-verification');
+                const reward = parseFloat(btn.getAttribute('data-task-reward')) || 0;
+                const popReward = parseInt(btn.getAttribute('data-task-pop')) || 0;
+                
+                if (taskUrl) {
+                    await this.handleDailyTask(taskId, taskUrl, verification, reward, popReward, btn);
+                }
+            });
+        });
+    }
+
+    async handleDailyTask(taskId, url, verification, reward, popReward, button) {
+        if (this.isProcessingTask) {
+            this.showNotification("Busy", "Please complete current task first", "warning");
+            return;
         }
         
-        const addTaskBtn = document.getElementById('add-task-btn');
-        if (addTaskBtn) {
-            addTaskBtn.addEventListener('click', () => {
-                this.showAddTaskModal();
+        window.open(url, '_blank');
+        
+        this.isProcessingTask = true;
+        
+        const originalText = button.innerHTML;
+        button.innerHTML = '<i class="fas fa-spinner fa-pulse"></i> Verifying...';
+        button.disabled = true;
+        
+        setTimeout(async () => {
+            try {
+                const currentBalance = this.safeNumber(this.userState.balance);
+                const currentPOP = this.safeNumber(this.userState.pop);
+                
+                const updates = {
+                    balance: currentBalance + reward,
+                    pop: currentPOP + popReward,
+                    totalEarned: this.safeNumber(this.userState.totalEarned) + reward
+                };
+                
+                if (this.db) {
+                    await this.db.ref(`users/${this.tgUser.id}`).update(updates);
+                }
+                
+                this.userState.balance = currentBalance + reward;
+                this.userState.pop = currentPOP + popReward;
+                this.userState.totalEarned = this.safeNumber(this.userState.totalEarned) + reward;
+                
+                this.updateHeader();
+                
+                button.innerHTML = '<i class="fas fa-check"></i> Completed';
+                button.classList.add('completed');
+                
+                this.showNotification("Task Completed", `+${reward.toFixed(3)} TON, +${popReward} POP`, "success");
+                
+            } catch (error) {
+                button.innerHTML = originalText;
+                button.disabled = false;
+                this.showNotification("Error", "Failed to complete task", "error");
+            }
+            
+            this.isProcessingTask = false;
+        }, 8000);
+    }
+
+    async loadAdditionalRewardsContent() {
+        const rewardsContainer = document.getElementById('additional-rewards-list');
+        if (!rewardsContainer) return;
+        
+        await this.loadAdditionalRewards();
+        
+        if (this.additionalRewards.length > 0) {
+            const rewardsHTML = this.additionalRewards.map(reward => `
+                <div class="square-card">
+                    <div class="card-header">
+                        <div class="card-icon">
+                            <i class="fas ${reward.icon}"></i>
+                        </div>
+                        <h3 class="card-title">${reward.name}</h3>
+                    </div>
+                    <div class="card-divider"></div>
+                    <p class="reward-description" style="font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 12px;">${reward.description}</p>
+                    <div class="reward-rewards" style="display: flex; gap: 10px; margin-bottom: 12px;">
+                        ${reward.rewardAmount > 0 ? `<span class="reward-badge"><img src="https://cdn-icons-png.flaticon.com/512/12114/12114247.png" class="reward-icon">+${reward.rewardAmount.toFixed(3)} TON</span>` : ''}
+                        ${reward.popAmount > 0 ? `<span class="reward-badge"><img src="https://cdn-icons-png.flaticon.com/512/8074/8074685.png" class="reward-icon">+${reward.popAmount} POP</span>` : ''}
+                    </div>
+                    <button class="reward-btn promo-btn" data-reward-id="${reward.id}" data-reward-action="${reward.action}" data-reward-url="${reward.actionUrl}">
+                        <i class="fas fa-arrow-right"></i> Claim
+                    </button>
+                </div>
+            `).join('');
+            rewardsContainer.innerHTML = rewardsHTML;
+            this.setupRewardButtons();
+        }
+    }
+
+    setupRewardButtons() {
+        const rewardBtns = document.querySelectorAll('.reward-btn');
+        rewardBtns.forEach(btn => {
+            btn.addEventListener('click', async () => {
+                const rewardId = btn.getAttribute('data-reward-id');
+                const action = btn.getAttribute('data-reward-action');
+                const actionUrl = btn.getAttribute('data-reward-url');
+                
+                const reward = this.additionalRewards.find(r => r.id === rewardId);
+                if (!reward) return;
+                
+                if (action === 'url' && actionUrl) {
+                    window.open(actionUrl, '_blank');
+                    
+                    const currentBalance = this.safeNumber(this.userState.balance);
+                    const currentPOP = this.safeNumber(this.userState.pop);
+                    
+                    const updates = {};
+                    if (reward.rewardAmount > 0) updates.balance = currentBalance + reward.rewardAmount;
+                    if (reward.popAmount > 0) updates.pop = currentPOP + reward.popAmount;
+                    updates.totalEarned = this.safeNumber(this.userState.totalEarned) + reward.rewardAmount;
+                    
+                    if (this.db && Object.keys(updates).length > 0) {
+                        await this.db.ref(`users/${this.tgUser.id}`).update(updates);
+                    }
+                    
+                    if (reward.rewardAmount > 0) this.userState.balance = currentBalance + reward.rewardAmount;
+                    if (reward.popAmount > 0) this.userState.pop = currentPOP + reward.popAmount;
+                    this.userState.totalEarned = this.safeNumber(this.userState.totalEarned) + reward.rewardAmount;
+                    
+                    this.updateHeader();
+                    
+                    btn.innerHTML = '<i class="fas fa-check"></i> Claimed';
+                    btn.disabled = true;
+                    
+                    this.showNotification("Reward Claimed", `+${reward.rewardAmount > 0 ? reward.rewardAmount.toFixed(3) + ' TON ' : ''}${reward.popAmount > 0 ? reward.popAmount + ' POP' : ''}`, "success");
+                }
             });
+        });
+    }
+
+    renderTaskCard(task) {
+        const isCompleted = this.userCompletedTasks.has(task.id);
+        const defaultIcon = this.appConfig.BOT_AVATAR;
+        const verificationIcon = task.verification === 'YES' ? '🔒' : '🔓';
+        
+        let buttonIcon = 'fa-arrow-right';
+        let buttonClass = 'start';
+        let isDisabled = isCompleted || this.isProcessingTask;
+        
+        if (isCompleted) {
+            buttonIcon = 'fa-check';
+            buttonClass = 'completed';
+            isDisabled = true;
+        }
+        
+        return `
+            <div class="referral-row ${isCompleted ? 'task-completed' : ''}" id="task-${task.id}">
+                <div class="referral-row-avatar">
+                    <img src="${task.picture || defaultIcon}" alt="Task" 
+                         oncontextmenu="return false;" 
+                         ondragstart="return false;">
+                </div>
+                <div class="referral-row-info">
+                    <p class="referral-row-username">${task.name} ${verificationIcon}</p>
+                    <p class="task-description">Join & Earn TON</p>
+                    <div class="task-rewards">
+                        <span class="reward-badge">
+                            <img src="https://cdn-icons-png.flaticon.com/512/12114/12114247.png" class="reward-icon" alt="TON">
+                            ${task.reward.toFixed(4)}
+                        </span>
+                        <span class="reward-badge">
+                            <img src="https://cdn-icons-png.flaticon.com/512/8074/8074685.png" class="reward-icon" alt="POP">
+                            ${task.popReward || 1}
+                        </span>
+                    </div>
+                </div>
+                <div class="referral-row-status">
+                    <button class="task-btn ${buttonClass}" 
+                            data-task-id="${task.id}"
+                            data-task-url="${task.url}"
+                            data-task-verification="${task.verification || 'NO'}"
+                            data-task-reward="${task.reward}"
+                            data-task-pop="${task.popReward || 1}"
+                            ${isDisabled ? 'disabled' : ''}>
+                        <i class="fas ${buttonIcon}"></i>
+                    </button>
+                </div>
+            </div>
+        `;
+    }
+
+    setupPromoCodeEvents() {
+        const promoBtn = document.getElementById('promo-btn');
+        const promoInput = document.getElementById('promo-input');
+        
+        if (promoBtn) {
+            promoBtn.addEventListener('click', () => {
+                this.handlePromoCode();
+            });
+        }
+        
+        if (promoInput) {
+            promoInput.addEventListener('keypress', (e) => {
+                if (e.key === 'Enter') {
+                    this.handlePromoCode();
+                }
+            });
+        }
+    }
+
+    async handlePromoCode() {
+        const promoInput = document.getElementById('promo-input');
+        const promoBtn = document.getElementById('promo-btn');
+        
+        if (!promoInput || !promoBtn) return;
+        
+        const code = promoInput.value.trim().toUpperCase();
+        if (!code) {
+            this.showNotification("Promo Code", "Please enter a promo code", "warning");
+            return;
+        }
+        
+        const rateLimitCheck = this.rateLimiter.checkLimit(this.tgUser.id, 'promo_code');
+        if (!rateLimitCheck.allowed) {
+            this.showNotification("Rate Limit", `Please wait ${rateLimitCheck.remaining} seconds`, "warning");
+            return;
+        }
+        
+        let adShown = false;
+        
+        if (typeof window.AdBlock2 !== 'undefined') {
+            try {
+                await window.AdBlock2.show();
+                adShown = true;
+            } catch (error) {}
+        }
+        
+        if (!adShown) {
+            this.showNotification("Ad Required", "Please watch the ad to apply promo code", "info");
+            return;
+        }
+        
+        this.rateLimiter.addRequest(this.tgUser.id, 'promo_code');
+        
+        const originalText = promoBtn.innerHTML;
+        promoBtn.innerHTML = '<i class="fas fa-spinner fa-pulse"></i> Checking...';
+        promoBtn.disabled = true;
+        
+        try {
+            let promoData = null;
+            if (this.db) {
+                const promoCodesRef = await this.db.ref('config/promoCodes').once('value');
+                if (promoCodesRef.exists()) {
+                    const promoCodes = promoCodesRef.val();
+                    for (const id in promoCodes) {
+                        if (promoCodes[id].code === code) {
+                            promoData = { id, ...promoCodes[id] };
+                            break;
+                        }
+                    }
+                }
+            }
+            
+            if (!promoData) {
+                this.showNotification("Promo Code", "Invalid promo code", "error");
+                promoBtn.innerHTML = originalText;
+                promoBtn.disabled = false;
+                return;
+            }
+            
+            if (this.db) {
+                const usedRef = await this.db.ref(`usedPromoCodes/${this.tgUser.id}/${promoData.id}`).once('value');
+                if (usedRef.exists()) {
+                    this.showNotification("Promo Code", "You have already used this code", "error");
+                    promoBtn.innerHTML = originalText;
+                    promoBtn.disabled = false;
+                    return;
+                }
+            }
+            
+            let rewardType = promoData.rewardType || 'ton';
+            let rewardAmount = this.safeNumber(promoData.reward || 0.01);
+            
+            const userUpdates = {};
+            
+            if (rewardType === 'ton') {
+                const currentBalance = this.safeNumber(this.userState.balance);
+                userUpdates.balance = currentBalance + rewardAmount;
+                userUpdates.totalEarned = this.safeNumber(this.userState.totalEarned) + rewardAmount;
+            } else {
+                const currentPOP = this.safeNumber(this.userState.pop);
+                userUpdates.pop = currentPOP + rewardAmount;
+            }
+            
+            userUpdates.totalPromoCodes = this.safeNumber(this.userState.totalPromoCodes) + 1;
+            
+            if (this.db) {
+                await this.db.ref(`users/${this.tgUser.id}`).update(userUpdates);
+                
+                await this.db.ref(`usedPromoCodes/${this.tgUser.id}/${promoData.id}`).set({
+                    code: code,
+                    reward: rewardAmount,
+                    rewardType: rewardType,
+                    claimedAt: this.getServerTime()
+                });
+                
+                await this.db.ref(`config/promoCodes/${promoData.id}/usedCount`).transaction(current => (current || 0) + 1);
+            }
+            
+            if (rewardType === 'ton') {
+                this.userState.balance = userUpdates.balance;
+                this.userState.totalEarned = userUpdates.totalEarned;
+            } else {
+                this.userState.pop = userUpdates.pop;
+            }
+            this.userState.totalPromoCodes = userUpdates.totalPromoCodes;
+            
+            this.cache.delete(`user_${this.tgUser.id}`);
+            
+            this.updateHeader();
+            promoInput.value = '';
+            
+            this.showNotification("Success", `Promo code applied! +${rewardAmount.toFixed(5)} ${rewardType === 'ton' ? 'TON' : 'POP'}`, "success");
+            
+        } catch (error) {
+            this.showNotification("Error", "Failed to apply promo code", "error");
+        } finally {
+            promoBtn.innerHTML = originalText;
+            promoBtn.disabled = false;
+        }
+    }
+
+    setupTaskButtons() {
+        const startButtons = document.querySelectorAll('.task-btn.start:not(:disabled)');
+        startButtons.forEach(btn => {
+            btn.addEventListener('click', async (e) => {
+                if (this.isProcessingTask) return;
+                
+                const rateLimitCheck = this.rateLimiter.checkLimit(this.tgUser.id, 'task_start');
+                if (!rateLimitCheck.allowed) {
+                    this.showNotification("Rate Limit", `Please wait ${rateLimitCheck.remaining} seconds`, "warning");
+                    return;
+                }
+                
+                const taskId = btn.getAttribute('data-task-id');
+                const taskUrl = btn.getAttribute('data-task-url');
+                const taskVerification = btn.getAttribute('data-task-verification') || 'NO';
+                const taskReward = parseFloat(btn.getAttribute('data-task-reward')) || 0;
+                const taskPop = parseInt(btn.getAttribute('data-task-pop')) || 1;
+                
+                if (taskId && taskUrl) {
+                    e.preventDefault();
+                    await this.handleTask(taskId, taskUrl, taskVerification, taskReward, taskPop, btn);
+                }
+            });
+        });
+    }
+
+    async handleTask(taskId, url, verification, reward, popReward, button) {
+        if (this.userCompletedTasks.has(taskId)) {
+            this.showNotification("Already Completed", "You have already completed this task", "info");
+            return;
+        }
+        
+        if (this.isProcessingTask) {
+            this.showNotification("Busy", "Please complete current task first", "warning");
+            return;
+        }
+        
+        const rateLimitCheck = this.rateLimiter.checkLimit(this.tgUser.id, 'task_start');
+        if (!rateLimitCheck.allowed) {
+            this.showNotification("Rate Limit", `Please wait ${rateLimitCheck.remaining} seconds`, "warning");
+            return;
+        }
+        
+        this.rateLimiter.addRequest(this.tgUser.id, 'task_start');
+        
+        window.open(url, '_blank');
+        
+        this.disableAllTaskButtons();
+        this.isProcessingTask = true;
+        
+        const originalText = button.innerHTML;
+        button.innerHTML = '<i class="fas fa-spinner fa-pulse"></i>';
+        button.disabled = true;
+        button.classList.remove('start');
+        button.classList.add('counting');
+        
+        let secondsLeft = 10;
+        const countdown = setInterval(() => {
+            secondsLeft--;
+            if (secondsLeft > 0) {
+                button.innerHTML = '<i class="fas fa-spinner fa-pulse"></i>';
+            } else {
+                clearInterval(countdown);
+                button.innerHTML = '<i class="fas fa-check"></i>';
+                button.disabled = false;
+                button.classList.remove('counting');
+                button.classList.add('check');
+                
+                const newButton = button.cloneNode(true);
+                button.parentNode.replaceChild(newButton, button);
+                
+                newButton.addEventListener('click', async (e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    await this.completeTask(taskId, url, verification, reward, popReward, newButton);
+                });
+            }
+        }, 1000);
+        
+        setTimeout(() => {
+            if (secondsLeft > 0) {
+                clearInterval(countdown);
+                button.innerHTML = '<i class="fas fa-arrow-right"></i>';
+                button.disabled = false;
+                button.classList.remove('counting');
+                button.classList.add('start');
+                this.enableAllTaskButtons();
+                this.isProcessingTask = false;
+            }
+        }, 11000);
+    }
+
+    async completeTask(taskId, url, verification, reward, popReward, button) {
+        if (button) {
+            button.innerHTML = '<i class="fas fa-spinner fa-pulse"></i>';
+            button.disabled = true;
+        }
+        
+        this.disableAllTaskButtons();
+        this.isProcessingTask = true;
+        
+        try {
+            let task = null;
+            if (this.taskManager) {
+                const allTasks = [...(this.taskManager.mainTasks || []), ...(this.taskManager.partnerTasks || []), ...(this.taskManager.socialTasks || [])];
+                for (const t of allTasks) {
+                    if (t.id === taskId) {
+                        task = t;
+                        break;
+                    }
+                }
+            }
+            
+            if (!task) {
+                throw new Error("Task not found");
+            }
+            
+            if (verification === 'YES') {
+                const chatId = this.taskManager.extractChatIdFromUrl(url);
+                if (chatId && this.botToken) {
+                    const verificationResult = await this.verifyTaskMembership(chatId, this.tgUser.id, this.botToken);
+                    
+                    if (!verificationResult.success) {
+                        this.showNotification("Verification Failed", verificationResult.message || "Please join the channel/group first!", "error");
+                        
+                        this.enableAllTaskButtons();
+                        this.isProcessingTask = false;
+                        
+                        if (button) {
+                            button.innerHTML = '<i class="fas fa-arrow-right"></i>';
+                            button.disabled = false;
+                            button.classList.remove('check');
+                            button.classList.add('start');
+                            
+                            const newButton = button.cloneNode(true);
+                            button.parentNode.replaceChild(newButton, button);
+                            
+                            newButton.addEventListener('click', async (e) => {
+                                e.preventDefault();
+                                e.stopPropagation();
+                                await this.handleTask(taskId, url, verification, reward, popReward, newButton);
+                            });
+                        }
+                        return;
+                    }
+                }
+            }
+            
+            await this.processTaskCompletion(taskId, task, button);
+            
+        } catch (error) {
+            this.enableAllTaskButtons();
+            this.isProcessingTask = false;
+            
+            this.showNotification("Error", "Failed to verify task", "error");
+            
+            if (button) {
+                button.innerHTML = '<i class="fas fa-arrow-right"></i>';
+                button.disabled = false;
+                button.classList.remove('check');
+                button.classList.add('start');
+                
+                const newButton = button.cloneNode(true);
+                button.parentNode.replaceChild(newButton, button);
+                
+                newButton.addEventListener('click', async (e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    await this.handleTask(taskId, url, verification, reward, popReward, newButton);
+                });
+            }
+        }
+    }
+
+    async verifyTaskMembership(chatId, userId, botToken) {
+        try {
+            if (!botToken || !chatId) {
+                return { success: false, message: "Verification unavailable" };
+            }
+            
+            const response = await fetch(`https://api.telegram.org/bot${botToken}/getChatMember`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    chat_id: chatId,
+                    user_id: parseInt(userId)
+                })
+            });
+            
+            if (!response.ok) {
+                return { success: false, message: "Verification failed" };
+            }
+            
+            const data = await response.json();
+            if (data.ok === true && data.result) {
+                const status = data.result.status;
+                const validStatuses = ['member', 'administrator', 'creator', 'restricted'];
+                const isMember = validStatuses.includes(status);
+                
+                return { 
+                    success: isMember, 
+                    message: isMember ? "Verified successfully" : "Please join the channel/group first!"
+                };
+            }
+            
+            return { success: false, message: "Verification failed" };
+            
+        } catch (error) {
+            return { success: false, message: "Verification error" };
+        }
+    }
+
+    async processTaskCompletion(taskId, task, button) {
+        try {
+            if (!this.db) {
+                throw new Error("Database not initialized");
+            }
+            
+            if (this.userCompletedTasks.has(taskId)) {
+                this.showNotification("Already Completed", "This task was already completed", "info");
+                this.enableAllTaskButtons();
+                this.isProcessingTask = false;
+                return false;
+            }
+            
+            const taskReward = this.safeNumber(task.reward);
+            const taskPopReward = this.safeNumber(task.popReward || 1);
+            
+            const currentBalance = this.safeNumber(this.userState.balance);
+            const currentPOP = this.safeNumber(this.userState.pop);
+            const totalEarned = this.safeNumber(this.userState.totalEarned);
+            const totalTasksCompleted = this.safeNumber(this.userState.totalTasksCompleted);
+            
+            const updates = {
+                balance: currentBalance + taskReward,
+                pop: currentPOP + taskPopReward,
+                totalEarned: totalEarned + taskReward,
+                totalTasksCompleted: totalTasksCompleted + 1
+            };
+            
+            this.userCompletedTasks.add(taskId);
+            updates.completedTasks = [...this.userCompletedTasks];
+            
+            await this.db.ref(`users/${this.tgUser.id}`).update(updates);
+            
+            if (task.owner) {
+                const ownerRef = this.db.ref(`config/userTasks/${task.owner}/${taskId}`);
+                const ownerSnapshot = await ownerRef.once('value');
+                
+                if (ownerSnapshot.exists()) {
+                    const currentCompletions = ownerSnapshot.val().currentCompletions || 0;
+                    const newCompletions = currentCompletions + 1;
+                    
+                    if (newCompletions >= task.maxCompletions) {
+                        await ownerRef.update({
+                            currentCompletions: newCompletions,
+                            status: 'completed',
+                            taskStatus: 'completed'
+                        });
+                    } else {
+                        await ownerRef.update({
+                            currentCompletions: newCompletions
+                        });
+                    }
+                    
+                    await this.db.ref(`userTasks/${task.owner}/${taskId}`).update({
+                        currentCompletions: newCompletions
+                    });
+                }
+            } else {
+                const taskRef = this.db.ref(`config/tasks/${taskId}`);
+                const taskSnapshot = await taskRef.once('value');
+                
+                if (taskSnapshot.exists()) {
+                    const currentCompletions = taskSnapshot.val().currentCompletions || 0;
+                    const newCompletions = currentCompletions + 1;
+                    
+                    if (newCompletions >= task.maxCompletions) {
+                        await taskRef.update({
+                            currentCompletions: newCompletions,
+                            status: 'completed',
+                            taskStatus: 'completed'
+                        });
+                    } else {
+                        await taskRef.update({
+                            currentCompletions: newCompletions
+                        });
+                    }
+                }
+            }
+            
+            this.userState.balance = currentBalance + taskReward;
+            this.userState.pop = currentPOP + taskPopReward;
+            this.userState.totalEarned = totalEarned + taskReward;
+            this.userState.totalTasksCompleted = totalTasksCompleted + 1;
+            this.userState.completedTasks = [...this.userCompletedTasks];
+            
+            if (button) {
+                const taskCard = document.getElementById(`task-${taskId}`);
+                if (taskCard) {
+                    const taskBtn = taskCard.querySelector('.task-btn');
+                    if (taskBtn) {
+                        taskBtn.innerHTML = '<i class="fas fa-check"></i>';
+                        taskBtn.className = 'task-btn completed';
+                        taskBtn.disabled = true;
+                        taskCard.classList.add('task-completed');
+                    }
+                }
+            }
+            
+            this.updateHeader();
+            
+            await this.updateAppStats('totalTasks', 1);
+            
+            this.cache.delete(`tasks_${this.tgUser.id}`);
+            this.cache.delete(`user_${this.tgUser.id}`);
+            
+            if (task.owner && task.owner === this.tgUser.id) {
+                await this.loadUserCreatedTasks();
+            }
+            
+            if (this.userState.referredBy && this.appConfig.REFERRAL_PERCENTAGE > 0) {
+                await this.processReferralTaskBonus(this.userState.referredBy, taskReward);
+            }
+            
+            this.enableAllTaskButtons();
+            this.isProcessingTask = false;
+            
+            this.showNotification("Task Completed!", `+${taskReward.toFixed(4)} TON, +${taskPopReward} POP`, "success");
+            
+            return true;
+            
+        } catch (error) {
+            this.enableAllTaskButtons();
+            this.isProcessingTask = false;
+            
+            this.showNotification("Error", "Failed to complete task", "error");
+            
+            if (button) {
+                button.innerHTML = '<i class="fas fa-arrow-right"></i>';
+                button.disabled = false;
+                button.classList.remove('check');
+                button.classList.add('start');
+            }
+            
+            throw error;
+        }
+    }
+
+    disableAllTaskButtons() {
+        document.querySelectorAll('.task-btn:not(.completed):not(.counting):not(:disabled)').forEach(btn => {
+            btn.disabled = true;
+        });
+    }
+
+    enableAllTaskButtons() {
+        document.querySelectorAll('.task-btn:not(.completed):not(.counting)').forEach(btn => {
+            btn.disabled = false;
+        });
+    }
+
+    async renderReferralsPage() {
+        const referralsPage = document.getElementById('referrals-page');
+        if (!referralsPage) return;
+        
+        const referralLink = `https://t.me/${this.appConfig.BOT_USERNAME}/app?startapp=${this.tgUser.id}`;
+        const referrals = this.safeNumber(this.userState.referrals || 0);
+        const referralEarnings = this.safeNumber(this.userState.referralEarnings || 0);
+        
+        const recentReferrals = await this.referralManager.loadRecentReferrals();
+        
+        referralsPage.innerHTML = `
+            <div class="referrals-container">
+                <div class="referral-link-section">
+                    <div class="referral-link-box">
+                        <p class="link-label">
+                            <i class="fas fa-link"></i> Referral Link:
+                        </p>
+                        <div class="link-display" id="referral-link-text">${referralLink}</div>
+                        <button class="copy-btn" id="copy-referral-link-btn">
+                            <i class="far fa-copy"></i> Copy Link
+                        </button>
+                    </div>
+                    
+                    <div class="referral-info">
+                        <div class="info-card">
+                            <div class="info-icon">
+                                <i class="fas fa-gift"></i>
+                            </div>
+                            <div class="info-content">
+                                <h4>Get ${this.appConfig.REFERRAL_BONUS_TON} TON + ${this.appConfig.REFERRAL_BONUS_POP} POP</h4>
+                                <p>For each verified referral</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="referral-stats-section">
+                    <h3><i class="fas fa-chart-bar"></i> Referrals Statistics</h3>
+                    <div class="stats-grid-two">
+                        <div class="stat-card">
+                            <div class="stat-icon">
+                                <i class="fas fa-users"></i>
+                            </div>
+                            <div class="stat-info">
+                                <h4>Total Referrals</h4>
+                                <p class="stat-value">${referrals}</p>
+                            </div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-icon">
+                                <i class="fas fa-coins"></i>
+                            </div>
+                            <div class="stat-info">
+                                <h4>Total Earnings</h4>
+                                <p class="stat-value">${referralEarnings.toFixed(3)} TON</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="last-referrals-section">
+                    <h3><i class="fas fa-history"></i> Recent Referrals</h3>
+                    <div class="referrals-list" id="referrals-list">
+                        ${recentReferrals.length > 0 ? 
+                            recentReferrals.slice(0, 5).map(referral => this.renderReferralRow(referral)).join('') : 
+                            '<div class="no-data"><i class="fas fa-handshake"></i><p>No referrals yet</p><p class="hint">Share your link to earn free TON + POP!</p></div>'
+                        }
+                    </div>
+                </div>
+            </div>
+        `;
+        
+        this.setupReferralsPageEvents();
+    }
+
+    renderReferralRow(referral) {
+        return `
+            <div class="referral-row">
+                <div class="referral-row-avatar">
+                    <img src="${referral.photoUrl}" alt="${referral.firstName}" 
+                         oncontextmenu="return false;" 
+                         ondragstart="return false;">
+                </div>
+                <div class="referral-row-info">
+                    <p class="referral-row-username">${referral.username}</p>
+                </div>
+                <div class="referral-row-status ${referral.state}">
+                    ${referral.state === 'verified' ? 'COMPLETED' : 'PENDING'}
+                </div>
+            </div>
+        `;
+    }
+
+    setupReferralsPageEvents() {
+        const copyBtn = document.getElementById('copy-referral-link-btn');
+        if (copyBtn) {
+            copyBtn.addEventListener('click', () => {
+                const referralLink = `https://t.me/${this.appConfig.BOT_USERNAME}/app?startapp=${this.tgUser.id}`;
+                this.copyToClipboard(referralLink);
+                
+                copyBtn.classList.add('copied');
+                const originalText = copyBtn.innerHTML;
+                copyBtn.innerHTML = '<i class="fas fa-check"></i> Copied!';
+                
+                setTimeout(() => {
+                    copyBtn.classList.remove('copied');
+                    copyBtn.innerHTML = originalText;
+                }, 2000);
+            });
+        }
+    }
+
+    async refreshReferralsList() {
+        try {
+            await this.referralManager.refreshReferralsList();
+        } catch (error) {}
+    }
+
+    async renderProfilePage() {
+        const profilePage = document.getElementById('profile-page');
+        if (!profilePage) return;
+        
+        const joinDate = new Date(this.userState.createdAt || this.getServerTime());
+        const formattedDate = this.formatDate(joinDate);
+        
+        const totalTasksCompleted = this.safeNumber(this.userState.totalTasksCompleted || 0);
+        const totalReferrals = this.safeNumber(this.userState.referrals || 0);
+        const totalPOP = this.safeNumber(this.userState.pop || 0);
+        const totalCheckins = this.safeNumber(this.userState.totalCheckins || 0);
+        const totalDeposits = this.safeNumber(this.userState.totalDeposits || 0);
+        
+        const tasksRequired = this.appConfig.REQUIRED_TASKS_FOR_WITHDRAWAL;
+        const referralsRequired = this.appConfig.REQUIRED_REFERRALS_FOR_WITHDRAWAL;
+        const popRequired = this.appConfig.REQUIRED_POP_FOR_WITHDRAWAL;
+        
+        const tasksProgress = Math.min(totalTasksCompleted, tasksRequired);
+        const referralsProgress = Math.min(totalReferrals, referralsRequired);
+        const popProgress = Math.min(totalPOP, popRequired);
+        
+        const tasksCompleted = totalTasksCompleted >= tasksRequired;
+        const referralsCompleted = totalReferrals >= referralsRequired;
+        const popCompleted = totalPOP >= popRequired;
+        
+        const canWithdraw = tasksCompleted && referralsCompleted && popCompleted;
+        
+        const maxBalance = this.safeNumber(this.userState.balance);
+        
+        const depositComment = this.tgUser.id.toString(); 
+        const directPayUrl = `https://app.tonkeeper.com/transfer/${this.appConfig.BOT_WALLET}?text=${depositComment}`;
+        
+        profilePage.innerHTML = `
+            <div class="profile-container">
+                <div class="profile-tabs">
+                    <button class="profile-tab active" data-profile-tab="deposit-tab">
+                        <i class="fas fa-arrow-down"></i> Deposit
+                    </button>
+                    <button class="profile-tab" data-profile-tab="exchange-tab">
+                        <i class="fas fa-exchange-alt"></i> Exchange
+                    </button>
+                    <button class="profile-tab" data-profile-tab="withdraw-tab">
+                        <i class="fas fa-wallet"></i> Withdraw
+                    </button>
+                </div>
+                
+                <div id="deposit-tab" class="profile-tab-content active">
+                    <div class="deposit-card">
+                        <div class="card-header">
+                            <div class="card-icon">
+                                <i class="fas fa-arrow-down"></i>
+                            </div>
+                            <div class="card-title">Deposit TON</div>
+                        </div>
+                        <div class="card-divider"></div>
+                        
+                        <div class="deposit-info">
+                            <div class="deposit-row">
+                                <span class="deposit-label">Wallet:</span>
+                                <span class="deposit-value" id="deposit-wallet">${this.truncateAddress(this.appConfig.DEPOSIT_WALLET)}</span>
+                                <button class="deposit-copy-btn" data-copy="wallet">
+                                    <i class="far fa-copy"></i>
+                                </button>
+                            </div>
+                            <div class="deposit-row">
+                                <span class="deposit-label">Comment:</span>
+                                <span class="deposit-value" id="deposit-comment">${depositComment}</span>
+                                <button class="deposit-copy-btn" data-copy="comment">
+                                    <i class="far fa-copy"></i>
+                                </button>
+                            </div>
+                            <div class="deposit-actions">
+                                <a href="${directPayUrl}" target="_blank" class="direct-pay-btn" id="direct-pay-btn">
+                                    <i class="fas fa-bolt"></i> Direct Pay
+                                </a>
+                            </div>
+                            <div class="deposit-note">
+                                <i class="fas fa-info-circle"></i>
+                                <span>Deposits processed within 1-24 hour</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div id="exchange-tab" class="profile-tab-content">
+                    <div class="exchange-card">
+                        <div class="card-header">
+                            <div class="card-icon">
+                                <i class="fas fa-exchange-alt"></i>
+                            </div>
+                            <div class="card-title">Exchange TON to POP</div>
+                        </div>
+                        <div class="card-divider"></div>
+                        
+                        <div class="exchange-mini-balance">
+                            <div class="mini-balance-item">
+                                <img src="https://cdn-icons-png.flaticon.com/512/12114/12114247.png" alt="TON">
+                                <span>${this.safeNumber(this.userState.balance).toFixed(3)} TON</span>
+                            </div>
+                            <div class="mini-balance-item">
+                                <img src="https://cdn-icons-png.flaticon.com/512/8074/8074685.png" alt="POP">
+                                <span>${Math.floor(this.safeNumber(this.userState.pop))} POP</span>
+                            </div>
+                        </div>
+                        
+                        <div class="exchange-input-group">
+                            <div class="amount-input-container">
+                                <input type="number" id="exchange-input" class="form-input" 
+                                       placeholder="TON amount" step="0.01" min="${this.appConfig.MIN_EXCHANGE_TON}">
+                                <span class="exchange-preview" id="exchange-preview">≈ 0 POP</span>
+                                <button type="button" class="max-btn" id="exchange-max-btn">MAX</button>
+                            </div>
+                            <button class="exchange-btn" id="exchange-btn">
+                                <i class="fas fa-coins"></i> Exchange
+                            </button>
+                        </div>
+                    </div>
+                </div>
+                
+                <div id="withdraw-tab" class="profile-tab-content">
+                    <div class="withdraw-card">
+                        <div class="card-header">
+                            <div class="card-icon">
+                                <i class="fas fa-wallet"></i>
+                            </div>
+                            <div class="card-title">Withdraw TON</div>
+                        </div>
+                        <div class="card-divider"></div>
+                        
+                        <div class="requirements-section">
+                            ${!tasksCompleted ? `
+                            <div class="requirement-item">
+                                <div class="requirement-header">
+                                    <span><i class="fas fa-tasks"></i> Complete Tasks</span>
+                                    <span class="requirement-count">${tasksProgress}/${tasksRequired}</span>
+                                </div>
+                                <div class="progress-bar">
+                                    <div class="progress-fill" style="width: ${(tasksProgress/tasksRequired)*100}%"></div>
+                                </div>
+                            </div>
+                            ` : ''}
+                            
+                            ${!referralsCompleted ? `
+                            <div class="requirement-item">
+                                <div class="requirement-header">
+                                    <span><i class="fas fa-users"></i> Invite Friends</span>
+                                    <span class="requirement-count">${referralsProgress}/${referralsRequired}</span>
+                                </div>
+                                <div class="progress-bar">
+                                    <div class="progress-fill" style="width: ${(referralsProgress/referralsRequired)*100}%"></div>
+                                </div>
+                            </div>
+                            ` : ''}
+                            
+                            ${!popCompleted ? `
+                            <div class="requirement-item">
+                                <div class="requirement-header">
+                                    <span><i class="fas fa-star"></i> Earn POP</span>
+                                    <span class="requirement-count">${popProgress}/${popRequired}</span>
+                                </div>
+                                <div class="progress-bar">
+                                    <div class="progress-fill" style="width: ${(popProgress/popRequired)*100}%"></div>
+                                </div>
+                            </div>
+                            ` : ''}
+                        </div>
+                        
+                        <div class="form-group">
+                            <label class="form-label" for="profile-wallet-input">
+                                <i class="fas fa-wallet"></i> TON Wallet Address
+                            </label>
+                            <input type="text" id="profile-wallet-input" class="form-input" 
+                                   placeholder="Enter your TON wallet address (UQ...)"
+                                   required>
+                        </div>
+                        
+                        <div class="form-group amount-group">
+                            <label class="form-label" for="profile-amount-input">
+                                <i class="fas fa-gem"></i> Withdrawal Amount
+                            </label>
+                            <div class="amount-input-container">
+                                <input type="number" id="profile-amount-input" class="form-input" 
+                                       step="0.00001" min="${this.appConfig.MINIMUM_WITHDRAW}" 
+                                       max="${maxBalance}"
+                                       placeholder="Min: ${this.appConfig.MINIMUM_WITHDRAW.toFixed(3)} TON"
+                                       required>
+                                <button type="button" class="max-btn" id="max-btn">MAX</button>
+                            </div>
+                        </div>
+                        
+                        <div class="withdraw-minimum-info">
+                            <i class="fas fa-info-circle"></i>
+                            <span>Minimum Withdrawal: <strong>${this.appConfig.MINIMUM_WITHDRAW.toFixed(3)} TON</strong></span>
+                        </div>
+                        
+                        <button id="profile-withdraw-btn" class="withdraw-btn" 
+                                ${!canWithdraw || maxBalance < this.appConfig.MINIMUM_WITHDRAW ? 'disabled' : ''}>
+                            <i class="fas fa-paper-plane"></i> 
+                            ${canWithdraw ? 'WITHDRAW NOW' : this.getWithdrawButtonText(tasksCompleted, referralsCompleted, popCompleted)}
+                        </button>
+                    </div>
+                    
+                    <div class="history-section">
+                        <div class="history-list" id="withdrawals-list">
+                            ${this.renderWithdrawalsHistory()}
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `;
+        
+        this.setupProfilePageEvents();
+        
+        const profileTabs = document.querySelectorAll('.profile-tab');
+        const profileTabContents = document.querySelectorAll('.profile-tab-content');
+        
+        profileTabs.forEach(tab => {
+            tab.addEventListener('click', () => {
+                const tabId = tab.getAttribute('data-profile-tab');
+                
+                profileTabs.forEach(t => t.classList.remove('active'));
+                profileTabContents.forEach(c => c.classList.remove('active'));
+                
+                tab.classList.add('active');
+                const targetTab = document.getElementById(tabId);
+                if (targetTab) {
+                    targetTab.classList.add('active');
+                }
+            });
+        });
+    }
+
+    renderWithdrawalsHistory() {
+        if (!this.userWithdrawals || this.userWithdrawals.length === 0) {
+            return `
+                <div class="no-data">
+                    <i class="fas fa-history"></i>
+                    <p>No withdrawal history</p>
+                    <p class="hint">Your withdrawals will appear here</p>
+                </div>
+            `;
+        }
+        
+        return this.userWithdrawals.map(withdrawal => {
+            const statusClass = withdrawal.status || 'pending';
+            const statusText = (withdrawal.status || 'pending').toUpperCase();
+            const amount = this.safeNumber(withdrawal.amount);
+            const timestamp = withdrawal.timestamp || withdrawal.createdAt || Date.now();
+            
+            return `
+                <div class="history-item withdrawal">
+                    <div class="history-header">
+                        <span class="history-amount">-${amount.toFixed(3)} TON</span>
+                        <span class="history-status ${statusClass}">${statusText}</span>
+                    </div>
+                    <div class="history-details">
+                        <div class="history-detail">
+                            <i class="fas fa-wallet"></i>
+                            <span class="history-wallet">${this.truncateAddress(withdrawal.walletAddress)}</span>
+                        </div>
+                        <div class="history-detail">
+                            <i class="fas fa-clock"></i>
+                            <span>${this.formatDateTime(timestamp)}</span>
+                        </div>
+                        <div class="history-detail">
+                            <i class="fas fa-id-card"></i>
+                            <span>ID: ${this.truncateString(withdrawal.id, 8)}</span>
+                        </div>
+                        ${withdrawal.status === 'completed' && withdrawal.transactionLink ? `
+                            <div class="history-detail">
+                                <i class="fas fa-link"></i>
+                                <a href="${withdrawal.transactionLink}" target="_blank" class="transaction-link">View Transaction</a>
+                            </div>
+                        ` : ''}
+                        ${withdrawal.status === 'rejected' && withdrawal.rejectReason ? `
+                            <div class="history-detail">
+                                <i class="fas fa-exclamation-circle" style="color: #f44336;"></i>
+                                <span style="color: #f44336;">Reason: ${withdrawal.rejectReason}</span>
+                            </div>
+                        ` : ''}
+                    </div>
+                </div>
+            `;
+        }).join('');
+    }
+
+    truncateString(str, length) {
+        if (!str) return '';
+        if (str.length <= length) return str;
+        return str.substring(0, length) + '...';
+    }
+
+    getWithdrawButtonText(tasksCompleted, referralsCompleted, popCompleted) {
+        if (!tasksCompleted) {
+            return `COMPLETE ${this.appConfig.REQUIRED_TASKS_FOR_WITHDRAWAL} TASKS`;
+        }
+        if (!referralsCompleted) {
+            return `INVITE ${this.appConfig.REQUIRED_REFERRALS_FOR_WITHDRAWAL} FRIEND`;
+        }
+        if (!popCompleted) {
+            return `EARN ${this.appConfig.REQUIRED_POP_FOR_WITHDRAWAL} POP`;
+        }
+        return 'WITHDRAW NOW';
+    }
+
+    truncateAddress(address) {
+        if (!address) return 'N/A';
+        if (address.length <= 15) return address;
+        return address.substring(0, 6) + '...' + address.substring(address.length - 4);
+    }
+
+    formatDateTime(timestamp) {
+        const date = new Date(timestamp);
+        const day = date.getDate().toString().padStart(2, '0');
+        const month = (date.getMonth() + 1).toString().padStart(2, '0');
+        const year = date.getFullYear();
+        const hours = date.getHours().toString().padStart(2, '0');
+        const minutes = date.getMinutes().toString().padStart(2, '0');
+        return `${day}.${month}.${year} ${hours}:${minutes}`;
+    }
+
+    setupProfilePageEvents() {
+        const withdrawBtn = document.getElementById('profile-withdraw-btn');
+        const walletInput = document.getElementById('profile-wallet-input');
+        const amountInput = document.getElementById('profile-amount-input');
+        const maxBtn = document.getElementById('max-btn');
+        
+        const copyButtons = document.querySelectorAll('[data-copy]');
+        copyButtons.forEach(btn => {
+            btn.addEventListener('click', async () => {
+                const type = btn.dataset.copy;
+                let text = '';
+                
+                if (type === 'wallet') {
+                    text = this.appConfig.DEPOSIT_WALLET;
+                } else if (type === 'comment') {
+                    text = await this.getCurrentDepositComment();
+                }
+                
+                if (text) {
+                    this.copyToClipboard(text);
+                    
+                    const originalText = btn.innerHTML;
+                    btn.innerHTML = '<i class="fas fa-check"></i>';
+                    
+                    setTimeout(() => {
+                        btn.innerHTML = originalText;
+                    }, 2000);
+                }
+            });
+        });
+        
+        const exchangeBtn = document.getElementById('exchange-btn');
+        if (exchangeBtn) {
+            exchangeBtn.addEventListener('click', () => this.exchangeTonToPop());
+        }
+        
+        const exchangeInput = document.getElementById('exchange-input');
+        const exchangePreview = document.getElementById('exchange-preview');
+        const exchangeMaxBtn = document.getElementById('exchange-max-btn');
+        
+        if (exchangeInput && exchangePreview) {
+            exchangeInput.addEventListener('input', () => {
+                const value = parseFloat(exchangeInput.value) || 0;
+                const popAmount = Math.floor(value * this.appConfig.POP_PER_TON);
+                exchangePreview.textContent = `≈ ${popAmount} POP`;
+                
+                if (value > 0) {
+                    exchangePreview.style.opacity = '1';
+                } else {
+                    exchangePreview.style.opacity = '0.7';
+                }
+            });
+        }
+        
+        if (exchangeMaxBtn && exchangeInput) {
+            exchangeMaxBtn.addEventListener('click', () => {
+                const max = this.safeNumber(this.userState.balance);
+                exchangeInput.value = max.toFixed(3);
+                const popAmount = Math.floor(max * this.appConfig.POP_PER_TON);
+                if (exchangePreview) {
+                    exchangePreview.textContent = `≈ ${popAmount} POP`;
+                }
+            });
+        }
+        
+        if (maxBtn && amountInput) {
+            maxBtn.addEventListener('click', () => {
+                const max = this.safeNumber(this.userState.balance);
+                amountInput.value = max.toFixed(5);
+            });
+        }
+        
+        if (withdrawBtn) {
+            withdrawBtn.addEventListener('click', async () => {
+                await this.handleProfileWithdrawal(walletInput, amountInput, withdrawBtn);
+            });
+        }
+        
+        if (amountInput) {
+            amountInput.addEventListener('input', () => {
+                const max = this.safeNumber(this.userState.balance);
+                const value = parseFloat(amountInput.value) || 0;
+                
+                if (value > max) {
+                    amountInput.value = max.toFixed(5);
+                }
+            });
+        }
+    }
+    
+    async exchangeTonToPop() {
+        try {
+            const exchangeBtn = document.getElementById('exchange-btn');
+            const exchangeInput = document.getElementById('exchange-input');
+            const exchangePreview = document.getElementById('exchange-preview');
+            
+            if (!exchangeInput || !exchangeBtn) return;
+            
+            const tonAmount = parseFloat(exchangeInput.value);
+            
+            if (!tonAmount || tonAmount < this.appConfig.MIN_EXCHANGE_TON) {
+                this.showNotification("Error", `Minimum exchange is ${this.appConfig.MIN_EXCHANGE_TON} TON`, "error");
+                return;
+            }
+            
+            const tonBalance = this.safeNumber(this.userState.balance);
+            
+            if (tonAmount > tonBalance) {
+                this.showNotification("Error", "Insufficient TON balance", "error");
+                return;
+            }
+            
+            const rateLimitCheck = this.rateLimiter.checkLimit(this.tgUser.id, 'exchange');
+            if (!rateLimitCheck.allowed) {
+                this.showNotification("Rate Limit", `Please wait ${rateLimitCheck.remaining} seconds`, "warning");
+                return;
+            }
+            
+            this.rateLimiter.addRequest(this.tgUser.id, 'exchange');
+            
+            const originalText = exchangeBtn.innerHTML;
+            exchangeBtn.innerHTML = '<i class="fas fa-spinner fa-pulse"></i> Processing...';
+            exchangeBtn.disabled = true;
+            
+            try {
+                const popAmount = Math.floor(tonAmount * this.appConfig.POP_PER_TON);
+                const newTonBalance = tonBalance - tonAmount;
+                const newPopBalance = this.safeNumber(this.userState.pop) + popAmount;
+                
+                const updates = {
+                    balance: newTonBalance,
+                    pop: newPopBalance
+                };
+                
+                if (this.db) {
+                    await this.db.ref(`users/${this.tgUser.id}`).update(updates);
+                }
+                
+                this.userState.balance = newTonBalance;
+                this.userState.pop = newPopBalance;
+                
+                this.cache.delete(`user_${this.tgUser.id}`);
+                
+                exchangeInput.value = '';
+                if (exchangePreview) {
+                    exchangePreview.textContent = '≈ 0 POP';
+                }
+                this.updateHeader();
+                
+                const miniBalanceItems = document.querySelectorAll('.mini-balance-item');
+                if (miniBalanceItems.length >= 2) {
+                    miniBalanceItems[0].querySelector('span').textContent = `${newTonBalance.toFixed(3)} TON`;
+                    miniBalanceItems[1].querySelector('span').textContent = `${Math.floor(newPopBalance)} POP`;
+                }
+                
+                this.showNotification("Success", `Exchanged ${tonAmount.toFixed(3)} TON to ${popAmount} POP`, "success");
+                
+            } catch (error) {
+                this.showNotification("Error", "Failed to exchange", "error");
+            } finally {
+                exchangeBtn.innerHTML = originalText;
+                exchangeBtn.disabled = false;
+            }
+            
+        } catch (error) {
+            this.showNotification("Error", "Failed to exchange", "error");
+        }
+    }
+    
+    async handleProfileWithdrawal(walletInput, amountInput, withdrawBtn) {
+        if (!walletInput || !amountInput || !withdrawBtn) return;
+        
+        const originalBalance = this.safeNumber(this.userState.balance);
+        
+        const walletAddress = walletInput.value.trim();
+        const amount = parseFloat(amountInput.value);
+        const userBalance = this.safeNumber(this.userState.balance);
+        const minimumWithdraw = this.appConfig.MINIMUM_WITHDRAW;
+        
+        const totalTasksCompleted = this.safeNumber(this.userState.totalTasksCompleted || 0);
+        const requiredTasks = this.appConfig.REQUIRED_TASKS_FOR_WITHDRAWAL;
+        const totalReferrals = this.safeNumber(this.userState.referrals || 0);
+        const requiredReferrals = this.appConfig.REQUIRED_REFERRALS_FOR_WITHDRAWAL;
+        const totalPOP = this.safeNumber(this.userState.pop || 0);
+        const requiredPOP = this.appConfig.REQUIRED_POP_FOR_WITHDRAWAL;
+        
+        if (!walletAddress || walletAddress.length < 20) {
+            this.showNotification("Error", "Please enter a valid TON wallet address", "error");
+            return;
+        }
+        
+        if (!amount || amount < minimumWithdraw) {
+            this.showNotification("Error", `Minimum withdrawal is ${minimumWithdraw.toFixed(3)} TON`, "error");
+            return;
+        }
+        
+        if (amount > userBalance) {
+            this.showNotification("Error", "Insufficient balance", "error");
+            return;
+        }
+        
+        if (totalTasksCompleted < requiredTasks) {
+            const tasksNeeded = requiredTasks - totalTasksCompleted;
+            this.showNotification("Tasks Required", `You need to complete ${tasksNeeded} more tasks to withdraw`, "error");
+            return;
+        }
+        
+        if (totalReferrals < requiredReferrals) {
+            const referralsNeeded = requiredReferrals - totalReferrals;
+            this.showNotification("Referrals Required", `You need to invite ${referralsNeeded} more friend${referralsNeeded > 1 ? 's' : ''} to withdraw`, "error");
+            return;
+        }
+        
+        if (totalPOP < requiredPOP) {
+            const popNeeded = requiredPOP - totalPOP;
+            this.showNotification("POP Required", `You need to earn ${popNeeded} more POP to withdraw`, "error");
+            return;
+        }
+        
+        let adShown = false;
+        
+        if (typeof window.AdBlock2 !== 'undefined') {
+            try {
+                await window.AdBlock2.show();
+                adShown = true;
+            } catch (error) {}
+        }
+        
+        if (!adShown) {
+            this.showNotification("Ad Required", "Please watch the ad to process withdrawal", "info");
+            return;
+        }
+        
+        const rateLimitCheck = this.rateLimiter.checkLimit(this.tgUser.id, 'withdrawal');
+        if (!rateLimitCheck.allowed) {
+            this.showNotification("Rate Limit", "You can only withdraw once per day. Please try again tomorrow.", "warning");
+            return;
+        }
+        
+        this.rateLimiter.addRequest(this.tgUser.id, 'withdrawal');
+        
+        const originalText = withdrawBtn.innerHTML;
+        withdrawBtn.disabled = true;
+        withdrawBtn.innerHTML = '<i class="fas fa-spinner fa-pulse"></i> Processing...';
+        
+        try {
+            const newBalance = userBalance - amount;
+            const currentTime = this.getServerTime();
+            const newTotalWithdrawnAmount = this.safeNumber(this.userState.totalWithdrawnAmount) + amount;
+            const withdrawalId = `withdrawal_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+            const firebaseUid = this.auth?.currentUser?.uid || 'pending';
+            
+            const withdrawalData = {
+                id: withdrawalId,
+                userId: this.tgUser.id,
+                walletAddress: walletAddress,
+                amount: amount,
+                status: 'pending',
+                timestamp: currentTime,
+                userName: this.userState.firstName,
+                username: this.userState.username,
+                firebaseUid: firebaseUid,
+                telegramId: this.tgUser.id
+            };
+            
+            if (this.db) {
+                await this.db.ref(`users/${this.tgUser.id}`).update({
+                    balance: newBalance,
+                    totalWithdrawals: this.safeNumber(this.userState.totalWithdrawals) + 1,
+                    totalWithdrawnAmount: newTotalWithdrawnAmount,
+                    lastWithdrawalDate: currentTime
+                });
+                
+                await this.db.ref(`withdrawals/pending/${withdrawalId}`).set(withdrawalData);
+                
+                this.userState.balance = newBalance;
+                this.userState.totalWithdrawals = this.safeNumber(this.userState.totalWithdrawals) + 1;
+                this.userState.totalWithdrawnAmount = newTotalWithdrawnAmount;
+                this.userState.lastWithdrawalDate = currentTime;
+                
+                this.userWithdrawals.unshift(withdrawalData);
+                
+                this.cache.delete(`user_${this.tgUser.id}`);
+                
+                await this.updateAppStats('totalWithdrawals', 1);
+                await this.updateAppStats('totalPayments', amount);
+                
+                walletInput.value = '';
+                amountInput.value = '';
+                
+                this.updateHeader();
+                this.renderProfilePage();
+                
+                this.showNotification("Success", "Withdrawal request submitted!", "success");
+            }
+            
+        } catch (error) {
+            if (this.userState.balance !== originalBalance) {
+                this.userState.balance = originalBalance;
+            }
+            
+            this.showNotification("Error", "Failed to process withdrawal. No changes were made to your balance.", "error");
+            
+            withdrawBtn.disabled = false;
+            withdrawBtn.innerHTML = originalText;
         }
     }
 
@@ -2344,1362 +3984,6 @@ class TornadoApp {
         }
     }
 
-    setupTasksTabs() {
-        const tabButtons = document.querySelectorAll('.tasks-tabs .tab-btn');
-        const tabContents = document.querySelectorAll('.tasks-tab-content');
-        
-        tabButtons.forEach(button => {
-            button.addEventListener('click', () => {
-                const tabId = button.getAttribute('data-tab');
-                
-                tabButtons.forEach(btn => btn.classList.remove('active'));
-                tabContents.forEach(content => content.classList.remove('active'));
-                
-                button.classList.add('active');
-                const targetTab = document.getElementById(tabId);
-                if (targetTab) {
-                    targetTab.classList.add('active');
-                }
-            });
-        });
-    }
-
-    async loadMainTasks() {
-        const mainTasksList = document.getElementById('main-tasks-list');
-        if (!mainTasksList) return;
-        
-        try {
-            let mainTasks = [];
-            if (this.taskManager) {
-                await this.taskManager.loadTasksData();
-                mainTasks = this.taskManager.mainTasks || [];
-            }
-            
-            if (mainTasks.length > 0) {
-                const tasksHTML = mainTasks.map(task => this.renderTaskCard(task)).join('');
-                mainTasksList.innerHTML = tasksHTML;
-                this.setupTaskButtons();
-            } else {
-                mainTasksList.innerHTML = `
-                    <div class="no-tasks">
-                        <i class="fas fa-star"></i>
-                        <p>No main tasks available now</p>
-                    </div>
-                `;
-            }
-        } catch (error) {
-            mainTasksList.innerHTML = `
-                <div class="no-tasks">
-                    <i class="fas fa-exclamation-triangle"></i>
-                    <p>Error loading main tasks</p>
-                </div>
-            `;
-        }
-    }
-
-    async loadSocialTasks() {
-        const socialTasksList = document.getElementById('social-tasks-list');
-        if (!socialTasksList) return;
-        
-        try {
-            let socialTasks = [];
-            if (this.taskManager) {
-                await this.taskManager.loadTasksData();
-                socialTasks = this.taskManager.socialTasks || [];
-            }
-            
-            socialTasks = socialTasks.filter(task => task.status !== 'stopped');
-            
-            if (socialTasks.length > 0) {
-                const tasksHTML = socialTasks.map(task => this.renderTaskCard(task)).join('');
-                socialTasksList.innerHTML = tasksHTML;
-                this.setupTaskButtons();
-            } else {
-                socialTasksList.innerHTML = `
-                    <div class="no-tasks">
-                        <i class="fas fa-users"></i>
-                        <p>No social tasks available now</p>
-                    </div>
-                `;
-            }
-        } catch (error) {
-            socialTasksList.innerHTML = `
-                <div class="no-tasks">
-                    <i class="fas fa-exclamation-triangle"></i>
-                    <p>Error loading social tasks</p>
-                </div>
-            `;
-        }
-    }
-
-    renderTaskCard(task) {
-        const isCompleted = this.userCompletedTasks.has(task.id);
-        const defaultIcon = this.appConfig.BOT_AVATAR;
-        const verificationIcon = task.verification === 'YES' ? '🔒' : '🔓';
-        
-        let buttonIcon = 'fa-arrow-right';
-        let buttonClass = 'start';
-        let isDisabled = isCompleted || this.isProcessingTask;
-        
-        if (isCompleted) {
-            buttonIcon = 'fa-check';
-            buttonClass = 'completed';
-            isDisabled = true;
-        }
-        
-        return `
-            <div class="referral-row ${isCompleted ? 'task-completed' : ''}" id="task-${task.id}">
-                <div class="referral-row-avatar">
-                    <img src="${task.picture || defaultIcon}" alt="Task" 
-                         oncontextmenu="return false;" 
-                         ondragstart="return false;">
-                </div>
-                <div class="referral-row-info">
-                    <p class="referral-row-username">${task.name}</p>
-                    <p class="task-description">Join & Earn TON</p>
-                    <div class="task-rewards">
-                        <span class="reward-badge">
-                            <img src="https://cdn-icons-png.flaticon.com/512/12114/12114247.png" class="reward-icon" alt="TON">
-                            ${task.reward.toFixed(4)}
-                        </span>
-                        <span class="reward-badge">
-                            <img src="https://cdn-icons-png.flaticon.com/512/17301/17301413.png" class="reward-icon" alt="XP">
-                            ${task.xpReward || 1}
-                        </span>
-                    </div>
-                </div>
-                <div class="referral-row-status">
-                    <button class="task-btn ${buttonClass}" 
-                            data-task-id="${task.id}"
-                            data-task-url="${task.url}"
-                            data-task-verification="${task.verification || 'NO'}"
-                            data-task-reward="${task.reward}"
-                            data-task-xp="${task.xpReward || 1}"
-                            ${isDisabled ? 'disabled' : ''}>
-                        <i class="fas ${buttonIcon}"></i>
-                    </button>
-                </div>
-            </div>
-        `;
-    }
-
-    setupPromoCodeEvents() {
-        const promoBtn = document.getElementById('promo-btn');
-        const promoInput = document.getElementById('promo-input');
-        
-        if (promoBtn) {
-            promoBtn.addEventListener('click', () => {
-                this.handlePromoCode();
-            });
-        }
-        
-        if (promoInput) {
-            promoInput.addEventListener('keypress', (e) => {
-                if (e.key === 'Enter') {
-                    this.handlePromoCode();
-                }
-            });
-        }
-    }
-
-    async handlePromoCode() {
-        const promoInput = document.getElementById('promo-input');
-        const promoBtn = document.getElementById('promo-btn');
-        
-        if (!promoInput || !promoBtn) return;
-        
-        const code = promoInput.value.trim().toUpperCase();
-        if (!code) {
-            this.showNotification("Promo Code", "Please enter a promo code", "warning");
-            return;
-        }
-        
-        const rateLimitCheck = this.rateLimiter.checkLimit(this.tgUser.id, 'promo_code');
-        if (!rateLimitCheck.allowed) {
-            this.showNotification("Rate Limit", `Please wait ${rateLimitCheck.remaining} seconds`, "warning");
-            return;
-        }
-        
-        let adShown = false;
-        
-        if (typeof window.AdBlock2 !== 'undefined') {
-            try {
-                await window.AdBlock2.show();
-                adShown = true;
-            } catch (error) {}
-        }
-        
-        if (!adShown) {
-            this.showNotification("Ad Required", "Please watch the ad to apply promo code", "info");
-            return;
-        }
-        
-        this.rateLimiter.addRequest(this.tgUser.id, 'promo_code');
-        
-        const originalText = promoBtn.innerHTML;
-        promoBtn.innerHTML = '<i class="fas fa-spinner fa-pulse"></i> Checking...';
-        promoBtn.disabled = true;
-        
-        try {
-            let promoData = null;
-            if (this.db) {
-                const promoCodesRef = await this.db.ref('config/promoCodes').once('value');
-                if (promoCodesRef.exists()) {
-                    const promoCodes = promoCodesRef.val();
-                    for (const id in promoCodes) {
-                        if (promoCodes[id].code === code) {
-                            promoData = { id, ...promoCodes[id] };
-                            break;
-                        }
-                    }
-                }
-            }
-            
-            if (!promoData) {
-                this.showNotification("Promo Code", "Invalid promo code", "error");
-                promoBtn.innerHTML = originalText;
-                promoBtn.disabled = false;
-                return;
-            }
-            
-            if (this.db) {
-                const usedRef = await this.db.ref(`usedPromoCodes/${this.tgUser.id}/${promoData.id}`).once('value');
-                if (usedRef.exists()) {
-                    this.showNotification("Promo Code", "You have already used this code", "error");
-                    promoBtn.innerHTML = originalText;
-                    promoBtn.disabled = false;
-                    return;
-                }
-            }
-            
-            let rewardType = promoData.rewardType || 'ton';
-            let rewardAmount = this.safeNumber(promoData.reward || 0.01);
-            
-            const userUpdates = {};
-            
-            if (rewardType === 'ton') {
-                const currentBalance = this.safeNumber(this.userState.balance);
-                userUpdates.balance = currentBalance + rewardAmount;
-                userUpdates.totalEarned = this.safeNumber(this.userState.totalEarned) + rewardAmount;
-            } else {
-                const currentXP = this.safeNumber(this.userState.xp);
-                userUpdates.xp = currentXP + rewardAmount;
-            }
-            
-            userUpdates.totalPromoCodes = this.safeNumber(this.userState.totalPromoCodes) + 1;
-            
-            if (this.db) {
-                await this.db.ref(`users/${this.tgUser.id}`).update(userUpdates);
-                
-                await this.db.ref(`usedPromoCodes/${this.tgUser.id}/${promoData.id}`).set({
-                    code: code,
-                    reward: rewardAmount,
-                    rewardType: rewardType,
-                    claimedAt: this.getServerTime()
-                });
-                
-                await this.db.ref(`config/promoCodes/${promoData.id}/usedCount`).transaction(current => (current || 0) + 1);
-            }
-            
-            if (rewardType === 'ton') {
-                this.userState.balance = userUpdates.balance;
-                this.userState.totalEarned = userUpdates.totalEarned;
-            } else {
-                this.userState.xp = userUpdates.xp;
-            }
-            this.userState.totalPromoCodes = userUpdates.totalPromoCodes;
-            
-            this.cache.delete(`user_${this.tgUser.id}`);
-            
-            this.updateHeader();
-            promoInput.value = '';
-            
-            this.showNotification("Success", `Promo code applied! +${rewardAmount.toFixed(5)} ${rewardType === 'ton' ? 'TON' : 'XP'}`, "success");
-            
-        } catch (error) {
-            this.showNotification("Error", "Failed to apply promo code", "error");
-        } finally {
-            promoBtn.innerHTML = originalText;
-            promoBtn.disabled = false;
-        }
-    }
-
-    setupTaskButtons() {
-        const startButtons = document.querySelectorAll('.task-btn.start:not(:disabled)');
-        startButtons.forEach(btn => {
-            btn.addEventListener('click', async (e) => {
-                if (this.isProcessingTask) return;
-                
-                const rateLimitCheck = this.rateLimiter.checkLimit(this.tgUser.id, 'task_start');
-                if (!rateLimitCheck.allowed) {
-                    this.showNotification("Rate Limit", `Please wait ${rateLimitCheck.remaining} seconds`, "warning");
-                    return;
-                }
-                
-                const taskId = btn.getAttribute('data-task-id');
-                const taskUrl = btn.getAttribute('data-task-url');
-                const taskVerification = btn.getAttribute('data-task-verification') || 'NO';
-                const taskReward = parseFloat(btn.getAttribute('data-task-reward')) || 0;
-                const taskXp = parseInt(btn.getAttribute('data-task-xp')) || 1;
-                
-                if (taskId && taskUrl) {
-                    e.preventDefault();
-                    await this.handleTask(taskId, taskUrl, taskVerification, taskReward, taskXp, btn);
-                }
-            });
-        });
-    }
-
-    async handleTask(taskId, url, verification, reward, xpReward, button) {
-        if (this.userCompletedTasks.has(taskId)) {
-            this.showNotification("Already Completed", "You have already completed this task", "info");
-            return;
-        }
-        
-        if (this.isProcessingTask) {
-            this.showNotification("Busy", "Please complete current task first", "warning");
-            return;
-        }
-        
-        const rateLimitCheck = this.rateLimiter.checkLimit(this.tgUser.id, 'task_start');
-        if (!rateLimitCheck.allowed) {
-            this.showNotification("Rate Limit", `Please wait ${rateLimitCheck.remaining} seconds`, "warning");
-            return;
-        }
-        
-        this.rateLimiter.addRequest(this.tgUser.id, 'task_start');
-        
-        window.open(url, '_blank');
-        
-        this.disableAllTaskButtons();
-        this.isProcessingTask = true;
-        
-        const originalText = button.innerHTML;
-        button.innerHTML = '<i class="fas fa-spinner fa-pulse"></i>';
-        button.disabled = true;
-        button.classList.remove('start');
-        button.classList.add('counting');
-        
-        let secondsLeft = 10;
-        const countdown = setInterval(() => {
-            secondsLeft--;
-            if (secondsLeft > 0) {
-                button.innerHTML = '<i class="fas fa-spinner fa-pulse"></i>';
-            } else {
-                clearInterval(countdown);
-                button.innerHTML = '<i class="fas fa-check"></i>';
-                button.disabled = false;
-                button.classList.remove('counting');
-                button.classList.add('check');
-                
-                const newButton = button.cloneNode(true);
-                button.parentNode.replaceChild(newButton, button);
-                
-                newButton.addEventListener('click', async (e) => {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    await this.completeTask(taskId, url, verification, reward, xpReward, newButton);
-                });
-            }
-        }, 1000);
-        
-        setTimeout(() => {
-            if (secondsLeft > 0) {
-                clearInterval(countdown);
-                button.innerHTML = '<i class="fas fa-arrow-right"></i>';
-                button.disabled = false;
-                button.classList.remove('counting');
-                button.classList.add('start');
-                this.enableAllTaskButtons();
-                this.isProcessingTask = false;
-            }
-        }, 11000);
-    }
-
-    async completeTask(taskId, url, verification, reward, xpReward, button) {
-        if (button) {
-            button.innerHTML = '<i class="fas fa-spinner fa-pulse"></i>';
-            button.disabled = true;
-        }
-        
-        this.disableAllTaskButtons();
-        this.isProcessingTask = true;
-        
-        try {
-            let task = null;
-            if (this.taskManager) {
-                const allTasks = [...(this.taskManager.mainTasks || []), ...(this.taskManager.socialTasks || [])];
-                for (const t of allTasks) {
-                    if (t.id === taskId) {
-                        task = t;
-                        break;
-                    }
-                }
-            }
-            
-            if (!task) {
-                throw new Error("Task not found");
-            }
-            
-            if (verification === 'YES') {
-                const chatId = this.taskManager.extractChatIdFromUrl(url);
-                if (chatId && this.botToken) {
-                    const verificationResult = await this.verifyTaskMembership(chatId, this.tgUser.id, this.botToken);
-                    
-                    if (!verificationResult.success) {
-                        this.showNotification("Verification Failed", verificationResult.message || "Please join the channel/group first!", "error");
-                        
-                        this.enableAllTaskButtons();
-                        this.isProcessingTask = false;
-                        
-                        if (button) {
-                            button.innerHTML = '<i class="fas fa-arrow-right"></i>';
-                            button.disabled = false;
-                            button.classList.remove('check');
-                            button.classList.add('start');
-                            
-                            const newButton = button.cloneNode(true);
-                            button.parentNode.replaceChild(newButton, button);
-                            
-                            newButton.addEventListener('click', async (e) => {
-                                e.preventDefault();
-                                e.stopPropagation();
-                                await this.handleTask(taskId, url, verification, reward, xpReward, newButton);
-                            });
-                        }
-                        return;
-                    }
-                }
-            }
-            
-            await this.processTaskCompletion(taskId, task, button);
-            
-        } catch (error) {
-            this.enableAllTaskButtons();
-            this.isProcessingTask = false;
-            
-            this.showNotification("Error", "Failed to verify task", "error");
-            
-            if (button) {
-                button.innerHTML = '<i class="fas fa-arrow-right"></i>';
-                button.disabled = false;
-                button.classList.remove('check');
-                button.classList.add('start');
-                
-                const newButton = button.cloneNode(true);
-                button.parentNode.replaceChild(newButton, button);
-                
-                newButton.addEventListener('click', async (e) => {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    await this.handleTask(taskId, url, verification, reward, xpReward, newButton);
-                });
-            }
-        }
-    }
-
-    async verifyTaskMembership(chatId, userId, botToken) {
-        try {
-            if (!botToken || !chatId) {
-                return { success: false, message: "Verification unavailable" };
-            }
-            
-            const response = await fetch(`https://api.telegram.org/bot${botToken}/getChatMember`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    chat_id: chatId,
-                    user_id: parseInt(userId)
-                })
-            });
-            
-            if (!response.ok) {
-                return { success: false, message: "Verification failed" };
-            }
-            
-            const data = await response.json();
-            if (data.ok === true && data.result) {
-                const status = data.result.status;
-                const validStatuses = ['member', 'administrator', 'creator', 'restricted'];
-                const isMember = validStatuses.includes(status);
-                
-                return { 
-                    success: isMember, 
-                    message: isMember ? "Verified successfully" : "Please join the channel/group first!"
-                };
-            }
-            
-            return { success: false, message: "Verification failed" };
-            
-        } catch (error) {
-            return { success: false, message: "Verification error" };
-        }
-    }
-
-    async processTaskCompletion(taskId, task, button) {
-        try {
-            if (!this.db) {
-                throw new Error("Database not initialized");
-            }
-            
-            if (this.userCompletedTasks.has(taskId)) {
-                this.showNotification("Already Completed", "This task was already completed", "info");
-                this.enableAllTaskButtons();
-                this.isProcessingTask = false;
-                return false;
-            }
-            
-            const taskReward = this.safeNumber(task.reward);
-            const taskXpReward = this.safeNumber(task.xpReward || 1);
-            
-            const currentBalance = this.safeNumber(this.userState.balance);
-            const currentXP = this.safeNumber(this.userState.xp);
-            const totalEarned = this.safeNumber(this.userState.totalEarned);
-            const totalTasksCompleted = this.safeNumber(this.userState.totalTasksCompleted);
-            
-            const updates = {
-                balance: currentBalance + taskReward,
-                xp: currentXP + taskXpReward,
-                totalEarned: totalEarned + taskReward,
-                totalTasksCompleted: totalTasksCompleted + 1
-            };
-            
-            this.userCompletedTasks.add(taskId);
-            updates.completedTasks = [...this.userCompletedTasks];
-            
-            await this.db.ref(`users/${this.tgUser.id}`).update(updates);
-            
-            if (task.owner) {
-                const ownerRef = this.db.ref(`config/userTasks/${task.owner}/${taskId}`);
-                const ownerSnapshot = await ownerRef.once('value');
-                
-                if (ownerSnapshot.exists()) {
-                    const currentCompletions = ownerSnapshot.val().currentCompletions || 0;
-                    const newCompletions = currentCompletions + 1;
-                    
-                    if (newCompletions >= task.maxCompletions) {
-                        await ownerRef.update({
-                            currentCompletions: newCompletions,
-                            status: 'completed',
-                            taskStatus: 'completed'
-                        });
-                    } else {
-                        await ownerRef.update({
-                            currentCompletions: newCompletions
-                        });
-                    }
-                    
-                    await this.db.ref(`userTasks/${task.owner}/${taskId}`).update({
-                        currentCompletions: newCompletions
-                    });
-                }
-            } else {
-                const taskRef = this.db.ref(`config/tasks/${taskId}`);
-                const taskSnapshot = await taskRef.once('value');
-                
-                if (taskSnapshot.exists()) {
-                    const currentCompletions = taskSnapshot.val().currentCompletions || 0;
-                    const newCompletions = currentCompletions + 1;
-                    
-                    if (newCompletions >= task.maxCompletions) {
-                        await taskRef.update({
-                            currentCompletions: newCompletions,
-                            status: 'completed',
-                            taskStatus: 'completed'
-                        });
-                    } else {
-                        await taskRef.update({
-                            currentCompletions: newCompletions
-                        });
-                    }
-                }
-            }
-            
-            this.userState.balance = currentBalance + taskReward;
-            this.userState.xp = currentXP + taskXpReward;
-            this.userState.totalEarned = totalEarned + taskReward;
-            this.userState.totalTasksCompleted = totalTasksCompleted + 1;
-            this.userState.completedTasks = [...this.userCompletedTasks];
-            
-            if (button) {
-                const taskCard = document.getElementById(`task-${taskId}`);
-                if (taskCard) {
-                    const taskBtn = taskCard.querySelector('.task-btn');
-                    if (taskBtn) {
-                        taskBtn.innerHTML = '<i class="fas fa-check"></i>';
-                        taskBtn.className = 'task-btn completed';
-                        taskBtn.disabled = true;
-                        taskCard.classList.add('task-completed');
-                    }
-                }
-            }
-            
-            this.updateHeader();
-            
-            await this.updateAppStats('totalTasks', 1);
-            
-            this.cache.delete(`tasks_${this.tgUser.id}`);
-            this.cache.delete(`user_${this.tgUser.id}`);
-            
-            if (task.owner && task.owner === this.tgUser.id) {
-                await this.loadUserCreatedTasks();
-            }
-            
-            if (this.userState.referredBy && this.appConfig.REFERRAL_PERCENTAGE > 0) {
-                await this.processReferralTaskBonus(this.userState.referredBy, taskReward);
-            }
-            
-            this.enableAllTaskButtons();
-            this.isProcessingTask = false;
-            
-            this.showNotification("Task Completed!", `+${taskReward.toFixed(4)} TON, +${taskXpReward} XP`, "success");
-            
-            return true;
-            
-        } catch (error) {
-            this.enableAllTaskButtons();
-            this.isProcessingTask = false;
-            
-            this.showNotification("Error", "Failed to complete task", "error");
-            
-            if (button) {
-                button.innerHTML = '<i class="fas fa-arrow-right"></i>';
-                button.disabled = false;
-                button.classList.remove('check');
-                button.classList.add('start');
-            }
-            
-            throw error;
-        }
-    }
-
-    disableAllTaskButtons() {
-        document.querySelectorAll('.task-btn:not(.completed):not(.counting):not(:disabled)').forEach(btn => {
-            btn.disabled = true;
-        });
-    }
-
-    enableAllTaskButtons() {
-        document.querySelectorAll('.task-btn:not(.completed):not(.counting)').forEach(btn => {
-            btn.disabled = false;
-        });
-    }
-
-    async renderReferralsPage() {
-        const referralsPage = document.getElementById('referrals-page');
-        if (!referralsPage) return;
-        
-        const referralLink = `https://t.me/${this.appConfig.BOT_USERNAME}/app?startapp=${this.tgUser.id}`;
-        const referrals = this.safeNumber(this.userState.referrals || 0);
-        const referralEarnings = this.safeNumber(this.userState.referralEarnings || 0);
-        
-        const recentReferrals = await this.referralManager.loadRecentReferrals();
-        
-        referralsPage.innerHTML = `
-            <div class="referrals-container">
-                <div class="referral-link-section">
-                    <div class="referral-link-box">
-                        <p class="link-label">
-                            <i class="fas fa-link"></i> Referral Link:
-                        </p>
-                        <div class="link-display" id="referral-link-text">${referralLink}</div>
-                        <button class="copy-btn" id="copy-referral-link-btn">
-                            <i class="far fa-copy"></i> Copy Link
-                        </button>
-                    </div>
-                    
-                    <div class="referral-info">
-                        <div class="info-card">
-                            <div class="info-icon">
-                                <i class="fas fa-gift"></i>
-                            </div>
-                            <div class="info-content">
-                                <h4>Get ${this.appConfig.REFERRAL_BONUS_TON} TON + ${this.appConfig.REFERRAL_BONUS_XP} XP</h4>
-                                <p>For each verified referral</p>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-                
-                <div class="referral-stats-section">
-                    <h3><i class="fas fa-chart-bar"></i> Referrals Statistics</h3>
-                    <div class="stats-grid-two">
-                        <div class="stat-card">
-                            <div class="stat-icon">
-                                <i class="fas fa-users"></i>
-                            </div>
-                            <div class="stat-info">
-                                <h4>Total Referrals</h4>
-                                <p class="stat-value">${referrals}</p>
-                            </div>
-                        </div>
-                        <div class="stat-card">
-                            <div class="stat-icon">
-                                <i class="fas fa-coins"></i>
-                            </div>
-                            <div class="stat-info">
-                                <h4>Total Earnings</h4>
-                                <p class="stat-value">${referralEarnings.toFixed(3)} TON</p>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-                
-                <div class="last-referrals-section">
-                    <h3><i class="fas fa-history"></i> Recent Referrals</h3>
-                    <div class="referrals-list" id="referrals-list">
-                        ${recentReferrals.length > 0 ? 
-                            recentReferrals.slice(0, 5).map(referral => this.renderReferralRow(referral)).join('') : 
-                            '<div class="no-data"><i class="fas fa-handshake"></i><p>No referrals yet</p><p class="hint">Share your link to earn free TON + XP!</p></div>'
-                        }
-                    </div>
-                </div>
-            </div>
-        `;
-        
-        this.setupReferralsPageEvents();
-    }
-
-    renderReferralRow(referral) {
-        return `
-            <div class="referral-row">
-                <div class="referral-row-avatar">
-                    <img src="${referral.photoUrl}" alt="${referral.firstName}" 
-                         oncontextmenu="return false;" 
-                         ondragstart="return false;">
-                </div>
-                <div class="referral-row-info">
-                    <p class="referral-row-username">${referral.username}</p>
-                </div>
-                <div class="referral-row-status ${referral.state}">
-                    ${referral.state === 'verified' ? 'COMPLETED' : 'PENDING'}
-                </div>
-            </div>
-        `;
-    }
-
-    setupReferralsPageEvents() {
-        const copyBtn = document.getElementById('copy-referral-link-btn');
-        if (copyBtn) {
-            copyBtn.addEventListener('click', () => {
-                const referralLink = `https://t.me/${this.appConfig.BOT_USERNAME}/app?startapp=${this.tgUser.id}`;
-                this.copyToClipboard(referralLink);
-                
-                copyBtn.classList.add('copied');
-                const originalText = copyBtn.innerHTML;
-                copyBtn.innerHTML = '<i class="fas fa-check"></i> Copied!';
-                
-                setTimeout(() => {
-                    copyBtn.classList.remove('copied');
-                    copyBtn.innerHTML = originalText;
-                }, 2000);
-            });
-        }
-    }
-
-    async refreshReferralsList() {
-        try {
-            await this.referralManager.refreshReferralsList();
-        } catch (error) {}
-    }
-
-    async renderProfilePage() {
-        const profilePage = document.getElementById('profile-page');
-        if (!profilePage) return;
-        
-        const joinDate = new Date(this.userState.createdAt || this.getServerTime());
-        const formattedDate = this.formatDate(joinDate);
-        
-        const totalTasksCompleted = this.safeNumber(this.userState.totalTasksCompleted || 0);
-        const totalReferrals = this.safeNumber(this.userState.referrals || 0);
-        const totalXP = this.safeNumber(this.userState.xp || 0);
-        const totalCheckins = this.safeNumber(this.userState.totalCheckins || 0);
-        const totalDeposits = this.safeNumber(this.userState.totalDeposits || 0);
-        
-        const tasksRequired = this.appConfig.REQUIRED_TASKS_FOR_WITHDRAWAL;
-        const referralsRequired = this.appConfig.REQUIRED_REFERRALS_FOR_WITHDRAWAL;
-        const xpRequired = this.appConfig.REQUIRED_XP_FOR_WITHDRAWAL;
-        
-        const tasksProgress = Math.min(totalTasksCompleted, tasksRequired);
-        const referralsProgress = Math.min(totalReferrals, referralsRequired);
-        const xpProgress = Math.min(totalXP, xpRequired);
-        
-        const tasksCompleted = totalTasksCompleted >= tasksRequired;
-        const referralsCompleted = totalReferrals >= referralsRequired;
-        const xpCompleted = totalXP >= xpRequired;
-        
-        const canWithdraw = tasksCompleted && referralsCompleted && xpCompleted;
-        
-        const maxBalance = this.safeNumber(this.userState.balance);
-        
-        const depositComment = this.tgUser.id.toString(); 
-        const directPayUrl = `https://app.tonkeeper.com/transfer/${this.appConfig.BOT_WALLET}?text=${depositComment}`;
-        
-        profilePage.innerHTML = `
-            <div class="profile-container">
-                <div class="deposit-card profile-card-item">
-                    <div class="card-header">
-                        <div class="card-icon">
-                            <i class="fas fa-arrow-down"></i>
-                        </div>
-                        <div class="card-title">Deposit TON</div>
-                    </div>
-                    <div class="card-divider"></div>
-                    
-                    <div class="deposit-info">
-                        <div class="deposit-row">
-                            <span class="deposit-label">Wallet:</span>
-                            <span class="deposit-value" id="deposit-wallet">${this.truncateAddress(this.appConfig.DEPOSIT_WALLET)}</span>
-                            <button class="deposit-copy-btn" data-copy="wallet">
-                                <i class="far fa-copy"></i>
-                            </button>
-                        </div>
-                        <div class="deposit-row">
-                            <span class="deposit-label">Comment:</span>
-                            <span class="deposit-value" id="deposit-comment">${depositComment}</span>
-                            <button class="deposit-copy-btn" data-copy="comment">
-                                <i class="far fa-copy"></i>
-                            </button>
-                        </div>
-                        <div class="deposit-actions">
-                            <a href="${directPayUrl}" target="_blank" class="direct-pay-btn" id="direct-pay-btn">
-                                <i class="fas fa-bolt"></i> Direct Pay
-                            </a>
-                        </div>
-                        <div class="deposit-note">
-                            <i class="fas fa-info-circle"></i>
-                            <span>Deposits processed within 1-24 hour</span>
-                        </div>
-                    </div>
-                </div>
-                
-                <div class="withdraw-card">
-                    <div class="card-header">
-                        <div class="card-icon">
-                            <i class="fas fa-wallet"></i>
-                        </div>
-                        <div class="card-title">Withdraw TON</div>
-                    </div>
-                    <div class="card-divider"></div>
-                    
-                    <div class="requirements-section">
-                        ${!tasksCompleted ? `
-                        <div class="requirement-item">
-                            <div class="requirement-header">
-                                <span><i class="fas fa-tasks"></i> Complete Tasks</span>
-                                <span class="requirement-count">${tasksProgress}/${tasksRequired}</span>
-                            </div>
-                            <div class="progress-bar">
-                                <div class="progress-fill" style="width: ${(tasksProgress/tasksRequired)*100}%"></div>
-                            </div>
-                        </div>
-                        ` : ''}
-                        
-                        ${!referralsCompleted ? `
-                        <div class="requirement-item">
-                            <div class="requirement-header">
-                                <span><i class="fas fa-users"></i> Invite Friends</span>
-                                <span class="requirement-count">${referralsProgress}/${referralsRequired}</span>
-                            </div>
-                            <div class="progress-bar">
-                                <div class="progress-fill" style="width: ${(referralsProgress/referralsRequired)*100}%"></div>
-                            </div>
-                        </div>
-                        ` : ''}
-                        
-                        ${!xpCompleted ? `
-                        <div class="requirement-item">
-                            <div class="requirement-header">
-                                <span><i class="fas fa-star"></i> Earn XP</span>
-                                <span class="requirement-count">${xpProgress}/${xpRequired}</span>
-                            </div>
-                            <div class="progress-bar">
-                                <div class="progress-fill" style="width: ${(xpProgress/xpRequired)*100}%"></div>
-                            </div>
-                        </div>
-                        ` : ''}
-                    </div>
-                    
-                    <div class="form-group">
-                        <label class="form-label" for="profile-wallet-input">
-                            <i class="fas fa-wallet"></i> TON Wallet Address
-                        </label>
-                        <input type="text" id="profile-wallet-input" class="form-input" 
-                               placeholder="Enter your TON wallet address (UQ...)"
-                               required>
-                    </div>
-                    
-                    <div class="form-group amount-group">
-                        <label class="form-label" for="profile-amount-input">
-                            <i class="fas fa-gem"></i> Withdrawal Amount
-                        </label>
-                        <div class="amount-input-container">
-                            <input type="number" id="profile-amount-input" class="form-input" 
-                                   step="0.00001" min="${this.appConfig.MINIMUM_WITHDRAW}" 
-                                   max="${maxBalance}"
-                                   placeholder="Min: ${this.appConfig.MINIMUM_WITHDRAW.toFixed(3)} TON"
-                                   required>
-                            <button type="button" class="max-btn" id="max-btn">MAX</button>
-                        </div>
-                    </div>
-                    
-                    <div class="withdraw-minimum-info">
-                        <i class="fas fa-info-circle"></i>
-                        <span>Minimum Withdrawal: <strong>${this.appConfig.MINIMUM_WITHDRAW.toFixed(3)} TON</strong></span>
-                    </div>
-                    
-                    <button id="profile-withdraw-btn" class="withdraw-btn" 
-                            ${!canWithdraw || maxBalance < this.appConfig.MINIMUM_WITHDRAW ? 'disabled' : ''}>
-                        <i class="fas fa-paper-plane"></i> 
-                        ${canWithdraw ? 'WITHDRAW NOW' : this.getWithdrawButtonText(tasksCompleted, referralsCompleted, xpCompleted)}
-                    </button>
-                </div>
-                
-                <div class="history-section">
-                    <div class="history-tabs">
-                        <button class="history-tab active" data-tab="withdrawals">Withdrawal History</button>
-                    </div>
-                    
-                    <div id="withdrawals-tab" class="history-tab-content active">
-                        <div class="history-list" id="withdrawals-list">
-                            ${this.renderWithdrawalsHistory()}
-                        </div>
-                    </div>
-                </div>
-            </div>
-        `;
-        
-        this.setupProfilePageEvents();
-    }
-
-    renderWithdrawalsHistory() {
-        if (!this.userWithdrawals || this.userWithdrawals.length === 0) {
-            return `
-                <div class="no-data">
-                    <i class="fas fa-history"></i>
-                    <p>No withdrawal history</p>
-                    <p class="hint">Your withdrawals will appear here</p>
-                </div>
-            `;
-        }
-        
-        return this.userWithdrawals.map(withdrawal => {
-            const statusClass = withdrawal.status || 'pending';
-            const statusText = (withdrawal.status || 'pending').toUpperCase();
-            const amount = this.safeNumber(withdrawal.amount);
-            const timestamp = withdrawal.timestamp || withdrawal.createdAt || Date.now();
-            
-            return `
-                <div class="history-item withdrawal">
-                    <div class="history-header">
-                        <span class="history-amount">-${amount.toFixed(3)} TON</span>
-                        <span class="history-status ${statusClass}">${statusText}</span>
-                    </div>
-                    <div class="history-details">
-                        <div class="history-detail">
-                            <i class="fas fa-wallet"></i>
-                            <span class="history-wallet">${this.truncateAddress(withdrawal.walletAddress)}</span>
-                        </div>
-                        <div class="history-detail">
-                            <i class="fas fa-clock"></i>
-                            <span>${this.formatDateTime(timestamp)}</span>
-                        </div>
-                        <div class="history-detail">
-                            <i class="fas fa-id-card"></i>
-                            <span>ID: ${this.truncateString(withdrawal.id, 8)}</span>
-                        </div>
-                        ${withdrawal.status === 'completed' && withdrawal.transactionLink ? `
-                            <div class="history-detail">
-                                <i class="fas fa-link"></i>
-                                <a href="${withdrawal.transactionLink}" target="_blank" class="transaction-link">View Transaction</a>
-                            </div>
-                        ` : ''}
-                        ${withdrawal.status === 'rejected' && withdrawal.rejectReason ? `
-                            <div class="history-detail">
-                                <i class="fas fa-exclamation-circle" style="color: #f44336;"></i>
-                                <span style="color: #f44336;">Reason: ${withdrawal.rejectReason}</span>
-                            </div>
-                        ` : ''}
-                    </div>
-                </div>
-            `;
-        }).join('');
-    }
-
-    truncateString(str, length) {
-        if (!str) return '';
-        if (str.length <= length) return str;
-        return str.substring(0, length) + '...';
-    }
-
-    getWithdrawButtonText(tasksCompleted, referralsCompleted, xpCompleted) {
-        if (!tasksCompleted) {
-            return `COMPLETE ${this.appConfig.REQUIRED_TASKS_FOR_WITHDRAWAL} TASKS`;
-        }
-        if (!referralsCompleted) {
-            return `INVITE ${this.appConfig.REQUIRED_REFERRALS_FOR_WITHDRAWAL} FRIEND`;
-        }
-        if (!xpCompleted) {
-            return `EARN ${this.appConfig.REQUIRED_XP_FOR_WITHDRAWAL} XP`;
-        }
-        return 'WITHDRAW NOW';
-    }
-
-    truncateAddress(address) {
-        if (!address) return 'N/A';
-        if (address.length <= 15) return address;
-        return address.substring(0, 6) + '...' + address.substring(address.length - 4);
-    }
-
-    formatDateTime(timestamp) {
-        const date = new Date(timestamp);
-        const day = date.getDate().toString().padStart(2, '0');
-        const month = (date.getMonth() + 1).toString().padStart(2, '0');
-        const year = date.getFullYear();
-        const hours = date.getHours().toString().padStart(2, '0');
-        const minutes = date.getMinutes().toString().padStart(2, '0');
-        return `${day}.${month}.${year} ${hours}:${minutes}`;
-    }
-
-    setupProfilePageEvents() {
-        const withdrawBtn = document.getElementById('profile-withdraw-btn');
-        const walletInput = document.getElementById('profile-wallet-input');
-        const amountInput = document.getElementById('profile-amount-input');
-        const maxBtn = document.getElementById('max-btn');
-        
-        const copyButtons = document.querySelectorAll('[data-copy]');
-        copyButtons.forEach(btn => {
-            btn.addEventListener('click', async () => {
-                const type = btn.dataset.copy;
-                let text = '';
-                
-                if (type === 'wallet') {
-                    text = this.appConfig.DEPOSIT_WALLET;
-                } else if (type === 'comment') {
-                    text = await this.getCurrentDepositComment();
-                }
-                
-                if (text) {
-                    this.copyToClipboard(text);
-                    
-                    const originalText = btn.innerHTML;
-                    btn.innerHTML = '<i class="fas fa-check"></i>';
-                    
-                    setTimeout(() => {
-                        btn.innerHTML = originalText;
-                    }, 2000);
-                }
-            });
-        });
-        
-        const exchangeBtn = document.getElementById('exchange-btn');
-        if (exchangeBtn) {
-            exchangeBtn.addEventListener('click', () => this.exchangeTonToXp());
-        }
-        
-        const exchangeInput = document.getElementById('exchange-input');
-        const exchangePreview = document.getElementById('exchange-preview');
-        const exchangeMaxBtn = document.getElementById('exchange-max-btn');
-        
-        if (exchangeInput && exchangePreview) {
-            exchangeInput.addEventListener('input', () => {
-                const value = parseFloat(exchangeInput.value) || 0;
-                const xpAmount = Math.floor(value * this.appConfig.XP_PER_TON);
-                exchangePreview.textContent = `≈ ${xpAmount} XP`;
-                
-                if (value > 0) {
-                    exchangePreview.style.opacity = '1';
-                } else {
-                    exchangePreview.style.opacity = '0.7';
-                }
-            });
-        }
-        
-        if (exchangeMaxBtn && exchangeInput) {
-            exchangeMaxBtn.addEventListener('click', () => {
-                const max = this.safeNumber(this.userState.balance);
-                exchangeInput.value = max.toFixed(3);
-                const xpAmount = Math.floor(max * this.appConfig.XP_PER_TON);
-                if (exchangePreview) {
-                    exchangePreview.textContent = `≈ ${xpAmount} XP`;
-                }
-            });
-        }
-        
-        if (maxBtn && amountInput) {
-            maxBtn.addEventListener('click', () => {
-                const max = this.safeNumber(this.userState.balance);
-                amountInput.value = max.toFixed(5);
-            });
-        }
-        
-        if (withdrawBtn) {
-            withdrawBtn.addEventListener('click', async () => {
-                await this.handleProfileWithdrawal(walletInput, amountInput, withdrawBtn);
-            });
-        }
-        
-        if (amountInput) {
-            amountInput.addEventListener('input', () => {
-                const max = this.safeNumber(this.userState.balance);
-                const value = parseFloat(amountInput.value) || 0;
-                
-                if (value > max) {
-                    amountInput.value = max.toFixed(5);
-                }
-            });
-        }
-    }
-
-    setupExchangeEvents() {
-        const exchangeBtn = document.getElementById('exchange-btn');
-        const exchangeInput = document.getElementById('exchange-input');
-        const exchangePreview = document.getElementById('exchange-preview');
-        const exchangeMaxBtn = document.getElementById('exchange-max-btn');
-        
-        if (exchangeBtn) {
-            exchangeBtn.addEventListener('click', () => this.exchangeTonToXp());
-        }
-        
-        if (exchangeInput && exchangePreview) {
-            exchangeInput.addEventListener('input', () => {
-                const value = parseFloat(exchangeInput.value) || 0;
-                const xpAmount = Math.floor(value * this.appConfig.XP_PER_TON);
-                exchangePreview.textContent = `≈ ${xpAmount} XP`;
-            });
-        }
-        
-        if (exchangeMaxBtn && exchangeInput) {
-            exchangeMaxBtn.addEventListener('click', () => {
-                const max = this.safeNumber(this.userState.balance);
-                exchangeInput.value = max.toFixed(3);
-                const xpAmount = Math.floor(max * this.appConfig.XP_PER_TON);
-                if (exchangePreview) {
-                    exchangePreview.textContent = `≈ ${xpAmount} XP`;
-                }
-            });
-        }
-    }
-    
-    async handleProfileWithdrawal(walletInput, amountInput, withdrawBtn) {
-        if (!walletInput || !amountInput || !withdrawBtn) return;
-        
-        const originalBalance = this.safeNumber(this.userState.balance);
-        
-        const walletAddress = walletInput.value.trim();
-        const amount = parseFloat(amountInput.value);
-        const userBalance = this.safeNumber(this.userState.balance);
-        const minimumWithdraw = this.appConfig.MINIMUM_WITHDRAW;
-        
-        const totalTasksCompleted = this.safeNumber(this.userState.totalTasksCompleted || 0);
-        const requiredTasks = this.appConfig.REQUIRED_TASKS_FOR_WITHDRAWAL;
-        const totalReferrals = this.safeNumber(this.userState.referrals || 0);
-        const requiredReferrals = this.appConfig.REQUIRED_REFERRALS_FOR_WITHDRAWAL;
-        const totalXP = this.safeNumber(this.userState.xp || 0);
-        const requiredXP = this.appConfig.REQUIRED_XP_FOR_WITHDRAWAL;
-        
-        if (!walletAddress || walletAddress.length < 20) {
-            this.showNotification("Error", "Please enter a valid TON wallet address", "error");
-            return;
-        }
-        
-        if (!amount || amount < minimumWithdraw) {
-            this.showNotification("Error", `Minimum withdrawal is ${minimumWithdraw.toFixed(3)} TON`, "error");
-            return;
-        }
-        
-        if (amount > userBalance) {
-            this.showNotification("Error", "Insufficient balance", "error");
-            return;
-        }
-        
-        if (totalTasksCompleted < requiredTasks) {
-            const tasksNeeded = requiredTasks - totalTasksCompleted;
-            this.showNotification("Tasks Required", `You need to complete ${tasksNeeded} more tasks to withdraw`, "error");
-            return;
-        }
-        
-        if (totalReferrals < requiredReferrals) {
-            const referralsNeeded = requiredReferrals - totalReferrals;
-            this.showNotification("Referrals Required", `You need to invite ${referralsNeeded} more friend${referralsNeeded > 1 ? 's' : ''} to withdraw`, "error");
-            return;
-        }
-        
-        if (totalXP < requiredXP) {
-            const xpNeeded = requiredXP - totalXP;
-            this.showNotification("XP Required", `You need to earn ${xpNeeded} more XP to withdraw`, "error");
-            return;
-        }
-        
-        let adShown = false;
-        
-        if (typeof window.AdBlock2 !== 'undefined') {
-            try {
-                await window.AdBlock2.show();
-                adShown = true;
-            } catch (error) {}
-        }
-        
-        if (!adShown) {
-            this.showNotification("Ad Required", "Please watch the ad to process withdrawal", "info");
-            return;
-        }
-        
-        const rateLimitCheck = this.rateLimiter.checkLimit(this.tgUser.id, 'withdrawal');
-        if (!rateLimitCheck.allowed) {
-            this.showNotification("Rate Limit", "You can only withdraw once per day. Please try again tomorrow.", "warning");
-            return;
-        }
-        
-        this.rateLimiter.addRequest(this.tgUser.id, 'withdrawal');
-        
-        const originalText = withdrawBtn.innerHTML;
-        withdrawBtn.disabled = true;
-        withdrawBtn.innerHTML = '<i class="fas fa-spinner fa-pulse"></i> Processing...';
-        
-        try {
-            const newBalance = userBalance - amount;
-            const currentTime = this.getServerTime();
-            const newTotalWithdrawnAmount = this.safeNumber(this.userState.totalWithdrawnAmount) + amount;
-            const withdrawalId = `withdrawal_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-            const firebaseUid = this.auth?.currentUser?.uid || 'pending';
-            
-            const withdrawalData = {
-                id: withdrawalId,
-                userId: this.tgUser.id,
-                walletAddress: walletAddress,
-                amount: amount,
-                status: 'pending',
-                timestamp: currentTime,
-                userName: this.userState.firstName,
-                username: this.userState.username,
-                firebaseUid: firebaseUid,
-                telegramId: this.tgUser.id
-            };
-            
-            if (this.db) {
-                await this.db.ref(`users/${this.tgUser.id}`).update({
-                    balance: newBalance,
-                    totalWithdrawals: this.safeNumber(this.userState.totalWithdrawals) + 1,
-                    totalWithdrawnAmount: newTotalWithdrawnAmount,
-                    lastWithdrawalDate: currentTime
-                });
-                
-                // حفظ السحب في مسار withdrawals/pending مع firebaseUid
-                await this.db.ref(`withdrawals/pending/${withdrawalId}`).set(withdrawalData);
-                
-                this.userState.balance = newBalance;
-                this.userState.totalWithdrawals = this.safeNumber(this.userState.totalWithdrawals) + 1;
-                this.userState.totalWithdrawnAmount = newTotalWithdrawnAmount;
-                this.userState.lastWithdrawalDate = currentTime;
-                
-                this.userWithdrawals.unshift(withdrawalData);
-                
-                this.cache.delete(`user_${this.tgUser.id}`);
-                
-                await this.updateAppStats('totalWithdrawals', 1);
-                await this.updateAppStats('totalPayments', amount);
-                
-                walletInput.value = '';
-                amountInput.value = '';
-                
-                this.updateHeader();
-                this.renderProfilePage();
-                
-                this.showNotification("Success", "Withdrawal request submitted!", "success");
-            }
-            
-        } catch (error) {
-            if (this.userState.balance !== originalBalance) {
-                this.userState.balance = originalBalance;
-            }
-            
-            this.showNotification("Error", "Failed to process withdrawal. No changes were made to your balance.", "error");
-            
-            withdrawBtn.disabled = false;
-            withdrawBtn.innerHTML = originalText;
-        }
-    }
-
-    async exchangeTonToXp() {
-        try {
-            const exchangeBtn = document.getElementById('exchange-btn');
-            const exchangeInput = document.getElementById('exchange-input');
-            const exchangePreview = document.getElementById('exchange-preview');
-            
-            if (!exchangeInput || !exchangeBtn) return;
-            
-            const tonAmount = parseFloat(exchangeInput.value);
-            
-            if (!tonAmount || tonAmount < this.appConfig.MIN_EXCHANGE_TON) {
-                this.showNotification("Error", `Minimum exchange is ${this.appConfig.MIN_EXCHANGE_TON} TON`, "error");
-                return;
-            }
-            
-            const tonBalance = this.safeNumber(this.userState.balance);
-            
-            if (tonAmount > tonBalance) {
-                this.showNotification("Error", "Insufficient TON balance", "error");
-                return;
-            }
-            
-            const rateLimitCheck = this.rateLimiter.checkLimit(this.tgUser.id, 'exchange');
-            if (!rateLimitCheck.allowed) {
-                this.showNotification("Rate Limit", `Please wait ${rateLimitCheck.remaining} seconds`, "warning");
-                return;
-            }
-            
-            this.rateLimiter.addRequest(this.tgUser.id, 'exchange');
-            
-            const originalText = exchangeBtn.innerHTML;
-            exchangeBtn.innerHTML = '<i class="fas fa-spinner fa-pulse"></i> Processing...';
-            exchangeBtn.disabled = true;
-            
-            try {
-                const xpAmount = Math.floor(tonAmount * this.appConfig.XP_PER_TON);
-                const newTonBalance = tonBalance - tonAmount;
-                const newXpBalance = this.safeNumber(this.userState.xp) + xpAmount;
-                
-                const updates = {
-                    balance: newTonBalance,
-                    xp: newXpBalance
-                };
-                
-                if (this.db) {
-                    await this.db.ref(`users/${this.tgUser.id}`).update(updates);
-                }
-                
-                this.userState.balance = newTonBalance;
-                this.userState.xp = newXpBalance;
-                
-                this.cache.delete(`user_${this.tgUser.id}`);
-                
-                exchangeInput.value = '';
-                if (exchangePreview) {
-                    exchangePreview.textContent = '≈ 0 XP';
-                }
-                this.updateHeader();
-                
-                const miniBalanceItems = document.querySelectorAll('.mini-balance-item');
-                if (miniBalanceItems.length >= 2) {
-                    miniBalanceItems[0].querySelector('span').textContent = `${newTonBalance.toFixed(3)} TON`;
-                    miniBalanceItems[1].querySelector('span').textContent = `${Math.floor(newXpBalance)} XP`;
-                }
-                
-                this.showNotification("Success", `Exchanged ${tonAmount.toFixed(3)} TON to ${xpAmount} XP`, "success");
-                
-            } catch (error) {
-                this.showNotification("Error", "Failed to exchange", "error");
-            } finally {
-                exchangeBtn.innerHTML = originalText;
-                exchangeBtn.disabled = false;
-            }
-            
-        } catch (error) {
-            this.showNotification("Error", "Failed to exchange", "error");
-        }
-    }
-
     copyToClipboard(text) {
         if (!text || this.isCopying) return;
         
@@ -3769,7 +4053,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     <div class="error-icon">
                         <i class="fab fa-telegram"></i>
                     </div>
-                    <h2>RAMADAN BUX</h2>
+                    <h2>POP BUZZ</h2>
                     <p>Please open from Telegram Mini App</p>
                 </div>
             </div>

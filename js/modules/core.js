@@ -1,3 +1,4 @@
+// core.js
 import { CORE_CONFIG, APP_CONFIG } from '../data.js';
 
 class CacheManager {
@@ -47,6 +48,29 @@ class RateLimiter {
     constructor() {
         this.requests = new Map();
         this.limits = CORE_CONFIG.RATE_LIMITS;
+        this.loadRequests();
+    }
+
+    loadRequests() {
+        try {
+            const saved = localStorage.getItem('rateLimiter_requests');
+            if (saved) {
+                const parsed = JSON.parse(saved);
+                Object.keys(parsed).forEach(key => {
+                    this.requests.set(key, parsed[key]);
+                });
+            }
+        } catch (error) {}
+    }
+
+    saveRequests() {
+        try {
+            const obj = {};
+            this.requests.forEach((value, key) => {
+                obj[key] = value;
+            });
+            localStorage.setItem('rateLimiter_requests', JSON.stringify(obj));
+        } catch (error) {}
     }
 
     checkLimit(userId, action) {
@@ -80,6 +104,8 @@ class RateLimiter {
         const userRequests = this.requests.get(key);
         userRequests.push(now);
         this.requests.set(key, userRequests);
+        
+        this.saveRequests();
     }
 
     getServerTime() {
@@ -326,7 +352,5 @@ class SecurityManager {
         return true;
     }
 }
-
-// تم إزالة AdManager بالكامل
 
 export { CacheManager, RateLimiter, NotificationManager, SecurityManager };

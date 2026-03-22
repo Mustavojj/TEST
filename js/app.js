@@ -699,7 +699,8 @@ class TornadoApp {
                 return;
             }
             
-            const reward = FEATURES_CONFIG.DAILY_CHECKIN_REWARD;
+            const tonReward = FEATURES_CONFIG.DAILY_CHECKIN_REWARD;
+            const popReward = FEATURES_CONFIG.DAILY_CHECKIN_POP_REWARD;
             const currentTime = this.getServerTime();
             
             this.rateLimiter.addRequest(this.tgUser.id, 'daily_checkin');
@@ -710,12 +711,15 @@ class TornadoApp {
             
             try {
                 const currentBalance = this.safeNumber(this.userState.balance);
-                const newBalance = currentBalance + reward;
+                const currentPOP = this.safeNumber(this.userState.pop);
+                const newBalance = currentBalance + tonReward;
+                const newPOP = currentPOP + popReward;
                 this.totalCheckins = (this.totalCheckins || 0) + 1;
                 
                 const updates = {
                     balance: newBalance,
-                    totalEarned: this.safeNumber(this.userState.totalEarned) + reward,
+                    pop: newPOP,
+                    totalEarned: this.safeNumber(this.userState.totalEarned) + tonReward,
                     lastDailyCheckin: currentTime,
                     totalCheckins: this.totalCheckins
                 };
@@ -725,7 +729,8 @@ class TornadoApp {
                 }
                 
                 this.userState.balance = newBalance;
-                this.userState.totalEarned = this.safeNumber(this.userState.totalEarned) + reward;
+                this.userState.pop = newPOP;
+                this.userState.totalEarned = this.safeNumber(this.userState.totalEarned) + tonReward;
                 this.userState.lastDailyCheckin = currentTime;
                 this.userState.totalCheckins = this.totalCheckins;
                 
@@ -737,7 +742,7 @@ class TornadoApp {
                 this.updateHeader();
                 this.updateDailyCheckinButton();
                 
-                this.showNotification("Daily Check-in", `+${reward.toFixed(3)} TON`, "success");
+                this.showNotification("Daily Check-in", `+${tonReward.toFixed(3)} TON, +${popReward} POP`, "success");
                 
             } catch (error) {
                 this.showNotification("Error", "Failed to claim daily reward", "error");
@@ -914,10 +919,10 @@ class TornadoApp {
                 <div class="my-task-item" data-task-id="${task.id}">
                     <div class="my-task-header">
                         <div class="my-task-avatar">
-                            <img src="${this.appConfig.BOT_AVATAR}" alt="Task">
+                            <img src="${this.appConfig.BOT_AVATAR}" alt="Task" oncontextmenu="return false;" ondragstart="return false;">
                         </div>
                         <div class="my-task-info">
-                            <div class="my-task-name">${task.name} ${verification}</div>
+                            <div class="my-task-name">${task.name}</div>
                             <div class="my-task-category">Verification: ${task.verification || 'NO'}</div>
                         </div>
                     </div>
@@ -2012,11 +2017,11 @@ class TornadoApp {
             
             balanceCards.innerHTML = `
                 <div class="balance-card">
-                    <img src="https://cdn-icons-png.flaticon.com/512/12114/12114247.png" class="balance-icon" alt="TON">
+                    <img src="https://cdn-icons-png.flaticon.com/512/12114/12114247.png" class="balance-icon" alt="TON" oncontextmenu="return false;" ondragstart="return false;">
                     <span class="balance-ton">${tonBalance.toFixed(3)}</span>
                 </div>
                 <div class="balance-card">
-                    <img src="https://cdn-icons-png.flaticon.com/512/8074/8074685.png" class="balance-icon" alt="POP">
+                    <img src="https://cdn-icons-png.flaticon.com/512/8074/8074685.png" class="balance-icon" alt="POP" oncontextmenu="return false;" ondragstart="return false;">
                     <span class="balance-pop">${Math.floor(popBalance)}</span>
                 </div>
             `;
@@ -2170,8 +2175,8 @@ class TornadoApp {
                             </div>
                             <div class="card-divider"></div>
                             <div class="checkin-reward">
-                                <img src="https://cdn-icons-png.flaticon.com/512/12114/12114247.png" class="balance-icon" alt="TON">
-                                <span>Reward: ${FEATURES_CONFIG.DAILY_CHECKIN_REWARD.toFixed(3)} TON</span>
+                                <img src="https://cdn-icons-png.flaticon.com/512/12114/12114247.png" class="balance-icon" alt="TON" oncontextmenu="return false;" ondragstart="return false;">
+                                <span>Reward: ${FEATURES_CONFIG.DAILY_CHECKIN_REWARD.toFixed(3)} TON + ${FEATURES_CONFIG.DAILY_CHECKIN_POP_REWARD} POP</span>
                             </div>
                             <button class="checkin-btn" id="daily-checkin-btn">
                                 <i class="fas fa-calendar-check"></i> CHECK-IN
@@ -2187,8 +2192,8 @@ class TornadoApp {
                             </div>
                             <div class="card-divider"></div>
                             <div class="news-reward">
-                                <img src="https://cdn-icons-png.flaticon.com/512/12114/12114247.png" class="balance-icon" alt="TON">
-                                <span>Reward: ${FEATURES_CONFIG.NEWS_TASK_REWARD.toFixed(3)} TON</span>
+                                <img src="https://cdn-icons-png.flaticon.com/512/12114/12114247.png" class="balance-icon" alt="TON" oncontextmenu="return false;" ondragstart="return false;">
+                                <span>Reward: ${FEATURES_CONFIG.NEWS_TASK_REWARD.toFixed(3)} TON + ${FEATURES_CONFIG.NEWS_TASK_POP_REWARD} POP</span>
                             </div>
                             <button class="news-btn" id="news-task-btn">
                                 <i class="fas fa-newspaper"></i> CHECK NEWS
@@ -2404,8 +2409,8 @@ class TornadoApp {
                         </div>
                         <div class="card-divider"></div>
                         <div class="checkin-reward">
-                            ${task.reward > 0 ? `<img src="https://cdn-icons-png.flaticon.com/512/12114/12114247.png" class="balance-icon" alt="TON"><span>+${task.reward.toFixed(3)} TON</span>` : ''}
-                            ${task.popReward > 0 ? `<img src="https://cdn-icons-png.flaticon.com/512/8074/8074685.png" class="balance-icon" alt="POP"><span>+${task.popReward} POP</span>` : ''}
+                            ${task.reward > 0 ? `<img src="https://cdn-icons-png.flaticon.com/512/12114/12114247.png" class="balance-icon" alt="TON" oncontextmenu="return false;" ondragstart="return false;"><span>+${task.reward.toFixed(3)} TON</span>` : ''}
+                            ${task.popReward > 0 ? `<img src="https://cdn-icons-png.flaticon.com/512/8074/8074685.png" class="balance-icon" alt="POP" oncontextmenu="return false;" ondragstart="return false;"><span>+${task.popReward} POP</span>` : ''}
                         </div>
                         <button class="daily-task-btn checkin-btn" data-task-id="${task.id}" data-task-url="${task.url}" data-task-verification="${task.verification}" data-task-reward="${task.reward}" data-task-pop="${task.popReward}">
                             <i class="fas fa-play"></i> Complete
@@ -2503,8 +2508,8 @@ class TornadoApp {
                     <div class="card-divider"></div>
                     <p class="reward-description" style="font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 12px;">${reward.description}</p>
                     <div class="reward-rewards" style="display: flex; gap: 10px; margin-bottom: 12px;">
-                        ${reward.rewardAmount > 0 ? `<span class="reward-badge"><img src="https://cdn-icons-png.flaticon.com/512/12114/12114247.png" class="reward-icon">+${reward.rewardAmount.toFixed(3)} TON</span>` : ''}
-                        ${reward.popAmount > 0 ? `<span class="reward-badge"><img src="https://cdn-icons-png.flaticon.com/512/8074/8074685.png" class="reward-icon">+${reward.popAmount} POP</span>` : ''}
+                        ${reward.rewardAmount > 0 ? `<span class="reward-badge"><img src="https://cdn-icons-png.flaticon.com/512/12114/12114247.png" class="reward-icon" oncontextmenu="return false;" ondragstart="return false;">+${reward.rewardAmount.toFixed(3)} TON</span>` : ''}
+                        ${reward.popAmount > 0 ? `<span class="reward-badge"><img src="https://cdn-icons-png.flaticon.com/512/8074/8074685.png" class="reward-icon" oncontextmenu="return false;" ondragstart="return false;">+${reward.popAmount} POP</span>` : ''}
                     </div>
                     <button class="reward-btn promo-btn" data-reward-id="${reward.id}" data-reward-action="${reward.action}" data-reward-url="${reward.actionUrl}">
                         <i class="fas fa-arrow-right"></i> Claim
@@ -2560,7 +2565,6 @@ class TornadoApp {
     renderTaskCard(task) {
         const isCompleted = this.userCompletedTasks.has(task.id);
         const defaultIcon = this.appConfig.BOT_AVATAR;
-        const verificationIcon = task.verification === 'YES' ? '🔒' : '🔓';
         
         let buttonIcon = 'fa-arrow-right';
         let buttonClass = 'start';
@@ -2580,15 +2584,15 @@ class TornadoApp {
                          ondragstart="return false;">
                 </div>
                 <div class="referral-row-info">
-                    <p class="referral-row-username">${task.name} ${verificationIcon}</p>
+                    <p class="referral-row-username">${task.name}</p>
                     <p class="task-description">Join & Earn TON</p>
                     <div class="task-rewards">
                         <span class="reward-badge">
-                            <img src="https://cdn-icons-png.flaticon.com/512/12114/12114247.png" class="reward-icon" alt="TON">
+                            <img src="https://cdn-icons-png.flaticon.com/512/12114/12114247.png" class="reward-icon" alt="TON" oncontextmenu="return false;" ondragstart="return false;">
                             ${task.reward.toFixed(4)}
                         </span>
                         <span class="reward-badge">
-                            <img src="https://cdn-icons-png.flaticon.com/512/8074/8074685.png" class="reward-icon" alt="POP">
+                            <img src="https://cdn-icons-png.flaticon.com/512/8074/8074685.png" class="reward-icon" alt="POP" oncontextmenu="return false;" ondragstart="return false;">
                             ${task.popReward || 1}
                         </span>
                     </div>
@@ -3324,11 +3328,11 @@ class TornadoApp {
                         
                         <div class="exchange-mini-balance">
                             <div class="mini-balance-item">
-                                <img src="https://cdn-icons-png.flaticon.com/512/12114/12114247.png" alt="TON">
+                                <img src="https://cdn-icons-png.flaticon.com/512/12114/12114247.png" alt="TON" oncontextmenu="return false;" ondragstart="return false;">
                                 <span>${this.safeNumber(this.userState.balance).toFixed(3)} TON</span>
                             </div>
                             <div class="mini-balance-item">
-                                <img src="https://cdn-icons-png.flaticon.com/512/8074/8074685.png" alt="POP">
+                                <img src="https://cdn-icons-png.flaticon.com/512/8074/8074685.png" alt="POP" oncontextmenu="return false;" ondragstart="return false;">
                                 <span>${Math.floor(this.safeNumber(this.userState.pop))} POP</span>
                             </div>
                         </div>
@@ -3909,17 +3913,21 @@ class TornadoApp {
                 clearInterval(countdownInterval);
                 
                 try {
-                    const reward = FEATURES_CONFIG.NEWS_TASK_REWARD;
+                    const tonReward = FEATURES_CONFIG.NEWS_TASK_REWARD;
+                    const popReward = FEATURES_CONFIG.NEWS_TASK_POP_REWARD;
                     const currentTime = this.getServerTime();
                     
                     this.rateLimiter.addRequest(this.tgUser.id, 'news_task');
                     
                     const currentBalance = this.safeNumber(this.userState.balance);
-                    const newBalance = currentBalance + reward;
+                    const currentPOP = this.safeNumber(this.userState.pop);
+                    const newBalance = currentBalance + tonReward;
+                    const newPOP = currentPOP + popReward;
                     
                     const updates = {
                         balance: newBalance,
-                        totalEarned: this.safeNumber(this.userState.totalEarned) + reward,
+                        pop: newPOP,
+                        totalEarned: this.safeNumber(this.userState.totalEarned) + tonReward,
                         lastNewsTask: currentTime
                     };
                     
@@ -3928,7 +3936,8 @@ class TornadoApp {
                     }
                     
                     this.userState.balance = newBalance;
-                    this.userState.totalEarned = this.safeNumber(this.userState.totalEarned) + reward;
+                    this.userState.pop = newPOP;
+                    this.userState.totalEarned = this.safeNumber(this.userState.totalEarned) + tonReward;
                     this.lastNewsTask = currentTime;
                     
                     this.cache.delete(`user_${this.tgUser.id}`);
@@ -3936,7 +3945,7 @@ class TornadoApp {
                     this.updateHeader();
                     this.updateNewsTaskButton();
                     
-                    this.showNotification("News Task", `+${reward.toFixed(3)} TON`, "success");
+                    this.showNotification("News Task", `+${tonReward.toFixed(3)} TON, +${popReward} POP`, "success");
                     
                 } catch (error) {
                     this.showNotification("Error", "Failed to complete news task", "error");

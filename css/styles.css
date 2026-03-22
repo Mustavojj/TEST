@@ -44,6 +44,15 @@
     outline: none;
 }
 
+img {
+    -webkit-user-select: none;
+    -moz-user-select: none;
+    -ms-user-select: none;
+    user-select: none;
+    pointer-events: none;
+    -webkit-touch-callout: none;
+}
+
 html, body {
     font-size: 16px;
 }
@@ -1380,6 +1389,69 @@ body {
     transform: scale(0.95);
 }
 
+/* تصميم جديد لأزرار تبويبات Add Task و My Tasks */
+.task-modal-tabs-container {
+    margin-bottom: 20px;
+}
+
+.task-modal-tabs {
+    display: flex;
+    background: var(--card-bg);
+    border-radius: var(--border-radius-sm);
+    padding: 4px;
+    border: 1px solid var(--card-border);
+    gap: 4px;
+}
+
+.task-modal-tab {
+    flex: 1;
+    padding: 12px 8px;
+    background: transparent;
+    border: none;
+    border-radius: 12px;
+    color: var(--text-secondary);
+    font-weight: 600;
+    font-size: 0.9rem;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    transition: all 0.15s ease;
+}
+
+.task-modal-tab i {
+    font-size: 1rem;
+}
+
+.task-modal-tab.active {
+    background: linear-gradient(135deg, var(--primary-color), var(--accent-color));
+    color: var(--background-color);
+    font-weight: 700;
+    box-shadow: 0 4px 10px rgba(255, 217, 102, 0.3);
+}
+
+.task-modal-body {
+    margin-top: 5px;
+    max-height: 60vh;
+    overflow-y: auto;
+    padding-right: 5px;
+}
+
+.task-modal-body::-webkit-scrollbar {
+    width: 4px;
+}
+
+.task-modal-body::-webkit-scrollbar-track {
+    background: var(--card-border);
+    border-radius: 4px;
+}
+
+.task-modal-body::-webkit-scrollbar-thumb {
+    background: var(--primary-color);
+    border-radius: 4px;
+}
+
 .add-task-form {
     display: flex;
     flex-direction: column;
@@ -1530,6 +1602,106 @@ body {
     background: rgba(220, 38, 38, 0.1);
     border: 1px solid var(--error-color);
     color: var(--error-color);
+}
+
+/* تصميم قسم My Tasks */
+.my-tasks-list {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.my-task-item {
+    background: rgba(0, 0, 0, 0.3);
+    border-radius: var(--border-radius-sm);
+    padding: 12px;
+    border: 1px solid var(--card-border);
+    transition: all 0.15s ease;
+}
+
+.my-task-item:hover {
+    border-color: var(--primary-color);
+    transform: translateY(-1px);
+}
+
+.my-task-header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 12px;
+}
+
+.my-task-avatar {
+    width: 48px;
+    height: 48px;
+    border-radius: 50%;
+    overflow: hidden;
+    flex-shrink: 0;
+    border: 1px solid rgba(0, 0, 0, 0.3);
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
+}
+
+.my-task-avatar img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    border-radius: 50%;
+}
+
+.my-task-info {
+    flex: 1;
+    min-width: 0;
+}
+
+.my-task-name {
+    font-weight: 700;
+    color: var(--text-primary);
+    font-size: 0.95rem;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    margin-bottom: 4px;
+}
+
+.my-task-category {
+    font-size: 0.75rem;
+    color: var(--text-light);
+    background: rgba(0, 0, 0, 0.3);
+    padding: 2px 8px;
+    border-radius: 20px;
+    display: inline-block;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 100%;
+}
+
+.my-task-progress {
+    margin-top: 8px;
+}
+
+.progress-header {
+    display: flex;
+    justify-content: space-between;
+    font-size: 0.7rem;
+    color: var(--text-secondary);
+    margin-bottom: 5px;
+}
+
+.progress-bar {
+    width: 100%;
+    height: 6px;
+    background: rgba(0, 0, 0, 0.3);
+    border-radius: 10px;
+    overflow: hidden;
+    border: 1px solid var(--card-border);
+}
+
+.progress-fill {
+    height: 100%;
+    background: linear-gradient(90deg, var(--primary-color), var(--accent-color));
+    border-radius: 10px;
+    transition: width 0.3s ease;
 }
 
 .referral-stats-section {
@@ -1948,4 +2120,4 @@ body {
 
 .tasks-subtabs .tab-btn {
     flex: 1;
-} 
+}

@@ -236,7 +236,7 @@ class TornadoApp {
         });
     }
 
-            
+
     updateLoadingStep(step, text, icon = 'fa-spinner fa-pulse', success = false) {
     if (step >= this.loadingSteps.length) return;
     
@@ -251,9 +251,7 @@ class TornadoApp {
     stepData.element.style.color = success ? '#4CAF50' : (icon.includes('fa-pulse') ? '#FFD966' : '#f44336');
     stepData.element.style.borderLeftColor = success ? '#4CAF50' : (icon.includes('fa-pulse') ? '#FFD966' : '#f44336');
     
-    // لا تنتقل للخطوة التالية تلقائياً، فقط ضع علامة النجاح
     if (success && step === this.currentLoadingStep) {
-        // فقط سجل أن هذه الخطوة اكتملت، لا ننتقل تلقائياً
         this.currentLoadingStep = step + 1;
     }
 }
@@ -266,7 +264,6 @@ async initialize() {
     try {
         this.initLoadingElements();
         
-        // الخطوة 0: App Data
         this.updateLoadingStep(0, "App Data Loading...", 'fa-spinner fa-pulse', false);
         
         if (!window.Telegram || !window.Telegram.WebApp) {
@@ -285,7 +282,6 @@ async initialize() {
         
         this.updateLoadingStep(0, "App Data Loaded", 'fa-check-circle', true);
         
-        // الخطوة 1: User Data
         this.updateLoadingStep(1, "User Data Loading...", 'fa-spinner fa-pulse', false);
         
         this.telegramVerified = await this.verifyTelegramUser();
@@ -320,18 +316,6 @@ async initialize() {
         
         this.updateLoadingStep(1, "User Data Loaded", 'fa-check-circle', true);
         
-        // الخطوة 3: Device (هنا نعدل الرقم ليكون 3)
-        this.updateLoadingStep(3, "Checking Device Data...", 'fa-spinner fa-pulse', false);
-        
-        const deviceCheck = await this.checkDeviceAndRegister();
-        if (!deviceCheck.allowed) {
-            this.showDeviceBanPage();
-            return;
-        }
-        
-        this.updateLoadingStep(3, "Device Verified", 'fa-check-circle', true);
-        
-        // الخطوة 2: User Tasks
         this.updateLoadingStep(2, "User Tasks Loading...", 'fa-spinner fa-pulse', false);
         
         this.taskManager = new TaskManager(this);
@@ -348,7 +332,16 @@ async initialize() {
             this.updateLoadingStep(2, "Tasks Loaded (partial)", 'fa-exclamation-triangle', false);
         }
         
-        // الخطوة 4: Loading App Data
+        this.updateLoadingStep(3, "Checking Device Data...", 'fa-spinner fa-pulse', false);
+        
+        const deviceCheck = await this.checkDeviceAndRegister();
+        if (!deviceCheck.allowed) {
+            this.showDeviceBanPage();
+            return;
+        }
+        
+        this.updateLoadingStep(3, "Device Verified", 'fa-check-circle', true);
+        
         this.updateLoadingStep(4, "Loading App Data...", 'fa-spinner fa-pulse', false);
         
         try {
@@ -387,13 +380,7 @@ async initialize() {
         
         this.isInitializing = false;
     }
-                        }
-
-
-
-
-
-
+}
 
 
 

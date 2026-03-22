@@ -2121,3 +2121,19 @@ body {
 .tasks-subtabs .tab-btn {
     flex: 1;
 }
+
+.referral-stats-section {
+    margin-bottom: 20px;
+}
+
+.last-referrals-section {
+    margin-top: 20px;
+}
+
+.referral-row {
+    margin-bottom: 12px;
+}
+
+.referral-row:last-child {
+    margin-bottom: 0;
+} 

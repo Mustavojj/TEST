@@ -2137,3 +2137,11 @@ body {
 .referral-row:last-child {
     margin-bottom: 0;
 } 
+
+.referral-link-section {
+    margin-bottom: 20px;
+}
+
+.withdraw-minimum-info {
+    display: none;
+} 

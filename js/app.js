@@ -856,7 +856,7 @@ async initialize() {
                             </label>
                             <div class="completions-selector">
                                 ${completionsOptions.map(opt => {
-                                    const price = opt === 250 ? 250 : Math.floor(opt / 200) * this.appConfig.TASK_PRICE_PER_100_COMPLETIONS;
+                                    const price = opt === 250 ? 500 : Math.floor(opt / 200) * this.appConfig.TASK_PRICE_PER_100_COMPLETIONS;
                                     return `
                                         <div class="completion-option ${opt === 100 ? 'active' : ''}" data-completions="${opt}" data-price="${price}">${opt}</div>
                                     `;

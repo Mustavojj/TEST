@@ -797,111 +797,117 @@ async initialize() {
             checkinBtn.classList.remove('completed');
             checkinBtn.disabled = false;
         }
-    }
+}
 
     async showAddTaskModal() {
-        const modal = document.createElement('div');
-        modal.className = 'task-modal';
-        
-        const completionsOptions = [100, 250, 500, 1000, 5000, 10000];
-        
-        modal.innerHTML = `
-            <div class="task-modal-content">
-                <button class="task-modal-close" id="task-modal-close">
-                    <i class="fas fa-times"></i>
-                </button>
-                
-                <div class="task-modal-tabs-container">
-                    <div class="task-modal-tabs">
-                        <button class="task-modal-tab active" data-tab="add">Add Task</button>
-                        <button class="task-modal-tab" data-tab="mytasks">My Tasks</button>
-                    </div>
-                </div>
-                
-                <div id="add-task-tab" class="task-modal-body" style="display: block;">
-                    <form class="add-task-form" id="add-task-form">
-                        <div class="form-group">
-                            <label class="form-label">
-                                <i class="fas fa-tag"></i> Task Name
-                            </label>
-                            <input type="text" id="task-name" class="form-input" placeholder="Enter your task name *" maxlength="15" required>
-                        </div>
-                        
-                        <div class="form-group">
-                            <label class="form-label">
-                                <i class="fas fa-link"></i> Task Link
-                            </label>
-                            <input type="url" id="task-link" class="form-input" placeholder="https://t.me/..." required>
-                        </div>
-                        
-                        <div class="form-group">
-                            <label class="form-label">
-                                <i class="fas fa-shield-alt"></i> Verification Required
-                            </label>
-                            <div class="category-selector" id="verification-selector">
-                                <div class="category-option active" data-verification="NO">NO</div>
-                                <div class="category-option" data-verification="YES">YES</div>
-                            </div>
-                        </div>
-                        
-                        <div id="upgrade-admin-container" style="display: none;">
-                            <button type="button" class="upgrade-admin-btn" id="upgrade-admin-btn">
-                                <i class="fab fa-telegram"></i> Add @${this.appConfig.BOT_USERNAME} as admin
-                            </button>
-                        </div>
-                        
-                        <div class="form-group">
-                            <label class="form-label">
-                                <i class="fas fa-chart-line"></i> Completions
-                            </label>
-                            <div class="completions-selector">
-                                ${completionsOptions.map(opt => {
-                                    const price = opt === 250 ? 250 : Math.floor(opt / 200) * this.appConfig.TASK_PRICE_PER_100_COMPLETIONS;
-                                    return `
-                                        <div class="completion-option ${opt === 100 ? 'active' : ''}" data-completions="${opt}" data-price="${price}">${opt}</div>
-                                    `;
-                                }).join('')}
-                            </div>
-                        </div>
-                        
-                        <div class="price-info">
-                            <span class="price-label">Total Price:</span>
-                            <span class="price-value" id="total-price">200 POP</span>
-                        </div>
-                        
-                        <div class="task-message" id="task-message" style="display: none;"></div>
-                        
-                        <button type="button" class="pay-task-btn" id="pay-task-btn">
-                            <i class="fas fa-coins"></i> Pay 200 POP
-                        </button>
-                    </form>
-                </div>
-                
-                <div id="mytasks-tab" class="task-modal-body" style="display: none;">
-                    <div class="my-tasks-list" id="my-tasks-list">
-                        ${this.renderMyTasks()}
-                    </div>
+    const modal = document.createElement('div');
+    modal.className = 'task-modal';
+    
+    const completionsOptions = [100, 250, 500, 1000, 5000, 10000];
+    
+    modal.innerHTML = `
+        <div class="task-modal-content">
+            <button class="task-modal-close" id="task-modal-close">
+                <i class="fas fa-times"></i>
+            </button>
+            
+            <div class="task-modal-tabs-container">
+                <div class="task-modal-tabs">
+                    <button class="task-modal-tab active" data-tab="add">Add Task</button>
+                    <button class="task-modal-tab" data-tab="mytasks">My Tasks</button>
                 </div>
             </div>
-        `;
-        
-        document.body.appendChild(modal);
-        
-        const closeBtn = document.getElementById('task-modal-close');
-        if (closeBtn) {
-            closeBtn.addEventListener('click', () => {
-                modal.remove();
-            });
-        }
-        
-        modal.addEventListener('click', (e) => {
-            if (e.target === modal) {
-                modal.remove();
-            }
+            
+            <div id="add-task-tab" class="task-modal-body" style="display: block;">
+                <form class="add-task-form" id="add-task-form">
+                    <div class="form-group">
+                        <label class="form-label">
+                            <i class="fas fa-tag"></i> Task Name
+                        </label>
+                        <input type="text" id="task-name" class="form-input" placeholder="Enter your task name *" maxlength="15" required>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label class="form-label">
+                            <i class="fas fa-link"></i> Task Link
+                        </label>
+                        <input type="url" id="task-link" class="form-input" placeholder="https://t.me/..." required>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label class="form-label">
+                            <i class="fas fa-shield-alt"></i> Verification Required
+                        </label>
+                        <div class="category-selector" id="verification-selector">
+                            <div class="category-option active" data-verification="NO">NO</div>
+                            <div class="category-option" data-verification="YES">YES</div>
+                        </div>
+                    </div>
+                    
+                    <div id="upgrade-admin-container" style="display: none;">
+                        <button type="button" class="upgrade-admin-btn" id="upgrade-admin-btn">
+                            <i class="fab fa-telegram"></i> Add @${this.appConfig.BOT_USERNAME} as admin
+                        </button>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label class="form-label">
+                            <i class="fas fa-chart-line"></i> Completions
+                        </label>
+                        <div class="completions-selector">
+                            ${completionsOptions.map(opt => {
+                                let price;
+                                if (opt === 250) {
+                                    price = 500;
+                                } else {
+                                    price = Math.floor(opt / 100) * 200;
+                                }
+                                return `
+                                    <div class="completion-option ${opt === 100 ? 'active' : ''}" data-completions="${opt}" data-price="${price}">${opt}</div>
+                                `;
+                            }).join('')}
+                        </div>
+                    </div>
+                    
+                    <div class="price-info">
+                        <span class="price-label">Total Price:</span>
+                        <span class="price-value" id="total-price">200 POP</span>
+                    </div>
+                    
+                    <div class="task-message" id="task-message" style="display: none;"></div>
+                    
+                    <button type="button" class="pay-task-btn" id="pay-task-btn">
+                        <i class="fas fa-coins"></i> Pay 200 POP
+                    </button>
+                </form>
+            </div>
+            
+            <div id="mytasks-tab" class="task-modal-body" style="display: none;">
+                <div class="my-tasks-list" id="my-tasks-list">
+                    ${this.renderMyTasks()}
+                </div>
+            </div>
+        </div>
+    `;
+    
+    document.body.appendChild(modal);
+    
+    const closeBtn = document.getElementById('task-modal-close');
+    if (closeBtn) {
+        closeBtn.addEventListener('click', () => {
+            modal.remove();
         });
-        
-        this.setupTaskModalEvents(modal, completionsOptions);
     }
+    
+    modal.addEventListener('click', (e) => {
+        if (e.target === modal) {
+            modal.remove();
+        }
+    });
+    
+    this.setupTaskModalEvents(modal, completionsOptions);
+                }
+    
 
     renderMyTasks() {
         if (!this.userCreatedTasks || this.userCreatedTasks.length === 0) {

@@ -866,13 +866,13 @@ async initialize() {
                         
                         <div class="price-info">
                             <span class="price-label">Total Price:</span>
-                            <span class="price-value" id="total-price">100 POP</span>
+                            <span class="price-value" id="total-price">200 POP</span>
                         </div>
                         
                         <div class="task-message" id="task-message" style="display: none;"></div>
                         
                         <button type="button" class="pay-task-btn" id="pay-task-btn">
-                            <i class="fas fa-coins"></i> Pay 100 POP
+                            <i class="fas fa-coins"></i> Pay 200 POP
                         </button>
                     </form>
                 </div>

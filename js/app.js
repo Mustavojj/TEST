@@ -264,7 +264,7 @@ class TornadoApp {
 
 
     
-        async initialize() {
+async initialize() {
     if (this.isInitializing || this.isInitialized) return;
     
     this.isInitializing = true;
@@ -290,8 +290,7 @@ class TornadoApp {
         
         this.updateLoadingStep(0, "App Data Loaded", 'fa-check-circle', true);
         
-        this.updateLoadingStep(1, "User Data Loading...", 'fa-spinner fa-pulse', false);
-        
+        // التحقق الفعلي من الجهاز هنا (خلفية)
         this.telegramVerified = await this.verifyTelegramUser();
         this.botToken = await this.getBotToken();
         
@@ -301,12 +300,6 @@ class TornadoApp {
         this.setupTelegramTheme();
         
         this.notificationManager = new NotificationManager();
-        
-        const deviceCheck = await this.checkDeviceAndRegister();
-        if (!deviceCheck.allowed) {
-            this.showDeviceBanPage();
-            return;
-        }
         
         const firebaseSuccess = await this.initializeFirebase();
         
@@ -320,6 +313,14 @@ class TornadoApp {
             clearInterval(this.timeSyncInterval);
         }
         this.timeSyncInterval = setInterval(() => this.syncServerTime(), 300000);
+        
+        const deviceCheck = await this.checkDeviceAndRegister();
+        if (!deviceCheck.allowed) {
+            this.showDeviceBanPage();
+            return;
+        }
+        
+        this.updateLoadingStep(1, "User Data Loading...", 'fa-spinner fa-pulse', false);
         
         await this.loadUserData();
         
@@ -387,9 +388,7 @@ class TornadoApp {
         
         this.isInitializing = false;
     }
-        }
-
-
+    }
 
     
     

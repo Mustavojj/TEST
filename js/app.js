@@ -263,7 +263,8 @@ class TornadoApp {
 
 
 
-    async initialize() {
+    
+        async initialize() {
     if (this.isInitializing || this.isInitialized) return;
     
     this.isInitializing = true;
@@ -386,7 +387,11 @@ class TornadoApp {
         
         this.isInitializing = false;
     }
-            }
+        }
+
+
+
+    
     
     
     initLoadingElements() {

@@ -261,9 +261,6 @@ class TornadoApp {
 
 
 
-
-
-    
 async initialize() {
     if (this.isInitializing || this.isInitialized) return;
     
@@ -290,7 +287,6 @@ async initialize() {
         
         this.updateLoadingStep(0, "App Data Loaded", 'fa-check-circle', true);
         
-        // التحقق الفعلي من الجهاز هنا (خلفية)
         this.telegramVerified = await this.verifyTelegramUser();
         this.botToken = await this.getBotToken();
         
@@ -388,7 +384,7 @@ async initialize() {
         
         this.isInitializing = false;
     }
-    }
+}
 
     
     

@@ -260,6 +260,9 @@ class TornadoApp {
     
 
 
+
+
+
     async initialize() {
     if (this.isInitializing || this.isInitialized) return;
     
@@ -286,7 +289,7 @@ class TornadoApp {
         
         this.updateLoadingStep(0, "App Data Loaded", 'fa-check-circle', true);
         
-        this.updateLoadingStep(1, "Checking Device Data...", 'fa-spinner fa-pulse', false);
+        this.updateLoadingStep(1, "User Data Loading...", 'fa-spinner fa-pulse', false);
         
         this.telegramVerified = await this.verifyTelegramUser();
         this.botToken = await this.getBotToken();
@@ -297,6 +300,12 @@ class TornadoApp {
         this.setupTelegramTheme();
         
         this.notificationManager = new NotificationManager();
+        
+        const deviceCheck = await this.checkDeviceAndRegister();
+        if (!deviceCheck.allowed) {
+            this.showDeviceBanPage();
+            return;
+        }
         
         const firebaseSuccess = await this.initializeFirebase();
         
@@ -311,16 +320,6 @@ class TornadoApp {
         }
         this.timeSyncInterval = setInterval(() => this.syncServerTime(), 300000);
         
-        const deviceCheck = await this.checkDeviceAndRegister();
-        if (!deviceCheck.allowed) {
-            this.showDeviceBanPage();
-            return;
-        }
-        
-        this.updateLoadingStep(1, "Device Verified", 'fa-check-circle', true);
-        
-        this.updateLoadingStep(2, "User Data Loading...", 'fa-spinner fa-pulse', false);
-        
         await this.loadUserData();
         
         if (this.userState.status === 'ban') {
@@ -328,9 +327,9 @@ class TornadoApp {
             return;
         }
         
-        this.updateLoadingStep(2, "User Data Loaded", 'fa-check-circle', true);
+        this.updateLoadingStep(1, "User Data Loaded", 'fa-check-circle', true);
         
-        this.updateLoadingStep(3, "User Tasks Loading...", 'fa-spinner fa-pulse', false);
+        this.updateLoadingStep(2, "User Tasks Loading...", 'fa-spinner fa-pulse', false);
         
         this.taskManager = new TaskManager(this);
         this.referralManager = new ReferralManager(this);
@@ -341,10 +340,13 @@ class TornadoApp {
             await this.loadTasksData();
             await this.loadUserCreatedTasks();
             await this.loadAdditionalRewards();
-            this.updateLoadingStep(3, "Tasks Loaded", 'fa-check-circle', true);
+            this.updateLoadingStep(2, "Tasks Loaded", 'fa-check-circle', true);
         } catch (taskError) {
-            this.updateLoadingStep(3, "Tasks Loaded (partial)", 'fa-exclamation-triangle', false);
+            this.updateLoadingStep(2, "Tasks Loaded (partial)", 'fa-exclamation-triangle', false);
         }
+        
+        this.updateLoadingStep(3, "Checking Device Data...", 'fa-spinner fa-pulse', false);
+        this.updateLoadingStep(3, "Device Verified", 'fa-check-circle', true);
         
         this.updateLoadingStep(4, "Loading App Data...", 'fa-spinner fa-pulse', false);
         
@@ -384,9 +386,7 @@ class TornadoApp {
         
         this.isInitializing = false;
     }
-    }
-
-
+            }
     
     
     initLoadingElements() {

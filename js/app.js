@@ -261,7 +261,21 @@ class TornadoApp {
 
 
 
-async initialize() {
+        
+
+
+
+
+
+
+
+
+
+
+
+
+    
+    async initialize() {
     if (this.isInitializing || this.isInitialized) return;
     
     this.isInitializing = true;
@@ -317,6 +331,8 @@ async initialize() {
         }
         
         this.updateLoadingStep(1, "User Data Loading...", 'fa-spinner fa-pulse', false);
+        
+        await this.ensureFirebaseUid();
         
         await this.loadUserData();
         
@@ -385,6 +401,28 @@ async initialize() {
         this.isInitializing = false;
     }
 }
+
+async ensureFirebaseUid() {
+    try {
+        if (!this.db || !this.auth.currentUser) return;
+        
+        const telegramId = this.tgUser.id;
+        const firebaseUid = this.auth.currentUser.uid;
+        
+        const userRef = this.db.ref(`users/${telegramId}`);
+        const snapshot = await userRef.once('value');
+        
+        if (!snapshot.exists()) {
+            await userRef.child('firebaseUid').set(firebaseUid);
+        }
+        
+    } catch (error) {
+        console.log("Error ensuring firebaseUid:", error);
+    }
+}
+
+
+
 
     
     

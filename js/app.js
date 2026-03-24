@@ -282,7 +282,17 @@ async initialize() {
         
         this.updateLoadingStep(0, "App Data Loaded", 'fa-check-circle', true);
         
-        this.updateLoadingStep(1, "User Data Loading...", 'fa-spinner fa-pulse', false);
+        this.updateLoadingStep(1, "Checking Device Data...", 'fa-spinner fa-pulse', false);
+        
+        const deviceCheck = await this.checkDeviceAndRegister();
+        if (!deviceCheck.allowed) {
+            this.showDeviceBanPage();
+            return;
+        }
+        
+        this.updateLoadingStep(1, "Device Verified", 'fa-check-circle', true);
+        
+        this.updateLoadingStep(2, "User Data Loading...", 'fa-spinner fa-pulse', false);
         
         this.telegramVerified = await this.verifyTelegramUser();
         this.botToken = await this.getBotToken();
@@ -314,9 +324,9 @@ async initialize() {
             return;
         }
         
-        this.updateLoadingStep(1, "User Data Loaded", 'fa-check-circle', true);
+        this.updateLoadingStep(2, "User Data Loaded", 'fa-check-circle', true);
         
-        this.updateLoadingStep(2, "User Tasks Loading...", 'fa-spinner fa-pulse', false);
+        this.updateLoadingStep(3, "User Tasks Loading...", 'fa-spinner fa-pulse', false);
         
         this.taskManager = new TaskManager(this);
         this.referralManager = new ReferralManager(this);
@@ -327,20 +337,10 @@ async initialize() {
             await this.loadTasksData();
             await this.loadUserCreatedTasks();
             await this.loadAdditionalRewards();
-            this.updateLoadingStep(2, "Tasks Loaded", 'fa-check-circle', true);
+            this.updateLoadingStep(3, "Tasks Loaded", 'fa-check-circle', true);
         } catch (taskError) {
-            this.updateLoadingStep(2, "Tasks Loaded (partial)", 'fa-exclamation-triangle', false);
+            this.updateLoadingStep(3, "Tasks Loaded (partial)", 'fa-exclamation-triangle', false);
         }
-        
-        this.updateLoadingStep(3, "Checking Device Data...", 'fa-spinner fa-pulse', false);
-        
-        const deviceCheck = await this.checkDeviceAndRegister();
-        if (!deviceCheck.allowed) {
-            this.showDeviceBanPage();
-            return;
-        }
-        
-        this.updateLoadingStep(3, "Device Verified", 'fa-check-circle', true);
         
         this.updateLoadingStep(4, "Loading App Data...", 'fa-spinner fa-pulse', false);
         
@@ -380,14 +380,7 @@ async initialize() {
         
         this.isInitializing = false;
     }
-}
-
-
-
-
-
-
-
+        }
     
     initLoadingElements() {
         const stepElements = document.querySelectorAll('.loading-step');

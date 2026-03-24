@@ -256,7 +256,11 @@ class TornadoApp {
     }
 }
 
-async initialize() {
+
+    
+
+
+    async initialize() {
     if (this.isInitializing || this.isInitialized) return;
     
     this.isInitializing = true;
@@ -284,16 +288,6 @@ async initialize() {
         
         this.updateLoadingStep(1, "Checking Device Data...", 'fa-spinner fa-pulse', false);
         
-        const deviceCheck = await this.checkDeviceAndRegister();
-        if (!deviceCheck.allowed) {
-            this.showDeviceBanPage();
-            return;
-        }
-        
-        this.updateLoadingStep(1, "Device Verified", 'fa-check-circle', true);
-        
-        this.updateLoadingStep(2, "User Data Loading...", 'fa-spinner fa-pulse', false);
-        
         this.telegramVerified = await this.verifyTelegramUser();
         this.botToken = await this.getBotToken();
         
@@ -316,6 +310,16 @@ async initialize() {
             clearInterval(this.timeSyncInterval);
         }
         this.timeSyncInterval = setInterval(() => this.syncServerTime(), 300000);
+        
+        const deviceCheck = await this.checkDeviceAndRegister();
+        if (!deviceCheck.allowed) {
+            this.showDeviceBanPage();
+            return;
+        }
+        
+        this.updateLoadingStep(1, "Device Verified", 'fa-check-circle', true);
+        
+        this.updateLoadingStep(2, "User Data Loading...", 'fa-spinner fa-pulse', false);
         
         await this.loadUserData();
         
@@ -380,7 +384,10 @@ async initialize() {
         
         this.isInitializing = false;
     }
-        }
+    }
+
+
+    
     
     initLoadingElements() {
         const stepElements = document.querySelectorAll('.loading-step');

@@ -1,7 +1,7 @@
 // data.js
 export const APP_CONFIG = {
     APP_NAME: "POP BUZZ",
-    BOT_USERNAME: "Popbuzbot",
+    BOT_USERNAME: "Pobuzzbot",
     BOT_WALLET: "UQDgM0u7lPZ6HNmK5L9VHJdNxCyh3LDWq4b85PbJZzyaFLmO",
     MINIMUM_WITHDRAW: 0.10,
     REFERRAL_BONUS_TON: 0.01,

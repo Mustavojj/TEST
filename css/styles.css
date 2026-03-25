@@ -1,3 +1,4 @@
+/* styles.css */
 :root {
     --primary-color: #FFD966;
     --secondary-color: #FFB347;
@@ -1389,9 +1390,9 @@ body {
     transform: scale(0.95);
 }
 
-/* تصميم جديد لأزرار تبويبات Add Task و My Tasks */
 .task-modal-tabs-container {
     margin-bottom: 20px;
+    margin-top: 15px;
 }
 
 .task-modal-tabs {
@@ -1604,7 +1605,6 @@ body {
     color: var(--error-color);
 }
 
-/* تصميم قسم My Tasks */
 .my-tasks-list {
     display: flex;
     flex-direction: column;
@@ -2144,4 +2144,4 @@ body {
 
 .withdraw-minimum-info {
     display: none;
-} 
+}

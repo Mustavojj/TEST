@@ -1,3 +1,4 @@
+// features.js
 import { APP_CONFIG, FEATURES_CONFIG } from '../data.js';
 
 class TaskManager {

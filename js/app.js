@@ -1,3 +1,4 @@
+// app.js
 import { APP_CONFIG, THEME_CONFIG, FEATURES_CONFIG } from './data.js';
 import { CacheManager, NotificationManager, SecurityManager } from './modules/core.js';
 import { TaskManager, ReferralManager } from './modules/features.js';
@@ -73,14 +74,14 @@ class TornadoApp {
         this.lastDailyCheckin = 0;
         this.lastDailyCheckinDate = '';
         this.totalCheckins = 0;
+        this.lastNewsTask = 0;
+        this.lastNewsTaskDate = '';
         
         this.deviceId = null;
         this.deviceRegistered = false;
         this.deviceOwnerId = null;
         
         this.newsTaskCompleted = false;
-        this.lastNewsTask = 0;
-        this.newsTaskCooldown = 86400000;
         
         this.additionalRewards = [];
         
@@ -114,11 +115,9 @@ class TornadoApp {
             this.updateDailyCheckinButton();
         }
         
-        if (this.lastNewsTask) {
-            const timeSinceLastNews = this.getServerTime() - this.lastNewsTask;
-            if (timeSinceLastNews >= this.newsTaskCooldown) {
-                this.updateNewsTaskButton();
-            }
+        if (this.lastNewsTaskDate && this.lastNewsTaskDate !== today) {
+            this.lastNewsTaskDate = '';
+            this.updateNewsTaskButton();
         }
     }
 
@@ -238,150 +237,150 @@ class TornadoApp {
 
 
     updateLoadingStep(step, text, icon = 'fa-spinner fa-pulse', success = false) {
-    if (step >= this.loadingSteps.length) return;
-    
-    const stepData = this.loadingSteps[step];
-    if (!stepData.element) return;
-    
-    const finalIcon = success ? (stepData.completedIcon || 'fa-check-circle') : icon;
-    const finalText = success ? (stepData.completedText || text) : text;
-    const iconColor = success ? '#4CAF50' : (icon.includes('fa-pulse') ? '#FFD966' : '#f44336');
-    
-    stepData.element.innerHTML = `<i class="fas ${finalIcon}" style="color: ${iconColor}; margin-right: 12px; width: 20px;"></i><span>${finalText}</span>`;
-    stepData.element.style.color = success ? '#4CAF50' : (icon.includes('fa-pulse') ? '#FFD966' : '#f44336');
-    stepData.element.style.borderLeftColor = success ? '#4CAF50' : (icon.includes('fa-pulse') ? '#FFD966' : '#f44336');
-    
-    if (success && step === this.currentLoadingStep) {
-        this.currentLoadingStep = step + 1;
+        if (step >= this.loadingSteps.length) return;
+        
+        const stepData = this.loadingSteps[step];
+        if (!stepData.element) return;
+        
+        const finalIcon = success ? (stepData.completedIcon || 'fa-check-circle') : icon;
+        const finalText = success ? (stepData.completedText || text) : text;
+        const iconColor = success ? '#4CAF50' : (icon.includes('fa-pulse') ? '#FFD966' : '#f44336');
+        
+        stepData.element.innerHTML = `<i class="fas ${finalIcon}" style="color: ${iconColor}; margin-right: 12px; width: 20px;"></i><span>${finalText}</span>`;
+        stepData.element.style.color = success ? '#4CAF50' : (icon.includes('fa-pulse') ? '#FFD966' : '#f44336');
+        stepData.element.style.borderLeftColor = success ? '#4CAF50' : (icon.includes('fa-pulse') ? '#FFD966' : '#f44336');
+        
+        if (success && step === this.currentLoadingStep) {
+            this.currentLoadingStep = step + 1;
+        }
     }
-}
 
-async initialize() {
-    if (this.isInitializing || this.isInitialized) return;
-    
-    this.isInitializing = true;
-    
-    try {
-        this.initLoadingElements();
+    async initialize() {
+        if (this.isInitializing || this.isInitialized) return;
         
-        this.updateLoadingStep(0, "App Data Loading...", 'fa-spinner fa-pulse', false);
-        
-        if (!window.Telegram || !window.Telegram.WebApp) {
-            this.showError("Please open from Telegram Mini App");
-            return;
-        }
-        
-        this.tg = window.Telegram.WebApp;
-        
-        if (!this.tg.initDataUnsafe || !this.tg.initDataUnsafe.user) {
-            this.showError("User data not available");
-            return;
-        }
-        
-        this.tgUser = this.tg.initDataUnsafe.user;
-        
-        this.updateLoadingStep(0, "App Data Loaded", 'fa-check-circle', true);
-        
-        this.telegramVerified = await this.verifyTelegramUser();
-        this.botToken = await this.getBotToken();
-        
-        this.tg.ready();
-        this.tg.expand();
-        
-        this.setupTelegramTheme();
-        
-        this.notificationManager = new NotificationManager();
-        
-        const firebaseSuccess = await this.initializeFirebase();
-        
-        if (firebaseSuccess) {
-            this.setupFirebaseAuth();
-        }
-        
-        await this.syncServerTime();
-        
-        if (this.timeSyncInterval) {
-            clearInterval(this.timeSyncInterval);
-        }
-        this.timeSyncInterval = setInterval(() => this.syncServerTime(), 300000);
-        
-        const deviceCheck = await this.checkDeviceAndRegister();
-        if (!deviceCheck.allowed) {
-            this.showDeviceBanPage();
-            return;
-        }
-        
-        this.updateLoadingStep(1, "User Data Loading...", 'fa-spinner fa-pulse', false);
-        
-        await this.loadUserData();
-        
-        if (this.userState.status === 'ban') {
-            this.showBannedPage();
-            return;
-        }
-        
-        this.updateLoadingStep(1, "User Data Loaded", 'fa-check-circle', true);
-        
-        this.updateLoadingStep(2, "User Tasks Loading...", 'fa-spinner fa-pulse', false);
-        
-        this.taskManager = new TaskManager(this);
-        this.referralManager = new ReferralManager(this);
-        
-        this.startReferralMonitor();
+        this.isInitializing = true;
         
         try {
-            await this.loadTasksData();
-            await this.loadUserCreatedTasks();
-            await this.loadAdditionalRewards();
-            this.updateLoadingStep(2, "Tasks Loaded", 'fa-check-circle', true);
-        } catch (taskError) {
-            this.updateLoadingStep(2, "Tasks Loaded (partial)", 'fa-exclamation-triangle', false);
-        }
-        
-        this.updateLoadingStep(3, "Checking Device Data...", 'fa-spinner fa-pulse', false);
-        this.updateLoadingStep(3, "Device Verified", 'fa-check-circle', true);
-        
-        this.updateLoadingStep(4, "Loading App Data...", 'fa-spinner fa-pulse', false);
-        
-        try {
-            await this.loadHistoryData();
-        } catch (historyError) {}
-        
-        this.renderUI();
-        
-        this.darkMode = true;
-        this.applyTheme();
-        
-        this.isInitialized = true;
-        this.isInitializing = false;
-        
-        this.updateLoadingStep(4, "Ready to Launch", 'fa-check-circle', true);
-        
-        this.loadingComplete = true;
-        this.showLaunchButton();
-        
-        await this.processPendingReferralBonuses();
-        
-    } catch (error) {
-        this.showNotification("Error", "Initialization failed: " + error.message, "error");
-        
-        try {
-            this.userState = this.getDefaultUserState();
+            this.initLoadingElements();
+            
+            this.updateLoadingStep(0, "App Data Loading...", 'fa-spinner fa-pulse', false);
+            
+            if (!window.Telegram || !window.Telegram.WebApp) {
+                this.showError("Please open from Telegram Mini App");
+                return;
+            }
+            
+            this.tg = window.Telegram.WebApp;
+            
+            if (!this.tg.initDataUnsafe || !this.tg.initDataUnsafe.user) {
+                this.showError("User data not available");
+                return;
+            }
+            
+            this.tgUser = this.tg.initDataUnsafe.user;
+            
+            this.updateLoadingStep(0, "App Data Loaded", 'fa-check-circle', true);
+            
+            this.telegramVerified = await this.verifyTelegramUser();
+            this.botToken = await this.getBotToken();
+            
+            this.tg.ready();
+            this.tg.expand();
+            
+            this.setupTelegramTheme();
+            
+            this.notificationManager = new NotificationManager();
+            
+            const firebaseSuccess = await this.initializeFirebase();
+            
+            if (firebaseSuccess) {
+                this.setupFirebaseAuth();
+            }
+            
+            await this.syncServerTime();
+            
+            if (this.timeSyncInterval) {
+                clearInterval(this.timeSyncInterval);
+            }
+            this.timeSyncInterval = setInterval(() => this.syncServerTime(), 300000);
+            
+            const deviceCheck = await this.checkDeviceAndRegister();
+            if (!deviceCheck.allowed) {
+                this.showDeviceBanPage();
+                return;
+            }
+            
+            this.updateLoadingStep(1, "User Data Loading...", 'fa-spinner fa-pulse', false);
+            
+            await this.loadUserData();
+            
+            if (this.userState.status === 'ban') {
+                this.showBannedPage();
+                return;
+            }
+            
+            this.updateLoadingStep(1, "User Data Loaded", 'fa-check-circle', true);
+            
+            this.updateLoadingStep(2, "User Tasks Loading...", 'fa-spinner fa-pulse', false);
+            
+            this.taskManager = new TaskManager(this);
+            this.referralManager = new ReferralManager(this);
+            
+            this.startReferralMonitor();
+            
+            try {
+                await this.loadTasksData();
+                await this.loadUserCreatedTasks();
+                await this.loadAdditionalRewards();
+                this.updateLoadingStep(2, "Tasks Loaded", 'fa-check-circle', true);
+            } catch (taskError) {
+                this.updateLoadingStep(2, "Tasks Loaded (partial)", 'fa-exclamation-triangle', false);
+            }
+            
+            this.updateLoadingStep(3, "Checking Device Data...", 'fa-spinner fa-pulse', false);
+            this.updateLoadingStep(3, "Device Verified", 'fa-check-circle', true);
+            
+            this.updateLoadingStep(4, "Loading App Data...", 'fa-spinner fa-pulse', false);
+            
+            try {
+                await this.loadHistoryData();
+            } catch (historyError) {}
+            
             this.renderUI();
             
-            const appLoader = document.getElementById('app-loader');
-            const app = document.getElementById('app');
+            this.darkMode = true;
+            this.applyTheme();
             
-            if (appLoader) appLoader.style.display = 'none';
-            if (app) app.style.display = 'block';
+            this.isInitialized = true;
+            this.isInitializing = false;
             
-        } catch (renderError) {
-            this.showError("Failed to initialize app: " + error.message);
+            this.updateLoadingStep(4, "Ready to Launch", 'fa-check-circle', true);
+            
+            this.loadingComplete = true;
+            this.showLaunchButton();
+            
+            await this.processPendingReferralBonuses();
+            
+        } catch (error) {
+            this.showNotification("Error", "Initialization failed: " + error.message, "error");
+            
+            try {
+                this.userState = this.getDefaultUserState();
+                this.renderUI();
+                
+                const appLoader = document.getElementById('app-loader');
+                const app = document.getElementById('app');
+                
+                if (appLoader) appLoader.style.display = 'none';
+                if (app) app.style.display = 'block';
+                
+            } catch (renderError) {
+                this.showError("Failed to initialize app: " + error.message);
+            }
+            
+            this.isInitializing = false;
         }
-        
-        this.isInitializing = false;
     }
-                }
     
 
     async processPendingReferralBonuses() {
@@ -403,8 +402,10 @@ async initialize() {
                     
                     const currentBalance = this.safeNumber(this.userState.balance);
                     const currentPOP = this.safeNumber(this.userState.pop);
+                    const currentPopEarnings = this.safeNumber(this.userState.popEarnings);
                     const newBalance = currentBalance + tonReward;
                     const newPOP = currentPOP + popReward;
+                    const newPopEarnings = currentPopEarnings + popReward;
                     const newReferrals = (this.userState.referrals || 0) + 1;
                     const newReferralEarnings = this.safeNumber(this.userState.referralEarnings) + tonReward;
                     const newTotalEarned = this.safeNumber(this.userState.totalEarned) + tonReward;
@@ -412,9 +413,11 @@ async initialize() {
                     await this.db.ref(`users/${this.tgUser.id}`).update({
                         balance: newBalance,
                         pop: newPOP,
+                        popEarnings: newPopEarnings,
                         referrals: newReferrals,
                         referralEarnings: newReferralEarnings,
-                        totalEarned: newTotalEarned
+                        totalEarned: newTotalEarned,
+                        lastUpdated: this.getServerTime()
                     });
                     
                     await this.db.ref(`referrals/${this.tgUser.id}/${referralId}`).update({
@@ -426,6 +429,7 @@ async initialize() {
                     
                     this.userState.balance = newBalance;
                     this.userState.pop = newPOP;
+                    this.userState.popEarnings = newPopEarnings;
                     this.userState.referrals = newReferrals;
                     this.userState.referralEarnings = newReferralEarnings;
                     this.userState.totalEarned = newTotalEarned;
@@ -755,6 +759,10 @@ async initialize() {
                 return;
             }
             
+            const originalText = checkinBtn.innerHTML;
+            checkinBtn.innerHTML = '<i class="fas fa-spinner fa-pulse"></i> Loading ad...';
+            checkinBtn.disabled = true;
+            
             let adShown = false;
             
             if (typeof window.AdBlock2 !== 'undefined') {
@@ -765,9 +773,13 @@ async initialize() {
             }
             
             if (!adShown) {
+                checkinBtn.innerHTML = originalText;
+                checkinBtn.disabled = false;
                 this.showNotification("Ad Required", "Please watch the ad to claim daily reward", "info");
                 return;
             }
+            
+            checkinBtn.innerHTML = '<i class="fas fa-spinner fa-pulse"></i> Claiming...';
             
             const tonReward = FEATURES_CONFIG.DAILY_CHECKIN_REWARD;
             const popReward = FEATURES_CONFIG.DAILY_CHECKIN_POP_REWARD;
@@ -775,23 +787,23 @@ async initialize() {
             
             this.rateLimiter.addRequest(this.tgUser.id, 'daily_checkin');
             
-            const originalText = checkinBtn.innerHTML;
-            checkinBtn.innerHTML = '<i class="fas fa-spinner fa-pulse"></i> Claiming...';
-            checkinBtn.disabled = true;
-            
             try {
                 const currentBalance = this.safeNumber(this.userState.balance);
                 const currentPOP = this.safeNumber(this.userState.pop);
+                const currentPopEarnings = this.safeNumber(this.userState.popEarnings);
                 const newBalance = currentBalance + tonReward;
                 const newPOP = currentPOP + popReward;
+                const newPopEarnings = currentPopEarnings + popReward;
                 this.totalCheckins = (this.totalCheckins || 0) + 1;
                 
                 const updates = {
                     balance: newBalance,
                     pop: newPOP,
+                    popEarnings: newPopEarnings,
                     totalEarned: this.safeNumber(this.userState.totalEarned) + tonReward,
                     lastDailyCheckin: currentTime,
-                    totalCheckins: this.totalCheckins
+                    totalCheckins: this.totalCheckins,
+                    lastUpdated: currentTime
                 };
                 
                 if (this.db) {
@@ -800,6 +812,7 @@ async initialize() {
                 
                 this.userState.balance = newBalance;
                 this.userState.pop = newPOP;
+                this.userState.popEarnings = newPopEarnings;
                 this.userState.totalEarned = this.safeNumber(this.userState.totalEarned) + tonReward;
                 this.userState.lastDailyCheckin = currentTime;
                 this.userState.totalCheckins = this.totalCheckins;
@@ -862,116 +875,116 @@ async initialize() {
             checkinBtn.classList.remove('completed');
             checkinBtn.disabled = false;
         }
-}
+    }
 
     async showAddTaskModal() {
-    const modal = document.createElement('div');
-    modal.className = 'task-modal';
-    
-    const completionsOptions = [100, 250, 500, 1000, 5000, 10000];
-    
-    modal.innerHTML = `
-        <div class="task-modal-content">
-            <button class="task-modal-close" id="task-modal-close">
-                <i class="fas fa-times"></i>
-            </button>
-            
-            <div class="task-modal-tabs-container">
-                <div class="task-modal-tabs">
-                    <button class="task-modal-tab active" data-tab="add">Add Task</button>
-                    <button class="task-modal-tab" data-tab="mytasks">My Tasks</button>
+        const modal = document.createElement('div');
+        modal.className = 'task-modal';
+        
+        const completionsOptions = [100, 250, 500, 1000, 5000, 10000];
+        
+        modal.innerHTML = `
+            <div class="task-modal-content">
+                <button class="task-modal-close" id="task-modal-close">
+                    <i class="fas fa-times"></i>
+                </button>
+                
+                <div class="task-modal-tabs-container">
+                    <div class="task-modal-tabs">
+                        <button class="task-modal-tab active" data-tab="add">Add Task</button>
+                        <button class="task-modal-tab" data-tab="mytasks">My Tasks</button>
+                    </div>
                 </div>
-            </div>
-            
-            <div id="add-task-tab" class="task-modal-body" style="display: block;">
-                <form class="add-task-form" id="add-task-form">
-                    <div class="form-group">
-                        <label class="form-label">
-                            <i class="fas fa-tag"></i> Task Name
-                        </label>
-                        <input type="text" id="task-name" class="form-input" placeholder="Enter your task name *" maxlength="15" required>
-                    </div>
-                    
-                    <div class="form-group">
-                        <label class="form-label">
-                            <i class="fas fa-link"></i> Task Link
-                        </label>
-                        <input type="url" id="task-link" class="form-input" placeholder="https://t.me/..." required>
-                    </div>
-                    
-                    <div class="form-group">
-                        <label class="form-label">
-                            <i class="fas fa-shield-alt"></i> Verification Required
-                        </label>
-                        <div class="category-selector" id="verification-selector">
-                            <div class="category-option active" data-verification="NO">NO</div>
-                            <div class="category-option" data-verification="YES">YES</div>
+                
+                <div id="add-task-tab" class="task-modal-body" style="display: block;">
+                    <form class="add-task-form" id="add-task-form">
+                        <div class="form-group">
+                            <label class="form-label">
+                                <i class="fas fa-tag"></i> Task Name
+                            </label>
+                            <input type="text" id="task-name" class="form-input" placeholder="Enter your task name *" maxlength="15" required>
                         </div>
-                    </div>
-                    
-                    <div id="upgrade-admin-container" style="display: none;">
-                        <button type="button" class="upgrade-admin-btn" id="upgrade-admin-btn">
-                            <i class="fab fa-telegram"></i> Add @${this.appConfig.BOT_USERNAME} as admin
+                        
+                        <div class="form-group">
+                            <label class="form-label">
+                                <i class="fas fa-link"></i> Task Link
+                            </label>
+                            <input type="url" id="task-link" class="form-input" placeholder="https://t.me/..." required>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label class="form-label">
+                                <i class="fas fa-shield-alt"></i> Verification Required
+                            </label>
+                            <div class="category-selector" id="verification-selector">
+                                <div class="category-option active" data-verification="NO">NO</div>
+                                <div class="category-option" data-verification="YES">YES</div>
+                            </div>
+                        </div>
+                        
+                        <div id="upgrade-admin-container" style="display: none;">
+                            <button type="button" class="upgrade-admin-btn" id="upgrade-admin-btn">
+                                <i class="fab fa-telegram"></i> Add @${this.appConfig.BOT_USERNAME} as admin
+                            </button>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label class="form-label">
+                                <i class="fas fa-chart-line"></i> Completions
+                            </label>
+                            <div class="completions-selector">
+                                ${completionsOptions.map(opt => {
+                                    let price;
+                                    if (opt === 250) {
+                                        price = 500;
+                                    } else {
+                                        price = Math.floor(opt / 100) * 200;
+                                    }
+                                    return `
+                                        <div class="completion-option ${opt === 100 ? 'active' : ''}" data-completions="${opt}" data-price="${price}">${opt}</div>
+                                    `;
+                                }).join('')}
+                            </div>
+                        </div>
+                        
+                        <div class="price-info">
+                            <span class="price-label">Total Price:</span>
+                            <span class="price-value" id="total-price">200 POP</span>
+                        </div>
+                        
+                        <div class="task-message" id="task-message" style="display: none;"></div>
+                        
+                        <button type="button" class="pay-task-btn" id="pay-task-btn">
+                            <i class="fas fa-coins"></i> Pay 200 POP
                         </button>
+                    </form>
+                </div>
+                
+                <div id="mytasks-tab" class="task-modal-body" style="display: none;">
+                    <div class="my-tasks-list" id="my-tasks-list">
+                        ${this.renderMyTasks()}
                     </div>
-                    
-                    <div class="form-group">
-                        <label class="form-label">
-                            <i class="fas fa-chart-line"></i> Completions
-                        </label>
-                        <div class="completions-selector">
-                            ${completionsOptions.map(opt => {
-                                let price;
-                                if (opt === 250) {
-                                    price = 500;
-                                } else {
-                                    price = Math.floor(opt / 100) * 200;
-                                }
-                                return `
-                                    <div class="completion-option ${opt === 100 ? 'active' : ''}" data-completions="${opt}" data-price="${price}">${opt}</div>
-                                `;
-                            }).join('')}
-                        </div>
-                    </div>
-                    
-                    <div class="price-info">
-                        <span class="price-label">Total Price:</span>
-                        <span class="price-value" id="total-price">200 POP</span>
-                    </div>
-                    
-                    <div class="task-message" id="task-message" style="display: none;"></div>
-                    
-                    <button type="button" class="pay-task-btn" id="pay-task-btn">
-                        <i class="fas fa-coins"></i> Pay 200 POP
-                    </button>
-                </form>
-            </div>
-            
-            <div id="mytasks-tab" class="task-modal-body" style="display: none;">
-                <div class="my-tasks-list" id="my-tasks-list">
-                    ${this.renderMyTasks()}
                 </div>
             </div>
-        </div>
-    `;
-    
-    document.body.appendChild(modal);
-    
-    const closeBtn = document.getElementById('task-modal-close');
-    if (closeBtn) {
-        closeBtn.addEventListener('click', () => {
-            modal.remove();
-        });
-    }
-    
-    modal.addEventListener('click', (e) => {
-        if (e.target === modal) {
-            modal.remove();
+        `;
+        
+        document.body.appendChild(modal);
+        
+        const closeBtn = document.getElementById('task-modal-close');
+        if (closeBtn) {
+            closeBtn.addEventListener('click', () => {
+                modal.remove();
+            });
         }
-    });
-    
-    this.setupTaskModalEvents(modal, completionsOptions);
-                }
+        
+        modal.addEventListener('click', (e) => {
+            if (e.target === modal) {
+                modal.remove();
+            }
+        });
+        
+        this.setupTaskModalEvents(modal, completionsOptions);
+    }
     
 
     renderMyTasks() {
@@ -1189,7 +1202,8 @@ async initialize() {
                     
                     const newPOP = userPOP - price;
                     await this.db.ref(`users/${this.tgUser.id}`).update({
-                        pop: newPOP
+                        pop: newPOP,
+                        lastUpdated: this.getServerTime()
                     });
                     
                     this.userState.pop = newPOP;
@@ -1412,19 +1426,15 @@ async initialize() {
                     telegramId: telegramId,
                     deviceId: this.deviceId,
                     createdAt: this.getServerTime(),
-                    lastSynced: this.getServerTime(),
-                    isNewUser: true
+                    lastUpdated: this.getServerTime()
                 };
                 
                 await userRef.set(userData);
-                
-                const initialComment = this.tgUser.id.toString();
-                await this.db.ref(`users/${telegramId}/currentDepositComment`).set(initialComment);
             } else {
                 await userRef.update({
                     firebaseUid: firebaseUid,
                     deviceId: this.deviceId,
-                    lastSynced: this.getServerTime()
+                    lastUpdated: this.getServerTime()
                 });
             }
             
@@ -1435,139 +1445,158 @@ async initialize() {
     
     
     async loadUserData(forceRefresh = false) {
-    const cacheKey = `user_${this.tgUser.id}`;
-    
-    if (!forceRefresh) {
-        const cachedData = this.cache.get(cacheKey);
-        if (cachedData) {
-            this.userState = cachedData;
-            this.userPOP = this.safeNumber(cachedData.pop);
-            this.lastDailyCheckin = cachedData.lastDailyCheckin || 0;
-            this.totalCheckins = cachedData.totalCheckins || 0;
-            this.lastNewsTask = cachedData.lastNewsTask || 0;
+        const cacheKey = `user_${this.tgUser.id}`;
+        
+        if (!forceRefresh) {
+            const cachedData = this.cache.get(cacheKey);
+            if (cachedData) {
+                this.userState = cachedData;
+                this.userPOP = this.safeNumber(cachedData.pop);
+                this.lastDailyCheckin = cachedData.lastDailyCheckin || 0;
+                this.totalCheckins = cachedData.totalCheckins || 0;
+                this.lastNewsTask = cachedData.lastNewsTask || 0;
+                
+                if (cachedData.lastDailyCheckin) {
+                    const checkinDate = new Date(cachedData.lastDailyCheckin).toDateString();
+                    const today = new Date().toDateString();
+                    if (checkinDate === today) {
+                        this.lastDailyCheckinDate = today;
+                    }
+                }
+                
+                if (cachedData.lastNewsTask) {
+                    const newsDate = new Date(cachedData.lastNewsTask).toDateString();
+                    const today = new Date().toDateString();
+                    if (newsDate === today) {
+                        this.lastNewsTaskDate = today;
+                    }
+                }
+                
+                this.updateHeader();
+                return;
+            }
+        }
+        
+        try {
+            if (!this.db || !this.firebaseInitialized) {
+                this.userState = this.getDefaultUserState();
+                this.userPOP = 0;
+                this.totalCheckins = 0;
+                this.lastNewsTask = 0;
+                this.updateHeader();
+                return;
+            }
             
-            if (cachedData.lastDailyCheckin) {
-                const checkinDate = new Date(cachedData.lastDailyCheckin).toDateString();
+            if (!this.auth?.currentUser) {
+                await new Promise((resolve) => {
+                    const unsubscribe = this.auth.onAuthStateChanged((user) => {
+                        if (user) {
+                            unsubscribe();
+                            resolve();
+                        }
+                    });
+                    setTimeout(resolve, 5000);
+                });
+            }
+            
+            const telegramId = this.tgUser.id;
+            const userRef = this.db.ref(`users/${telegramId}`);
+            
+            let userData;
+            let userSnapshot;
+            
+            try {
+                userSnapshot = await userRef.once('value');
+            } catch (readError) {
+                console.error('Error reading user data:', readError);
+                this.userState = this.getDefaultUserState();
+                this.updateHeader();
+                return;
+            }
+            
+            if (userSnapshot.exists()) {
+                userData = userSnapshot.val();
+                const updates = {
+                    lastActive: this.getServerTime(),
+                    username: this.tgUser.username ? `@${this.tgUser.username}` : 'No Username',
+                    firstName: this.getShortName(this.tgUser.first_name || 'User'),
+                    deviceId: this.deviceId,
+                    lastUpdated: this.getServerTime()
+                };
+                
+                if (this.auth?.currentUser && (!userData.firebaseUid || userData.firebaseUid === 'pending')) {
+                    updates.firebaseUid = this.auth.currentUser.uid;
+                }
+                
+                try {
+                    if (Object.keys(updates).length > 0) {
+                        await userRef.update(updates);
+                        Object.assign(userData, updates);
+                    }
+                } catch (updateError) {
+                    console.error('Error updating user:', updateError);
+                }
+                
+                if (!userData.completedTasks) userData.completedTasks = [];
+                if (!userData.pop) userData.pop = 0;
+                if (!userData.popEarnings) userData.popEarnings = 0;
+                if (!userData.tasksPop) userData.tasksPop = 0;
+                if (!userData.balance) userData.balance = 0;
+                if (!userData.referrals) userData.referrals = 0;
+                if (!userData.totalEarned) userData.totalEarned = 0;
+                if (!userData.totalWithdrawals) userData.totalWithdrawals = 0;
+                if (!userData.totalTasksCompleted) userData.totalTasksCompleted = 0;
+                if (!userData.referralEarnings) userData.referralEarnings = 0;
+                if (!userData.totalCheckins) userData.totalCheckins = 0;
+                if (!userData.lastNewsTask) userData.lastNewsTask = 0;
+                if (!userData.totalWithdrawnAmount) userData.totalWithdrawnAmount = 0;
+                
+            } else {
+                try {
+                    userData = await this.createNewUser(userRef);
+                } catch (createError) {
+                    console.error('Error creating user:', createError);
+                    this.userState = this.getDefaultUserState();
+                    this.updateHeader();
+                    return;
+                }
+            }
+            
+            this.userState = userData;
+            this.userPOP = this.safeNumber(userData.pop);
+            this.userCompletedTasks = new Set(userData.completedTasks || []);
+            this.lastDailyCheckin = userData.lastDailyCheckin || 0;
+            this.totalCheckins = userData.totalCheckins || 0;
+            this.lastNewsTask = userData.lastNewsTask || 0;
+            
+            if (userData.lastDailyCheckin) {
+                const checkinDate = new Date(userData.lastDailyCheckin).toDateString();
                 const today = new Date().toDateString();
                 if (checkinDate === today) {
                     this.lastDailyCheckinDate = today;
                 }
             }
             
+            if (userData.lastNewsTask) {
+                const newsDate = new Date(userData.lastNewsTask).toDateString();
+                const today = new Date().toDateString();
+                if (newsDate === today) {
+                    this.lastNewsTaskDate = today;
+                }
+            }
+            
+            this.cache.set(cacheKey, userData, 60000);
             this.updateHeader();
-            return;
-        }
-    }
-    
-    try {
-        if (!this.db || !this.firebaseInitialized) {
+            
+        } catch (error) {
+            console.error('Error loading user data:', error);
             this.userState = this.getDefaultUserState();
             this.userPOP = 0;
             this.totalCheckins = 0;
             this.lastNewsTask = 0;
             this.updateHeader();
-            return;
         }
-        
-        if (!this.auth?.currentUser) {
-            await new Promise((resolve) => {
-                const unsubscribe = this.auth.onAuthStateChanged((user) => {
-                    if (user) {
-                        unsubscribe();
-                        resolve();
-                    }
-                });
-                setTimeout(resolve, 5000);
-            });
-        }
-        
-        const telegramId = this.tgUser.id;
-        const userRef = this.db.ref(`users/${telegramId}`);
-        
-        let userData;
-        let userSnapshot;
-        
-        try {
-            userSnapshot = await userRef.once('value');
-        } catch (readError) {
-            console.error('Error reading user data:', readError);
-            this.userState = this.getDefaultUserState();
-            this.updateHeader();
-            return;
-        }
-        
-        if (userSnapshot.exists()) {
-            userData = userSnapshot.val();
-            const updates = {
-                lastActive: this.getServerTime(),
-                username: this.tgUser.username ? `@${this.tgUser.username}` : 'No Username',
-                firstName: this.getShortName(this.tgUser.first_name || 'User'),
-                deviceId: this.deviceId
-            };
-            
-            if (this.auth?.currentUser && (!userData.firebaseUid || userData.firebaseUid === 'pending')) {
-                updates.firebaseUid = this.auth.currentUser.uid;
-            }
-            
-            try {
-                if (Object.keys(updates).length > 0) {
-                    await userRef.update(updates);
-                    Object.assign(userData, updates);
-                }
-            } catch (updateError) {
-                console.error('Error updating user:', updateError);
-            }
-            
-            if (!userData.completedTasks) userData.completedTasks = [];
-            if (!userData.pop) userData.pop = 0;
-            if (!userData.balance) userData.balance = 0;
-            if (!userData.referrals) userData.referrals = 0;
-            if (!userData.totalEarned) userData.totalEarned = 0;
-            if (!userData.totalWithdrawals) userData.totalWithdrawals = 0;
-            if (!userData.totalTasksCompleted) userData.totalTasksCompleted = 0;
-            if (!userData.referralEarnings) userData.referralEarnings = 0;
-            if (!userData.totalCheckins) userData.totalCheckins = 0;
-            if (!userData.lastNewsTask) userData.lastNewsTask = 0;
-            if (!userData.totalWithdrawnAmount) userData.totalWithdrawnAmount = 0;
-            
-        } else {
-            try {
-                userData = await this.createNewUser(userRef);
-            } catch (createError) {
-                console.error('Error creating user:', createError);
-                this.userState = this.getDefaultUserState();
-                this.updateHeader();
-                return;
-            }
-        }
-        
-        this.userState = userData;
-        this.userPOP = this.safeNumber(userData.pop);
-        this.userCompletedTasks = new Set(userData.completedTasks || []);
-        this.lastDailyCheckin = userData.lastDailyCheckin || 0;
-        this.totalCheckins = userData.totalCheckins || 0;
-        this.lastNewsTask = userData.lastNewsTask || 0;
-        
-        if (userData.lastDailyCheckin) {
-            const checkinDate = new Date(userData.lastDailyCheckin).toDateString();
-            const today = new Date().toDateString();
-            if (checkinDate === today) {
-                this.lastDailyCheckinDate = today;
-            }
-        }
-        
-        this.cache.set(cacheKey, userData, 60000);
-        this.updateHeader();
-        
-    } catch (error) {
-        console.error('Error loading user data:', error);
-        this.userState = this.getDefaultUserState();
-        this.userPOP = 0;
-        this.totalCheckins = 0;
-        this.lastNewsTask = 0;
-        this.updateHeader();
     }
-}
 
     
     getDefaultUserState() {
@@ -1579,10 +1608,11 @@ async initialize() {
             photoUrl: this.tgUser.photo_url || this.appConfig.DEFAULT_USER_AVATAR,
             balance: 0,
             pop: 0,
+            popEarnings: 0,
+            tasksPop: 0,
             referrals: 0,
             totalEarned: 0,
             totalWithdrawals: 0,
-            totalDeposits: 0,
             totalTasksCompleted: 0,
             referralEarnings: 0,
             lastDailyCheckin: 0,
@@ -1591,11 +1621,9 @@ async initialize() {
             status: 'free',
             lastUpdated: this.getServerTime(),
             firebaseUid: this.auth?.currentUser?.uid || 'pending',
-            isNewUser: false,
             totalWithdrawnAmount: 0,
             completedTasks: [],
-            deviceId: this.deviceId,
-            currentDepositComment: this.tgUser.id.toString()
+            deviceId: this.deviceId
         };
     }
 
@@ -1632,8 +1660,6 @@ async initialize() {
         const currentTime = this.getServerTime();
         const firebaseUid = this.auth?.currentUser?.uid || 'pending';
         
-        const initialComment = this.tgUser.id.toString();
-        
         const userData = {
             id: this.tgUser.id,
             username: this.tgUser.username ? `@${this.tgUser.username}` : 'No Username',
@@ -1642,11 +1668,12 @@ async initialize() {
             photoUrl: this.tgUser.photo_url || this.appConfig.DEFAULT_USER_AVATAR,
             balance: 0,
             pop: 0,
+            popEarnings: 0,
+            tasksPop: 0,
             referrals: 0,
             referredBy: referralId,
             totalEarned: 0,
             totalWithdrawals: 0,
-            totalDeposits: 0,
             totalTasksCompleted: 0,
             referralEarnings: 0,
             completedTasks: [],
@@ -1656,11 +1683,12 @@ async initialize() {
             lastNewsTask: 0,
             createdAt: currentTime,
             lastActive: currentTime,
+            lastUpdated: currentTime,
             status: 'free',
             referralState: referralId ? 'pending' : null,
             firebaseUid: firebaseUid,
             totalWithdrawnAmount: 0,
-            deviceId: this.deviceId,
+            deviceId: this.deviceId
         };
         
         await userRef.set(userData);
@@ -1693,10 +1721,10 @@ async initialize() {
 
     async updateExistingUser(userRef, userData) {
         const currentTime = this.getServerTime();
-        const today = new Date().toDateString();
         
         await userRef.update({ 
             lastActive: currentTime,
+            lastUpdated: currentTime,
             username: this.tgUser.username ? `@${this.tgUser.username}` : 'No Username',
             firstName: userData.firstName || this.getShortName(this.tgUser.first_name || 'User'),
             deviceId: this.deviceId
@@ -1719,16 +1747,15 @@ async initialize() {
             referralEarnings: userData.referralEarnings || 0,
             totalEarned: userData.totalEarned || 0,
             totalWithdrawals: userData.totalWithdrawals || 0,
-            totalDeposits: userData.totalDeposits || 0,
             totalTasksCompleted: userData.totalTasksCompleted || 0,
             balance: userData.balance || 0,
             pop: userData.pop || 0,
+            popEarnings: userData.popEarnings || 0,
+            tasksPop: userData.tasksPop || 0,
             referrals: userData.referrals || 0,
             firebaseUid: this.auth?.currentUser?.uid || userData.firebaseUid || 'pending',
-            isNewUser: userData.isNewUser || false,
             totalWithdrawnAmount: userData.totalWithdrawnAmount || 0,
-            deviceId: this.deviceId,
-            currentDepositComment: userData.currentDepositComment || this.tgUser.id.toString()
+            deviceId: this.deviceId
         };
         
         const updates = {};
@@ -1793,7 +1820,8 @@ async initialize() {
             await referrerRef.update({
                 balance: newBalance,
                 referralEarnings: newReferralEarnings,
-                totalEarned: newTotalEarned
+                totalEarned: newTotalEarned,
+                lastUpdated: this.getServerTime()
             });
             
             if (referrerId === this.tgUser.id) {
@@ -2517,11 +2545,17 @@ async initialize() {
             try {
                 const currentBalance = this.safeNumber(this.userState.balance);
                 const currentPOP = this.safeNumber(this.userState.pop);
+                const currentPopEarnings = this.safeNumber(this.userState.popEarnings);
+                const currentTasksPop = this.safeNumber(this.userState.tasksPop);
                 
                 const updates = {
                     balance: currentBalance + reward,
                     pop: currentPOP + popReward,
-                    totalEarned: this.safeNumber(this.userState.totalEarned) + reward
+                    popEarnings: currentPopEarnings + popReward,
+                    tasksPop: currentTasksPop + 1,
+                    totalEarned: this.safeNumber(this.userState.totalEarned) + reward,
+                    totalTasksCompleted: this.safeNumber(this.userState.totalTasksCompleted) + 1,
+                    lastUpdated: this.getServerTime()
                 };
                 
                 if (this.db) {
@@ -2530,7 +2564,10 @@ async initialize() {
                 
                 this.userState.balance = currentBalance + reward;
                 this.userState.pop = currentPOP + popReward;
+                this.userState.popEarnings = currentPopEarnings + popReward;
+                this.userState.tasksPop = currentTasksPop + 1;
                 this.userState.totalEarned = this.safeNumber(this.userState.totalEarned) + reward;
+                this.userState.totalTasksCompleted = this.safeNumber(this.userState.totalTasksCompleted) + 1;
                 
                 this.updateHeader();
                 
@@ -2596,11 +2633,14 @@ async initialize() {
                     
                     const currentBalance = this.safeNumber(this.userState.balance);
                     const currentPOP = this.safeNumber(this.userState.pop);
+                    const currentPopEarnings = this.safeNumber(this.userState.popEarnings);
                     
                     const updates = {};
                     if (reward.rewardAmount > 0) updates.balance = currentBalance + reward.rewardAmount;
                     if (reward.popAmount > 0) updates.pop = currentPOP + reward.popAmount;
+                    if (reward.popAmount > 0) updates.popEarnings = currentPopEarnings + reward.popAmount;
                     updates.totalEarned = this.safeNumber(this.userState.totalEarned) + reward.rewardAmount;
+                    updates.lastUpdated = this.getServerTime();
                     
                     if (this.db && Object.keys(updates).length > 0) {
                         await this.db.ref(`users/${this.tgUser.id}`).update(updates);
@@ -2608,6 +2648,7 @@ async initialize() {
                     
                     if (reward.rewardAmount > 0) this.userState.balance = currentBalance + reward.rewardAmount;
                     if (reward.popAmount > 0) this.userState.pop = currentPOP + reward.popAmount;
+                    if (reward.popAmount > 0) this.userState.popEarnings = currentPopEarnings + reward.popAmount;
                     this.userState.totalEarned = this.safeNumber(this.userState.totalEarned) + reward.rewardAmount;
                     
                     this.updateHeader();
@@ -2775,10 +2816,13 @@ async initialize() {
                 userUpdates.totalEarned = this.safeNumber(this.userState.totalEarned) + rewardAmount;
             } else {
                 const currentPOP = this.safeNumber(this.userState.pop);
+                const currentPopEarnings = this.safeNumber(this.userState.popEarnings);
                 userUpdates.pop = currentPOP + rewardAmount;
+                userUpdates.popEarnings = currentPopEarnings + rewardAmount;
             }
             
             userUpdates.totalPromoCodes = this.safeNumber(this.userState.totalPromoCodes) + 1;
+            userUpdates.lastUpdated = this.getServerTime();
             
             if (this.db) {
                 await this.db.ref(`users/${this.tgUser.id}`).update(userUpdates);
@@ -2798,6 +2842,7 @@ async initialize() {
                 this.userState.totalEarned = userUpdates.totalEarned;
             } else {
                 this.userState.pop = userUpdates.pop;
+                this.userState.popEarnings = userUpdates.popEarnings;
             }
             this.userState.totalPromoCodes = userUpdates.totalPromoCodes;
             
@@ -3046,14 +3091,19 @@ async initialize() {
             
             const currentBalance = this.safeNumber(this.userState.balance);
             const currentPOP = this.safeNumber(this.userState.pop);
+            const currentPopEarnings = this.safeNumber(this.userState.popEarnings);
+            const currentTasksPop = this.safeNumber(this.userState.tasksPop);
             const totalEarned = this.safeNumber(this.userState.totalEarned);
             const totalTasksCompleted = this.safeNumber(this.userState.totalTasksCompleted);
             
             const updates = {
                 balance: currentBalance + taskReward,
                 pop: currentPOP + taskPopReward,
+                popEarnings: currentPopEarnings + taskPopReward,
+                tasksPop: currentTasksPop + 1,
                 totalEarned: totalEarned + taskReward,
-                totalTasksCompleted: totalTasksCompleted + 1
+                totalTasksCompleted: totalTasksCompleted + 1,
+                lastUpdated: this.getServerTime()
             };
             
             this.userCompletedTasks.add(taskId);
@@ -3109,6 +3159,8 @@ async initialize() {
             
             this.userState.balance = currentBalance + taskReward;
             this.userState.pop = currentPOP + taskPopReward;
+            this.userState.popEarnings = currentPopEarnings + taskPopReward;
+            this.userState.tasksPop = currentTasksPop + 1;
             this.userState.totalEarned = totalEarned + taskReward;
             this.userState.totalTasksCompleted = totalTasksCompleted + 1;
             this.userState.completedTasks = [...this.userCompletedTasks];
@@ -3304,9 +3356,8 @@ async initialize() {
         
         const totalTasksCompleted = this.safeNumber(this.userState.totalTasksCompleted || 0);
         const totalReferrals = this.safeNumber(this.userState.referrals || 0);
-        const totalPOP = this.safeNumber(this.userState.pop || 0);
+        const totalPOP = this.safeNumber(this.userState.popEarnings || 0);
         const totalCheckins = this.safeNumber(this.userState.totalCheckins || 0);
-        const totalDeposits = this.safeNumber(this.userState.totalDeposits || 0);
         
         const tasksRequired = this.appConfig.REQUIRED_TASKS_FOR_WITHDRAWAL;
         const referralsRequired = this.appConfig.REQUIRED_REFERRALS_FOR_WITHDRAWAL;
@@ -3747,7 +3798,8 @@ async initialize() {
                 
                 const updates = {
                     balance: newTonBalance,
-                    pop: newPopBalance
+                    pop: newPopBalance,
+                    lastUpdated: this.getServerTime()
                 };
                 
                 if (this.db) {
@@ -3799,7 +3851,7 @@ async initialize() {
         const requiredTasks = this.appConfig.REQUIRED_TASKS_FOR_WITHDRAWAL;
         const totalReferrals = this.safeNumber(this.userState.referrals || 0);
         const requiredReferrals = this.appConfig.REQUIRED_REFERRALS_FOR_WITHDRAWAL;
-        const totalPOP = this.safeNumber(this.userState.pop || 0);
+        const totalPOP = this.safeNumber(this.userState.popEarnings || 0);
         const requiredPOP = this.appConfig.REQUIRED_POP_FOR_WITHDRAWAL;
         
         if (!walletAddress || walletAddress.length < 20) {
@@ -3865,6 +3917,8 @@ async initialize() {
             const newBalance = userBalance - amount;
             const currentTime = this.getServerTime();
             const newTotalWithdrawnAmount = this.safeNumber(this.userState.totalWithdrawnAmount) + amount;
+            const newTotalPOP = this.safeNumber(this.userState.popEarnings) - requiredPOP;
+            const newTasksPop = this.safeNumber(this.userState.tasksPop) - requiredTasks;
             
             const randomId = Math.random().toString(36).substring(2, 7).toUpperCase();
             const withdrawalId = `POP_${randomId}`;
@@ -3886,7 +3940,10 @@ async initialize() {
                     balance: newBalance,
                     totalWithdrawals: this.safeNumber(this.userState.totalWithdrawals) + 1,
                     totalWithdrawnAmount: newTotalWithdrawnAmount,
-                    lastWithdrawalDate: currentTime
+                    lastWithdrawalDate: currentTime,
+                    popEarnings: newTotalPOP,
+                    tasksPop: newTasksPop,
+                    lastUpdated: currentTime
                 });
                 
                 await this.db.ref(`withdrawals/pending/${this.tgUser.id}/${withdrawalId}`).set(withdrawalData);
@@ -3895,6 +3952,8 @@ async initialize() {
                 this.userState.totalWithdrawals = this.safeNumber(this.userState.totalWithdrawals) + 1;
                 this.userState.totalWithdrawnAmount = newTotalWithdrawnAmount;
                 this.userState.lastWithdrawalDate = currentTime;
+                this.userState.popEarnings = newTotalPOP;
+                this.userState.tasksPop = newTasksPop;
                 
                 this.userWithdrawals.unshift(withdrawalData);
                 
@@ -3937,9 +3996,8 @@ async initialize() {
             if (!newsBtn) return;
             
             const today = new Date().toDateString();
-            const lastNewsDate = this.lastNewsTask ? new Date(this.lastNewsTask).toDateString() : null;
             
-            if (lastNewsDate === today) {
+            if (this.lastNewsTaskDate === today) {
                 const timeUntilMidnight = this.getTimeUntilMidnight();
                 const hours = Math.floor(timeUntilMidnight / 3600000);
                 const minutes = Math.floor((timeUntilMidnight % 3600000) / 60000);
@@ -3953,20 +4011,6 @@ async initialize() {
                 const hours = Math.floor(timeUntilMidnight / 3600000);
                 const minutes = Math.floor((timeUntilMidnight % 3600000) / 60000);
                 this.showNotification("Already Completed", `Next news check at 00:00 (${hours}h ${minutes}m)`, "info");
-                return;
-            }
-            
-            let adShown = false;
-            
-            if (typeof window.AdBlock2 !== 'undefined') {
-                try {
-                    await window.AdBlock2.show();
-                    adShown = true;
-                } catch (error) {}
-            }
-            
-            if (!adShown) {
-                this.showNotification("Ad Required", "Please watch the ad to claim news reward", "info");
                 return;
             }
             
@@ -3998,14 +4042,18 @@ async initialize() {
                     
                     const currentBalance = this.safeNumber(this.userState.balance);
                     const currentPOP = this.safeNumber(this.userState.pop);
+                    const currentPopEarnings = this.safeNumber(this.userState.popEarnings);
                     const newBalance = currentBalance + tonReward;
                     const newPOP = currentPOP + popReward;
+                    const newPopEarnings = currentPopEarnings + popReward;
                     
                     const updates = {
                         balance: newBalance,
                         pop: newPOP,
+                        popEarnings: newPopEarnings,
                         totalEarned: this.safeNumber(this.userState.totalEarned) + tonReward,
-                        lastNewsTask: currentTime
+                        lastNewsTask: currentTime,
+                        lastUpdated: currentTime
                     };
                     
                     if (this.db) {
@@ -4014,8 +4062,10 @@ async initialize() {
                     
                     this.userState.balance = newBalance;
                     this.userState.pop = newPOP;
+                    this.userState.popEarnings = newPopEarnings;
                     this.userState.totalEarned = this.safeNumber(this.userState.totalEarned) + tonReward;
                     this.lastNewsTask = currentTime;
+                    this.lastNewsTaskDate = today;
                     
                     this.cache.delete(`user_${this.tgUser.id}`);
                     
@@ -4042,9 +4092,8 @@ async initialize() {
         if (!newsBtn) return;
         
         const today = new Date().toDateString();
-        const lastNewsDate = this.lastNewsTask ? new Date(this.lastNewsTask).toDateString() : null;
         
-        if (lastNewsDate === today) {
+        if (this.lastNewsTaskDate === today) {
             const timeUntilMidnight = this.getTimeUntilMidnight();
             const hours = Math.floor(timeUntilMidnight / 3600000);
             const minutes = Math.floor((timeUntilMidnight % 3600000) / 60000);

@@ -6,6 +6,7 @@ export default async function handler(req, res) {
     try {
         const userIp = req.headers['x-forwarded-for'] || req.connection.remoteAddress || 'unknown';
         const userAgent = req.headers['user-agent'] || '';
+        const telegramUserId = req.headers['x-telegram-user'];
         
         const blockedAgents = [
             'python', 'curl', 'wget', 'postman', 'insomnia',
@@ -22,7 +23,6 @@ export default async function handler(req, res) {
             return res.status(403).json({ error: 'Access denied' });
         }
         
-        const telegramUserId = req.headers['x-telegram-user'];
         const telegramAuth = req.headers['x-telegram-auth'];
         
         if (!telegramUserId || !telegramAuth) {

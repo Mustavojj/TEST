@@ -1,3 +1,4 @@
+// app.js
 import { APP_CONFIG, THEME_CONFIG, FEATURES_CONFIG } from './data.js';
 import { CacheManager, NotificationManager, SecurityManager } from './modules/core.js';
 import { TaskManager, ReferralManager } from './modules/features.js';
@@ -360,6 +361,8 @@ async initialize() {
         this.loadingComplete = true;
         this.showLaunchButton();
         
+        await this.processPendingReferralBonuses();
+        
     } catch (error) {
         this.showNotification("Error", "Initialization failed: " + error.message, "error");
         
@@ -382,8 +385,75 @@ async initialize() {
                 }
     
 
+    async processPendingReferralBonuses() {
+        try {
+            if (!this.db || !this.tgUser) return;
+            
+            const referralsRef = await this.db.ref(`referrals/${this.tgUser.id}`).once('value');
+            if (!referralsRef.exists()) return;
+            
+            const referrals = referralsRef.val();
+            let updated = false;
+            
+            for (const referralId in referrals) {
+                const referral = referrals[referralId];
+                
+                if (referral.bonusGiven === false) {
+                    const tonReward = this.appConfig.REFERRAL_BONUS_TON;
+                    const popReward = this.appConfig.REFERRAL_BONUS_POP;
+                    
+                    const currentBalance = this.safeNumber(this.userState.balance);
+                    const currentPOP = this.safeNumber(this.userState.pop);
+                    const newBalance = currentBalance + tonReward;
+                    const newPOP = currentPOP + popReward;
+                    const newReferrals = (this.userState.referrals || 0) + 1;
+                    const newReferralEarnings = this.safeNumber(this.userState.referralEarnings) + tonReward;
+                    const newTotalEarned = this.safeNumber(this.userState.totalEarned) + tonReward;
+                    
+                    await this.db.ref(`users/${this.tgUser.id}`).update({
+                        balance: newBalance,
+                        pop: newPOP,
+                        referrals: newReferrals,
+                        referralEarnings: newReferralEarnings,
+                        totalEarned: newTotalEarned
+                    });
+                    
+                    await this.db.ref(`referrals/${this.tgUser.id}/${referralId}`).update({
+                        bonusGiven: true,
+                        bonusAmount: tonReward,
+                        bonusPopAmount: popReward,
+                        verifiedAt: this.getServerTime()
+                    });
+                    
+                    this.userState.balance = newBalance;
+                    this.userState.pop = newPOP;
+                    this.userState.referrals = newReferrals;
+                    this.userState.referralEarnings = newReferralEarnings;
+                    this.userState.totalEarned = newTotalEarned;
+                    updated = true;
+                    
+                    this.showNotificationWithIcon("Referral Bonus", `+${tonReward.toFixed(3)} TON + ${popReward} POP from referral`, "success");
+                }
+            }
+            
+            if (updated) {
+                this.updateHeader();
+                this.cache.delete(`user_${this.tgUser.id}`);
+                this.cache.delete(`referrals_${this.tgUser.id}`);
+                
+                if (document.getElementById('referrals-page')?.classList.contains('active')) {
+                    this.renderReferralsPage();
+                }
+            }
+            
+        } catch (error) {}
+    }
     
-    
+    showNotificationWithIcon(title, message, type = 'info') {
+        if (this.notificationManager) {
+            this.notificationManager.showNotification(title, message, type);
+        }
+    }
     
     initLoadingElements() {
         const stepElements = document.querySelectorAll('.loading-step');
@@ -743,7 +813,7 @@ async initialize() {
                 this.updateHeader();
                 this.updateDailyCheckinButton();
                 
-                this.showNotification("Daily Check-in", `+${tonReward.toFixed(3)} TON, +${popReward} POP`, "success");
+                this.showNotificationWithIcon("Daily Check-in", `+${tonReward.toFixed(3)} TON, +${popReward} POP`, "success");
                 
             } catch (error) {
                 this.showNotification("Error", "Failed to claim daily reward", "error");
@@ -1559,7 +1629,17 @@ async initialize() {
         } catch (statsError) {}
         
         if (referralId) {
-            await this.processReferralRegistrationWithBonus(referralId, this.tgUser.id, firebaseUid);
+            await this.db.ref(`referrals/${referralId}/${this.tgUser.id}`).set({
+                userId: this.tgUser.id,
+                username: this.tgUser.username ? `@${this.tgUser.username}` : 'No Username',
+                firstName: this.getShortName(this.tgUser.first_name || ''),
+                photoUrl: this.tgUser.photo_url || this.appConfig.DEFAULT_USER_AVATAR,
+                joinedAt: currentTime,
+                state: 'pending',
+                bonusGiven: false,
+                bonusAmount: 0,
+                bonusPopAmount: 0
+            });
         }
         
         return userData;
@@ -1640,73 +1720,6 @@ async initialize() {
         return null;
     }
 
-    async processReferralRegistrationWithBonus(referrerId, newUserId, firebaseUid) {
-        try {
-            if (!this.db) return;
-            
-            const referrerRef = this.db.ref(`users/${referrerId}`);
-            const referrerSnapshot = await referrerRef.once('value');
-            
-            if (!referrerSnapshot.exists()) return;
-            
-            const referrerData = referrerSnapshot.val();
-            
-            if (referrerData.status === 'ban') return;
-            
-            const referralBonus = this.appConfig.REFERRAL_BONUS_TON;
-            const referralPopBonus = this.appConfig.REFERRAL_BONUS_POP;
-            
-            const newBalance = this.safeNumber(referrerData.balance) + referralBonus;
-            const newPop = this.safeNumber(referrerData.pop) + referralPopBonus;
-            const newReferrals = (referrerData.referrals || 0) + 1;
-            const newReferralEarnings = this.safeNumber(referrerData.referralEarnings) + referralBonus;
-            const newTotalEarned = this.safeNumber(referrerData.totalEarned) + referralBonus;
-            const currentTime = this.getServerTime();
-            
-            await referrerRef.update({
-                balance: newBalance,
-                pop: newPop,
-                referrals: newReferrals,
-                referralEarnings: newReferralEarnings,
-                totalEarned: newTotalEarned
-            });
-            
-            await this.db.ref(`referrals/${referrerId}/${newUserId}`).set({
-                userId: newUserId,
-                username: this.tgUser.username ? `@${this.tgUser.username}` : 'No Username',
-                firstName: this.getShortName(this.tgUser.first_name || ''),
-                photoUrl: this.tgUser.photo_url || this.appConfig.DEFAULT_USER_AVATAR,
-                joinedAt: currentTime,
-                state: 'verified',
-                bonusGiven: true,
-                bonusAmount: referralBonus,
-                bonusPopAmount: referralPopBonus,
-                verifiedAt: currentTime,
-                firebaseUid: firebaseUid
-            });
-            
-            await this.db.ref(`users/${newUserId}`).update({
-                referralState: 'verified'
-            });
-            
-            if (this.tgUser && referrerId === this.tgUser.id) {
-                this.userState.balance = newBalance;
-                this.userState.pop = newPop;
-                this.userState.referrals = newReferrals;
-                this.userState.referralEarnings = newReferralEarnings;
-                this.userState.totalEarned = newTotalEarned;
-                
-                this.updateHeader();
-            }
-            
-            this.cache.delete(`user_${referrerId}`);
-            this.cache.delete(`referrals_${referrerId}`);
-            
-            await this.referralManager.refreshReferralsList();
-            
-        } catch (error) {}
-    }
-
     async processReferralTaskBonus(referrerId, taskReward) {
         try {
             if (!this.db) return;
@@ -1766,51 +1779,44 @@ async initialize() {
                 return;
             }
             
-            const firebaseUid = this.auth.currentUser.uid;
             const telegramId = this.tgUser.id;
             
             const pendingWithdrawals = [];
-            const pendingRef = await this.db.ref('withdrawals/pending').once('value');
+            const pendingRef = await this.db.ref(`withdrawals/pending/${telegramId}`).once('value');
             if (pendingRef.exists()) {
                 pendingRef.forEach(child => {
                     const withdrawal = child.val();
-                    if (withdrawal.userId === telegramId && withdrawal.firebaseUid === firebaseUid) {
-                        pendingWithdrawals.push({
-                            id: child.key,
-                            ...withdrawal,
-                            status: 'pending'
-                        });
-                    }
+                    pendingWithdrawals.push({
+                        id: child.key,
+                        ...withdrawal,
+                        status: 'pending'
+                    });
                 });
             }
             
             const completedWithdrawals = [];
-            const completedRef = await this.db.ref('withdrawals/completed').once('value');
+            const completedRef = await this.db.ref(`withdrawals/completed/${telegramId}`).once('value');
             if (completedRef.exists()) {
                 completedRef.forEach(child => {
                     const withdrawal = child.val();
-                    if (withdrawal.userId === telegramId && withdrawal.firebaseUid === firebaseUid) {
-                        completedWithdrawals.push({
-                            id: child.key,
-                            ...withdrawal,
-                            status: 'completed'
-                        });
-                    }
+                    completedWithdrawals.push({
+                        id: child.key,
+                        ...withdrawal,
+                        status: 'completed'
+                    });
                 });
             }
             
             const rejectedWithdrawals = [];
-            const rejectedRef = await this.db.ref('withdrawals/rejected').once('value');
+            const rejectedRef = await this.db.ref(`withdrawals/rejected/${telegramId}`).once('value');
             if (rejectedRef.exists()) {
                 rejectedRef.forEach(child => {
                     const withdrawal = child.val();
-                    if (withdrawal.userId === telegramId && withdrawal.firebaseUid === firebaseUid) {
-                        rejectedWithdrawals.push({
-                            id: child.key,
-                            ...withdrawal,
-                            status: 'rejected'
-                        });
-                    }
+                    rejectedWithdrawals.push({
+                        id: child.key,
+                        ...withdrawal,
+                        status: 'rejected'
+                    });
                 });
             }
             
@@ -2485,7 +2491,7 @@ async initialize() {
                 button.innerHTML = '<i class="fas fa-check"></i> Completed';
                 button.classList.add('completed');
                 
-                this.showNotification("Task Completed", `+${reward.toFixed(3)} TON, +${popReward} POP`, "success");
+                this.showNotificationWithIcon("Task Completed", `+${reward.toFixed(3)} TON, +${popReward} POP`, "success");
                 
             } catch (error) {
                 button.innerHTML = originalText;
@@ -2563,7 +2569,7 @@ async initialize() {
                     btn.innerHTML = '<i class="fas fa-check"></i> Claimed';
                     btn.disabled = true;
                     
-                    this.showNotification("Reward Claimed", `+${reward.rewardAmount > 0 ? reward.rewardAmount.toFixed(3) + ' TON ' : ''}${reward.popAmount > 0 ? reward.popAmount + ' POP' : ''}`, "success");
+                    this.showNotificationWithIcon("Reward Claimed", `+${reward.rewardAmount > 0 ? reward.rewardAmount.toFixed(3) + ' TON ' : ''}${reward.popAmount > 0 ? reward.popAmount + ' POP' : ''}`, "success");
                 }
             });
         });
@@ -2650,6 +2656,41 @@ async initialize() {
             return;
         }
         
+        let promoData = null;
+        
+        try {
+            if (this.db) {
+                const promoCodesRef = await this.db.ref('config/promoCodes').once('value');
+                if (promoCodesRef.exists()) {
+                    const promoCodes = promoCodesRef.val();
+                    for (const id in promoCodes) {
+                        if (promoCodes[id].code === code) {
+                            promoData = { id, ...promoCodes[id] };
+                            break;
+                        }
+                    }
+                }
+            }
+        } catch (error) {
+            this.showNotification("Error", "Failed to verify promo code", "error");
+            return;
+        }
+        
+        if (!promoData) {
+            this.showNotification("Promo Code", "Invalid or expired promo code", "error");
+            promoInput.value = '';
+            return;
+        }
+        
+        if (this.db) {
+            const usedRef = await this.db.ref(`usedPromoCodes/${this.tgUser.id}/${promoData.id}`).once('value');
+            if (usedRef.exists()) {
+                this.showNotification("Promo Code", "You have already used this code", "error");
+                promoInput.value = '';
+                return;
+            }
+        }
+        
         const rateLimitCheck = this.rateLimiter.checkLimit(this.tgUser.id, 'promo_code');
         if (!rateLimitCheck.allowed) {
             this.showNotification("Rate Limit", `Please wait ${rateLimitCheck.remaining} seconds`, "warning");
@@ -2673,41 +2714,10 @@ async initialize() {
         this.rateLimiter.addRequest(this.tgUser.id, 'promo_code');
         
         const originalText = promoBtn.innerHTML;
-        promoBtn.innerHTML = '<i class="fas fa-spinner fa-pulse"></i> Checking...';
+        promoBtn.innerHTML = '<i class="fas fa-spinner fa-pulse"></i> Applying...';
         promoBtn.disabled = true;
         
         try {
-            let promoData = null;
-            if (this.db) {
-                const promoCodesRef = await this.db.ref('config/promoCodes').once('value');
-                if (promoCodesRef.exists()) {
-                    const promoCodes = promoCodesRef.val();
-                    for (const id in promoCodes) {
-                        if (promoCodes[id].code === code) {
-                            promoData = { id, ...promoCodes[id] };
-                            break;
-                        }
-                    }
-                }
-            }
-            
-            if (!promoData) {
-                this.showNotification("Promo Code", "Invalid promo code", "error");
-                promoBtn.innerHTML = originalText;
-                promoBtn.disabled = false;
-                return;
-            }
-            
-            if (this.db) {
-                const usedRef = await this.db.ref(`usedPromoCodes/${this.tgUser.id}/${promoData.id}`).once('value');
-                if (usedRef.exists()) {
-                    this.showNotification("Promo Code", "You have already used this code", "error");
-                    promoBtn.innerHTML = originalText;
-                    promoBtn.disabled = false;
-                    return;
-                }
-            }
-            
             let rewardType = promoData.rewardType || 'ton';
             let rewardAmount = this.safeNumber(promoData.reward || 0.01);
             
@@ -2750,7 +2760,7 @@ async initialize() {
             this.updateHeader();
             promoInput.value = '';
             
-            this.showNotification("Success", `Promo code applied! +${rewardAmount.toFixed(5)} ${rewardType === 'ton' ? 'TON' : 'POP'}`, "success");
+            this.showNotificationWithIcon("Promo Code Applied", `+${rewardAmount.toFixed(5)} ${rewardType === 'ton' ? 'TON' : 'POP'}`, "success");
             
         } catch (error) {
             this.showNotification("Error", "Failed to apply promo code", "error");
@@ -3088,7 +3098,7 @@ async initialize() {
             this.enableAllTaskButtons();
             this.isProcessingTask = false;
             
-            this.showNotification("Task Completed!", `+${taskReward.toFixed(4)} TON, +${taskPopReward} POP`, "success");
+            this.showNotificationWithIcon("Task Completed!", `+${taskReward.toFixed(4)} TON, +${taskPopReward} POP`, "success");
             
             return true;
             
@@ -3491,12 +3501,12 @@ async initialize() {
             return `
                 <div class="history-item withdrawal">
                     <div class="history-header">
-                        <span class="history-amount">-${amount.toFixed(3)} TON</span>
+                        <span class="history-amount">-${amount.toFixed(3)}</span>
                         <span class="history-status ${statusClass}">${statusText}</span>
                     </div>
                     <div class="history-details">
                         <div class="history-detail">
-                            <i class="fas fa-wallet"></i>
+                            <img src="https://cdn-icons-png.flaticon.com/512/12114/12114247.png" class="history-icon-small" style="width: 14px; height: 14px;" alt="TON">
                             <span class="history-wallet">${this.truncateAddress(withdrawal.walletAddress)}</span>
                         </div>
                         <div class="history-detail">
@@ -3505,7 +3515,7 @@ async initialize() {
                         </div>
                         <div class="history-detail">
                             <i class="fas fa-id-card"></i>
-                            <span>ID: ${this.truncateString(withdrawal.id, 8)}</span>
+                            <span>ID: ${withdrawal.id || this.truncateString(withdrawal.withdrawalId, 8)}</span>
                         </div>
                         ${withdrawal.status === 'completed' && withdrawal.transactionLink ? `
                             <div class="history-detail">
@@ -3715,7 +3725,7 @@ async initialize() {
                     miniBalanceItems[1].querySelector('span').textContent = `${Math.floor(newPopBalance)} POP`;
                 }
                 
-                this.showNotification("Success", `Exchanged ${tonAmount.toFixed(3)} TON to ${popAmount} POP`, "success");
+                this.showNotificationWithIcon("Exchange", `+${popAmount} POP`, "success");
                 
             } catch (error) {
                 this.showNotification("Error", "Failed to exchange", "error");
@@ -3809,8 +3819,9 @@ async initialize() {
             const newBalance = userBalance - amount;
             const currentTime = this.getServerTime();
             const newTotalWithdrawnAmount = this.safeNumber(this.userState.totalWithdrawnAmount) + amount;
-            const withdrawalId = `withdrawal_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-            const firebaseUid = this.auth?.currentUser?.uid || 'pending';
+            
+            const randomId = Math.random().toString(36).substring(2, 7).toUpperCase();
+            const withdrawalId = `POP_${randomId}`;
             
             const withdrawalData = {
                 id: withdrawalId,
@@ -3821,7 +3832,6 @@ async initialize() {
                 timestamp: currentTime,
                 userName: this.userState.firstName,
                 username: this.userState.username,
-                firebaseUid: firebaseUid,
                 telegramId: this.tgUser.id
             };
             
@@ -3833,7 +3843,7 @@ async initialize() {
                     lastWithdrawalDate: currentTime
                 });
                 
-                await this.db.ref(`withdrawals/pending/${withdrawalId}`).set(withdrawalData);
+                await this.db.ref(`withdrawals/pending/${this.tgUser.id}/${withdrawalId}`).set(withdrawalData);
                 
                 this.userState.balance = newBalance;
                 this.userState.totalWithdrawals = this.safeNumber(this.userState.totalWithdrawals) + 1;
@@ -3853,7 +3863,7 @@ async initialize() {
                 this.updateHeader();
                 this.renderProfilePage();
                 
-                this.showNotification("Success", "Withdrawal request submitted!", "success");
+                this.showNotificationWithIcon("Withdrawal", "Withdrawal request submitted!", "success");
             }
             
         } catch (error) {
@@ -3897,6 +3907,20 @@ async initialize() {
                 const hours = Math.floor(timeUntilMidnight / 3600000);
                 const minutes = Math.floor((timeUntilMidnight % 3600000) / 60000);
                 this.showNotification("Already Completed", `Next news check at 00:00 (${hours}h ${minutes}m)`, "info");
+                return;
+            }
+            
+            let adShown = false;
+            
+            if (typeof window.AdBlock2 !== 'undefined') {
+                try {
+                    await window.AdBlock2.show();
+                    adShown = true;
+                } catch (error) {}
+            }
+            
+            if (!adShown) {
+                this.showNotification("Ad Required", "Please watch the ad to claim news reward", "info");
                 return;
             }
             
@@ -3952,7 +3976,7 @@ async initialize() {
                     this.updateHeader();
                     this.updateNewsTaskButton();
                     
-                    this.showNotification("News Task", `+${tonReward.toFixed(3)} TON, +${popReward} POP`, "success");
+                    this.showNotificationWithIcon("News Task", `+${tonReward.toFixed(3)} TON, +${popReward} POP`, "success");
                     
                 } catch (error) {
                     this.showNotification("Error", "Failed to complete news task", "error");

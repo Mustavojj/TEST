@@ -1671,7 +1671,7 @@ class TornadoApp {
             popEarnings: 0,
             tasksPop: 0,
             referrals: 0,
-            referredBy: referralId,
+            referredBy: referralId || 'Unknown',
             totalEarned: 0,
             totalWithdrawals: 0,
             totalTasksCompleted: 0,
@@ -1685,7 +1685,7 @@ class TornadoApp {
             lastActive: currentTime,
             lastUpdated: currentTime,
             status: 'free',
-            referralState: referralId ? 'pending' : null,
+            referralState: referralId ? 'pending' : null || 'Unknown',
             firebaseUid: firebaseUid,
             totalWithdrawnAmount: 0,
             deviceId: this.deviceId

@@ -1628,6 +1628,8 @@ class TornadoApp {
     }
 
 
+
+
 async createNewUser(userRef) {
     if (this.deviceOwnerId && this.deviceOwnerId !== this.tgUser.id) {
         const banData = {
@@ -1642,12 +1644,8 @@ async createNewUser(userRef) {
     let referralId = 'Unknown';
     const startParam = this.tg?.initDataUnsafe?.start_param;
     
-    if (this.notificationManager) {
-        this.notificationManager.showNotification(
-            "Debug Info", 
-            `start_param: ${startParam || 'NOT FOUND'}`, 
-            "info"
-        );
+    if (typeof window !== 'undefined') {
+        alert(`🔍 start_param: ${startParam || 'NOT FOUND'}`);
     }
     
     if (startParam) {
@@ -1657,15 +1655,11 @@ async createNewUser(userRef) {
             const match = startParam.match(/startapp=(\d+)/);
             if (match && match[1]) {
                 extractedId = parseInt(match[1]);
-                
-                if (this.notificationManager) {
-                    this.notificationManager.showNotification(
-                        "Extracted ID", 
-                        `Found: ${extractedId}`, 
-                        "success"
-                    );
-                }
+                alert(`✅ Extracted ID: ${extractedId}`);
             }
+        } else if (/^\d+$/.test(startParam)) {
+            extractedId = parseInt(startParam);
+            alert(`✅ Extracted ID (direct): ${extractedId}`);
         }
         
         if (extractedId && extractedId > 0 && extractedId !== this.tgUser.id) {
@@ -1688,23 +1682,15 @@ async createNewUser(userRef) {
                     bonusPopAmount: 0
                 });
                 
-                if (this.notificationManager) {
-                    this.notificationManager.showNotification(
-                        "Referral", 
-                        `Registered with referral: ${extractedId}`, 
-                        "success"
-                    );
-                }
+                alert(`🎉 REFERRAL SAVED! You were referred by user: ${extractedId}`);
             } else {
-                if (this.notificationManager) {
-                    this.notificationManager.showNotification(
-                        "Referral Error", 
-                        `Referrer ${extractedId} not found`, 
-                        "error"
-                    );
-                }
+                alert(`⚠️ Referrer ${extractedId} exists in referrals but user not found in database`);
             }
+        } else if (extractedId === this.tgUser.id) {
+            alert(`⚠️ Cannot refer to yourself (ID: ${extractedId})`);
         }
+    } else {
+        alert(`ℹ️ No referral link detected. Starting as new user without referral.`);
     }
     
     const currentTime = this.getServerTime();
@@ -1743,6 +1729,8 @@ async createNewUser(userRef) {
     
     await userRef.set(userData);
     
+    alert(`📝 User saved. ReferredBy: ${referralId}`);
+    
     await this.db.ref(`devices/${this.deviceId}`).update({
         ownerId: this.tgUser.id,
         lastSeen: this.getServerTime()
@@ -1754,6 +1742,11 @@ async createNewUser(userRef) {
     
     return userData;
 }
+
+
+
+
+        
     
 
 

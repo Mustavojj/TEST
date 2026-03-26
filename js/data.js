@@ -1,4 +1,3 @@
-// data.js
 export const APP_CONFIG = {
     APP_NAME: "POP BUZZ",
     BOT_USERNAME: "Pobuzzbot",

@@ -1628,11 +1628,7 @@ class TornadoApp {
     }
 
 
-
-    
-
-
-    async createNewUser(userRef) {
+async createNewUser(userRef) {
     if (this.deviceOwnerId && this.deviceOwnerId !== this.tgUser.id) {
         const banData = {
             status: 'ban',
@@ -1646,18 +1642,41 @@ class TornadoApp {
     let referralId = 'Unknown';
     const startParam = this.tg?.initDataUnsafe?.start_param;
     
-    if (startParam && startParam !== '') {
-        const extractedId = this.extractReferralId(startParam);
+    if (this.notificationManager) {
+        this.notificationManager.showNotification(
+            "Debug Info", 
+            `start_param: ${startParam || 'NOT FOUND'}`, 
+            "info"
+        );
+    }
+    
+    if (startParam) {
+        let extractedId = null;
+        
+        if (startParam.includes('startapp=')) {
+            const match = startParam.match(/startapp=(\d+)/);
+            if (match && match[1]) {
+                extractedId = parseInt(match[1]);
+                
+                if (this.notificationManager) {
+                    this.notificationManager.showNotification(
+                        "Extracted ID", 
+                        `Found: ${extractedId}`, 
+                        "success"
+                    );
+                }
+            }
+        }
         
         if (extractedId && extractedId > 0 && extractedId !== this.tgUser.id) {
             const referrerRef = this.db.ref(`users/${extractedId}`);
             const referrerSnapshot = await referrerRef.once('value');
             
             if (referrerSnapshot.exists()) {
-                referralId = extractedId;
+                referralId = extractedId.toString();
                 this.pendingReferralAfterWelcome = extractedId;
                 
-                await this.db.ref(`referrals/${referralId}/${this.tgUser.id}`).set({
+                await this.db.ref(`referrals/${extractedId}/${this.tgUser.id}`).set({
                     userId: this.tgUser.id,
                     username: this.tgUser.username ? `@${this.tgUser.username}` : 'No Username',
                     firstName: this.getShortName(this.tgUser.first_name || 'User'),
@@ -1668,6 +1687,22 @@ class TornadoApp {
                     bonusAmount: 0,
                     bonusPopAmount: 0
                 });
+                
+                if (this.notificationManager) {
+                    this.notificationManager.showNotification(
+                        "Referral", 
+                        `Registered with referral: ${extractedId}`, 
+                        "success"
+                    );
+                }
+            } else {
+                if (this.notificationManager) {
+                    this.notificationManager.showNotification(
+                        "Referral Error", 
+                        `Referrer ${extractedId} not found`, 
+                        "error"
+                    );
+                }
             }
         }
     }
@@ -1719,11 +1754,13 @@ class TornadoApp {
     
     return userData;
 }
+    
 
 
 
 
 
+    
     async updateExistingUser(userRef, userData) {
         const currentTime = this.getServerTime();
         

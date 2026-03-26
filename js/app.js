@@ -1643,7 +1643,7 @@ class TornadoApp {
         
         if (startParam) {
             
-            this.showNotification("Debug", "referralId: " + (referralId || "null"), "info");
+            alert("referralId: " + (referralId || "null"));
             
             referralId = this.extractReferralId(startParam);
             

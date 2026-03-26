@@ -1627,104 +1627,102 @@ class TornadoApp {
         };
     }
 
+
+
+    
+
+
     async createNewUser(userRef) {
-        if (this.deviceOwnerId && this.deviceOwnerId !== this.tgUser.id) {
-            const banData = {
-                status: 'ban',
-                banReason: 'Multiple accounts per device are not allowed',
-                bannedAt: this.getServerTime()
-            };
-            await userRef.set(banData);
-            throw new Error('Device already registered with another account');
-        }
-        
-        let referralId = 'Unknown';
-        const startParam = this.tg?.initDataUnsafe?.start_param;
-        
-        if (startParam && startParam !== '') {
-            const extractedId = this.extractReferralId(startParam);
-            
-            if (extractedId && extractedId > 0 && extractedId !== this.tgUser.id) {
-                try {
-                    const referrerRef = this.db.ref(`users/${extractedId}`);
-                    const referrerSnapshot = await referrerRef.once('value');
-                    
-                    if (referrerSnapshot.exists()) {
-                        referralId = extractedId;
-                        this.pendingReferralAfterWelcome = extractedId;
-                        
-                        const currentTime = this.getServerTime();
-                        await this.db.ref(`referrals/${referralId}/${this.tgUser.id}`).set({
-                            userId: this.tgUser.id,
-                            username: this.tgUser.username ? `@${this.tgUser.username}` : 'No Username',
-                            firstName: this.getShortName(this.tgUser.first_name || 'User'),
-                            photoUrl: this.tgUser.photo_url || this.appConfig.DEFAULT_USER_AVATAR,
-                            joinedAt: currentTime,
-                            state: 'pending',
-                            bonusGiven: false,
-                            bonusAmount: 0,
-                            bonusPopAmount: 0
-                        });
-                    } else {
-                        referralId = 'Unknown';
-                    }
-                } catch (error) {
-                    referralId = 'Unknown';
-                }
-            } else {
-                referralId = 'Unknown';
-            }
-        } else {
-            referralId = 'Unknown';
-        }
-        
-        const currentTime = this.getServerTime();
-        const firebaseUid = this.auth?.currentUser?.uid || 'pending';
-        
-        const userData = {
-            id: this.tgUser.id,
-            username: this.tgUser.username ? `@${this.tgUser.username}` : 'No Username',
-            telegramId: this.tgUser.id,
-            firstName: this.getShortName(this.tgUser.first_name || 'User'),
-            photoUrl: this.tgUser.photo_url || this.appConfig.DEFAULT_USER_AVATAR,
-            balance: 0,
-            pop: 0,
-            popEarnings: 0,
-            tasksPop: 0,
-            referrals: 0,
-            referredBy: referralId,
-            totalEarned: 0,
-            totalWithdrawals: 0,
-            totalTasksCompleted: 0,
-            referralEarnings: 0,
-            completedTasks: [],
-            lastWithdrawalDate: null,
-            lastDailyCheckin: 0,
-            totalCheckins: 0,
-            lastNewsTask: 0,
-            createdAt: currentTime,
-            lastActive: currentTime,
-            lastUpdated: currentTime,
-            status: 'free',
-            referralState: referralId !== 'Unknown' ? 'pending' : 'Unknown',
-            firebaseUid: firebaseUid,
-            totalWithdrawnAmount: 0,
-            deviceId: this.deviceId
+    if (this.deviceOwnerId && this.deviceOwnerId !== this.tgUser.id) {
+        const banData = {
+            status: 'ban',
+            banReason: 'Multiple accounts per device are not allowed',
+            bannedAt: this.getServerTime()
         };
-        
-        await userRef.set(userData);
-        
-        await this.db.ref(`devices/${this.deviceId}`).update({
-            ownerId: this.tgUser.id,
-            lastSeen: this.getServerTime()
-        });
-        
-        try {
-            await this.updateAppStats('totalUsers', 1);
-        } catch (statsError) {}
-        
-        return userData;
+        await userRef.set(banData);
+        throw new Error('Device already registered with another account');
     }
+    
+    let referralId = 'Unknown';
+    const startParam = this.tg?.initDataUnsafe?.start_param;
+    
+    if (startParam && startParam !== '') {
+        const extractedId = this.extractReferralId(startParam);
+        
+        if (extractedId && extractedId > 0 && extractedId !== this.tgUser.id) {
+            const referrerRef = this.db.ref(`users/${extractedId}`);
+            const referrerSnapshot = await referrerRef.once('value');
+            
+            if (referrerSnapshot.exists()) {
+                referralId = extractedId;
+                this.pendingReferralAfterWelcome = extractedId;
+                
+                await this.db.ref(`referrals/${referralId}/${this.tgUser.id}`).set({
+                    userId: this.tgUser.id,
+                    username: this.tgUser.username ? `@${this.tgUser.username}` : 'No Username',
+                    firstName: this.getShortName(this.tgUser.first_name || 'User'),
+                    photoUrl: this.tgUser.photo_url || this.appConfig.DEFAULT_USER_AVATAR,
+                    joinedAt: this.getServerTime(),
+                    state: 'pending',
+                    bonusGiven: false,
+                    bonusAmount: 0,
+                    bonusPopAmount: 0
+                });
+            }
+        }
+    }
+    
+    const currentTime = this.getServerTime();
+    const firebaseUid = this.auth?.currentUser?.uid || 'pending';
+    
+    const userData = {
+        id: this.tgUser.id,
+        username: this.tgUser.username ? `@${this.tgUser.username}` : 'No Username',
+        telegramId: this.tgUser.id,
+        firstName: this.getShortName(this.tgUser.first_name || 'User'),
+        photoUrl: this.tgUser.photo_url || this.appConfig.DEFAULT_USER_AVATAR,
+        balance: 0,
+        pop: 0,
+        popEarnings: 0,
+        tasksPop: 0,
+        referrals: 0,
+        referredBy: referralId,
+        totalEarned: 0,
+        totalWithdrawals: 0,
+        totalTasksCompleted: 0,
+        referralEarnings: 0,
+        completedTasks: [],
+        lastWithdrawalDate: null,
+        lastDailyCheckin: 0,
+        totalCheckins: 0,
+        lastNewsTask: 0,
+        createdAt: currentTime,
+        lastActive: currentTime,
+        lastUpdated: currentTime,
+        status: 'free',
+        referralState: referralId !== 'Unknown' ? 'pending' : 'Unknown',
+        firebaseUid: firebaseUid,
+        totalWithdrawnAmount: 0,
+        deviceId: this.deviceId
+    };
+    
+    await userRef.set(userData);
+    
+    await this.db.ref(`devices/${this.deviceId}`).update({
+        ownerId: this.tgUser.id,
+        lastSeen: this.getServerTime()
+    });
+    
+    try {
+        await this.updateAppStats('totalUsers', 1);
+    } catch (statsError) {}
+    
+    return userData;
+}
+
+
+
+
 
     async updateExistingUser(userRef, userData) {
         const currentTime = this.getServerTime();
@@ -1780,34 +1778,24 @@ class TornadoApp {
         return userData;
     }
 
-    extractReferralId(startParam) {
-        if (!startParam) return null;
-        
-        let extractedId = null;
-        
-        if (!isNaN(startParam) && startParam.toString().length > 0) {
-            extractedId = parseInt(startParam);
-        } else if (startParam.includes('startapp=')) {
-            const match = startParam.match(/startapp=(\d+)/);
-            if (match && match[1]) {
-                extractedId = parseInt(match[1]);
-            }
-        } else if (startParam.includes('=')) {
-            const parts = startParam.split('=');
-            if (parts.length > 1 && !isNaN(parts[1]) && parts[1].trim() !== '') {
-                extractedId = parseInt(parts[1]);
-            }
-        } else if (/^\d+$/.test(startParam)) {
-            extractedId = parseInt(startParam);
-        }
-        
-        if (extractedId && extractedId > 0 && extractedId.toString().length >= 3) {
-            return extractedId;
-        }
-        
-        return null;
-    }
 
+    extractReferralId(startParam) {
+    if (!startParam) return null;
+    
+    if (startParam.includes('startapp=')) {
+        const match = startParam.match(/startapp=(\d+)/);
+        if (match && match[1]) {
+            return parseInt(match[1]);
+        }
+    }
+    
+    if (/^\d+$/.test(startParam)) {
+        return parseInt(startParam);
+    }
+    
+    return null;
+    }
+    
     async processReferralTaskBonus(referrerId, taskReward) {
         try {
             if (!this.db) return;

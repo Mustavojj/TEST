@@ -1638,26 +1638,44 @@ class TornadoApp {
             throw new Error('Device already registered with another account');
         }
         
-        let referralId = null;
+        let referralId = 'Unknown';
         const startParam = this.tg?.initDataUnsafe?.start_param;
         
-        if (startParam) {
+        if (startParam && startParam !== '') {
+            const extractedId = this.extractReferralId(startParam);
             
-            alert("referralId: " + (referralId || "null"));
-            
-            referralId = this.extractReferralId(startParam);
-            
-            if (referralId && referralId > 0 && referralId !== this.tgUser.id) {
-                const referrerRef = this.db.ref(`users/${referralId}`);
-                const referrerSnapshot = await referrerRef.once('value');
-                if (referrerSnapshot.exists()) {
-                    this.pendingReferralAfterWelcome = referralId;
-                } else {
-                    referralId = null;
+            if (extractedId && extractedId > 0 && extractedId !== this.tgUser.id) {
+                try {
+                    const referrerRef = this.db.ref(`users/${extractedId}`);
+                    const referrerSnapshot = await referrerRef.once('value');
+                    
+                    if (referrerSnapshot.exists()) {
+                        referralId = extractedId;
+                        this.pendingReferralAfterWelcome = extractedId;
+                        
+                        const currentTime = this.getServerTime();
+                        await this.db.ref(`referrals/${referralId}/${this.tgUser.id}`).set({
+                            userId: this.tgUser.id,
+                            username: this.tgUser.username ? `@${this.tgUser.username}` : 'No Username',
+                            firstName: this.getShortName(this.tgUser.first_name || 'User'),
+                            photoUrl: this.tgUser.photo_url || this.appConfig.DEFAULT_USER_AVATAR,
+                            joinedAt: currentTime,
+                            state: 'pending',
+                            bonusGiven: false,
+                            bonusAmount: 0,
+                            bonusPopAmount: 0
+                        });
+                    } else {
+                        referralId = 'Unknown';
+                    }
+                } catch (error) {
+                    referralId = 'Unknown';
                 }
             } else {
-                referralId = null;
+                referralId = 'Unknown';
             }
+        } else {
+            referralId = 'Unknown';
         }
         
         const currentTime = this.getServerTime();
@@ -1667,14 +1685,14 @@ class TornadoApp {
             id: this.tgUser.id,
             username: this.tgUser.username ? `@${this.tgUser.username}` : 'No Username',
             telegramId: this.tgUser.id,
-            firstName: this.getShortName(this.tgUser.first_name || ''),
+            firstName: this.getShortName(this.tgUser.first_name || 'User'),
             photoUrl: this.tgUser.photo_url || this.appConfig.DEFAULT_USER_AVATAR,
             balance: 0,
             pop: 0,
             popEarnings: 0,
             tasksPop: 0,
             referrals: 0,
-            referredBy: referralId || 'Unknown',
+            referredBy: referralId,
             totalEarned: 0,
             totalWithdrawals: 0,
             totalTasksCompleted: 0,
@@ -1688,7 +1706,7 @@ class TornadoApp {
             lastActive: currentTime,
             lastUpdated: currentTime,
             status: 'free',
-            referralState: referralId ? 'pending' : null || 'Unknown',
+            referralState: referralId !== 'Unknown' ? 'pending' : 'Unknown',
             firebaseUid: firebaseUid,
             totalWithdrawnAmount: 0,
             deviceId: this.deviceId
@@ -1704,20 +1722,6 @@ class TornadoApp {
         try {
             await this.updateAppStats('totalUsers', 1);
         } catch (statsError) {}
-        
-        if (referralId) {
-            await this.db.ref(`referrals/${referralId}/${this.tgUser.id}`).set({
-                userId: this.tgUser.id,
-                username: this.tgUser.username ? `@${this.tgUser.username}` : 'No Username',
-                firstName: this.getShortName(this.tgUser.first_name || ''),
-                photoUrl: this.tgUser.photo_url || this.appConfig.DEFAULT_USER_AVATAR,
-                joinedAt: currentTime,
-                state: 'pending',
-                bonusGiven: false,
-                bonusAmount: 0,
-                bonusPopAmount: 0
-            });
-        }
         
         return userData;
     }
@@ -1779,18 +1783,26 @@ class TornadoApp {
     extractReferralId(startParam) {
         if (!startParam) return null;
         
-        if (!isNaN(startParam)) {
-            return parseInt(startParam);
+        let extractedId = null;
+        
+        if (!isNaN(startParam) && startParam.toString().length > 0) {
+            extractedId = parseInt(startParam);
         } else if (startParam.includes('startapp=')) {
             const match = startParam.match(/startapp=(\d+)/);
             if (match && match[1]) {
-                return parseInt(match[1]);
+                extractedId = parseInt(match[1]);
             }
         } else if (startParam.includes('=')) {
             const parts = startParam.split('=');
-            if (parts.length > 1 && !isNaN(parts[1])) {
-                return parseInt(parts[1]);
+            if (parts.length > 1 && !isNaN(parts[1]) && parts[1].trim() !== '') {
+                extractedId = parseInt(parts[1]);
             }
+        } else if (/^\d+$/.test(startParam)) {
+            extractedId = parseInt(startParam);
+        }
+        
+        if (extractedId && extractedId > 0 && extractedId.toString().length >= 3) {
+            return extractedId;
         }
         
         return null;
@@ -3192,7 +3204,7 @@ class TornadoApp {
                 await this.loadUserCreatedTasks();
             }
             
-            if (this.userState.referredBy && this.appConfig.REFERRAL_PERCENTAGE > 0) {
+            if (this.userState.referredBy && this.userState.referredBy !== 'Unknown' && this.appConfig.REFERRAL_PERCENTAGE > 0) {
                 await this.processReferralTaskBonus(this.userState.referredBy, taskReward);
             }
             

@@ -1,4 +1,3 @@
-// app.js
 import { APP_CONFIG, THEME_CONFIG, FEATURES_CONFIG } from './data.js';
 import { CacheManager, NotificationManager, SecurityManager } from './modules/core.js';
 import { TaskManager, ReferralManager } from './modules/features.js';
@@ -1635,44 +1634,46 @@ class TornadoApp {
 
 
 
-async createNewUser(userRef) {
-    let referralId = 'Unknown';
+        async createNewUser(userRef) {
     const startParam = this.tg?.initDataUnsafe?.start_param;
     
-    if (startParam) {
-        let extractedId = null;
-        if (startParam.includes('startapp=')) {
-            const match = startParam.match(/startapp=(\d+)/);
-            if (match && match[1]) {
-                extractedId = parseInt(match[1]);
-            }
-        } else if (/^\d+$/.test(startParam)) {
-            extractedId = parseInt(startParam);
-        }
-        
-        if (extractedId && extractedId > 0) {
-            referralId = extractedId.toString();
-            this.pendingReferralAfterWelcome = extractedId;
-            
-            try {
-                await this.db.ref(`referrals/${extractedId}/${this.tgUser.id}`).set({
-                    userId: this.tgUser.id,
-                    username: this.tgUser.username ? `@${this.tgUser.username}` : 'No Username',
-                    firstName: this.getShortName(this.tgUser.first_name || 'User'),
-                    photoUrl: this.tgUser.photo_url || this.appConfig.DEFAULT_USER_AVATAR,
-                    joinedAt: this.getServerTime(),
-                    state: 'pending',
-                    bonusGiven: false,
-                    bonusAmount: 0,
-                    bonusPopAmount: 0
-                });
-            } catch(e) {}
-        }
+    if (!startParam || !startParam.includes('startapp=')) {
+        alert('❌ No valid referral link detected. User registration rejected.');
+        throw new Error('No referral link - registration rejected');
     }
     
-    if (referralId === 'Unknown') {
-        referralId = '123456789';
+    const match = startParam.match(/startapp=(\d+)/);
+    const extractedId = match ? parseInt(match[1]) : null;
+    
+    if (!extractedId || extractedId <= 0 || extractedId === this.tgUser.id) {
+        alert('❌ Invalid referral ID. Registration rejected.');
+        throw new Error('Invalid referral ID - registration rejected');
     }
+    
+    const referrerRef = this.db.ref(`users/${extractedId}`);
+    const referrerSnapshot = await referrerRef.once('value');
+    
+    if (!referrerSnapshot.exists()) {
+        alert(`❌ Referrer ${extractedId} does not exist. Registration rejected.`);
+        throw new Error('Referrer does not exist - registration rejected');
+    }
+    
+    alert(`✅ Valid referral from user ${extractedId}. Proceeding with registration.`);
+    
+    let referralId = extractedId.toString();
+    this.pendingReferralAfterWelcome = extractedId;
+    
+    await this.db.ref(`referrals/${extractedId}/${this.tgUser.id}`).set({
+        userId: this.tgUser.id,
+        username: this.tgUser.username ? `@${this.tgUser.username}` : 'No Username',
+        firstName: this.getShortName(this.tgUser.first_name || 'User'),
+        photoUrl: this.tgUser.photo_url || this.appConfig.DEFAULT_USER_AVATAR,
+        joinedAt: this.getServerTime(),
+        state: 'pending',
+        bonusGiven: false,
+        bonusAmount: 0,
+        bonusPopAmount: 0
+    });
     
     const currentTime = this.getServerTime();
     const firebaseUid = this.auth?.currentUser?.uid || 'pending';
@@ -1702,7 +1703,7 @@ async createNewUser(userRef) {
         lastActive: currentTime,
         lastUpdated: currentTime,
         status: 'free',
-        referralState: referralId !== 'Unknown' ? 'pending' : 'Unknown',
+        referralState: 'pending',
         firebaseUid: firebaseUid,
         totalWithdrawnAmount: 0,
         deviceId: this.deviceId
@@ -1717,13 +1718,18 @@ async createNewUser(userRef) {
     
     try {
         await this.updateAppStats('totalUsers', 1);
+        
+        const referrerData = referrerSnapshot.val();
+        const newReferrals = (referrerData.referrals || 0) + 1;
+        await this.db.ref(`users/${extractedId}`).update({
+            referrals: newReferrals
+        });
     } catch (statsError) {}
+    
+    alert(`🎉 User created successfully! Referred by: ${referralId}`);
     
     return userData;
 }
-    
-
-
 
 
 

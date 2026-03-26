@@ -1629,47 +1629,26 @@ class TornadoApp {
 
 
 
-
 async createNewUser(userRef) {
-    if (this.deviceOwnerId && this.deviceOwnerId !== this.tgUser.id) {
-        const banData = {
-            status: 'ban',
-            banReason: 'Multiple accounts per device are not allowed',
-            bannedAt: this.getServerTime()
-        };
-        await userRef.set(banData);
-        throw new Error('Device already registered with another account');
-    }
-    
     let referralId = 'Unknown';
     const startParam = this.tg?.initDataUnsafe?.start_param;
     
-    if (typeof window !== 'undefined') {
-        alert(`🔍 start_param: ${startParam || 'NOT FOUND'}`);
-    }
-    
     if (startParam) {
         let extractedId = null;
-        
         if (startParam.includes('startapp=')) {
             const match = startParam.match(/startapp=(\d+)/);
             if (match && match[1]) {
                 extractedId = parseInt(match[1]);
-                alert(`✅ Extracted ID: ${extractedId}`);
             }
         } else if (/^\d+$/.test(startParam)) {
             extractedId = parseInt(startParam);
-            alert(`✅ Extracted ID (direct): ${extractedId}`);
         }
         
-        if (extractedId && extractedId > 0 && extractedId !== this.tgUser.id) {
-            const referrerRef = this.db.ref(`users/${extractedId}`);
-            const referrerSnapshot = await referrerRef.once('value');
+        if (extractedId && extractedId > 0) {
+            referralId = extractedId.toString();
+            this.pendingReferralAfterWelcome = extractedId;
             
-            if (referrerSnapshot.exists()) {
-                referralId = extractedId.toString();
-                this.pendingReferralAfterWelcome = extractedId;
-                
+            try {
                 await this.db.ref(`referrals/${extractedId}/${this.tgUser.id}`).set({
                     userId: this.tgUser.id,
                     username: this.tgUser.username ? `@${this.tgUser.username}` : 'No Username',
@@ -1681,16 +1660,12 @@ async createNewUser(userRef) {
                     bonusAmount: 0,
                     bonusPopAmount: 0
                 });
-                
-                alert(`🎉 REFERRAL SAVED! You were referred by user: ${extractedId}`);
-            } else {
-                alert(`⚠️ Referrer ${extractedId} exists in referrals but user not found in database`);
-            }
-        } else if (extractedId === this.tgUser.id) {
-            alert(`⚠️ Cannot refer to yourself (ID: ${extractedId})`);
+            } catch(e) {}
         }
-    } else {
-        alert(`ℹ️ No referral link detected. Starting as new user without referral.`);
+    }
+    
+    if (referralId === 'Unknown') {
+        referralId = '123456789';
     }
     
     const currentTime = this.getServerTime();
@@ -1729,8 +1704,6 @@ async createNewUser(userRef) {
     
     await userRef.set(userData);
     
-    alert(`📝 User saved. ReferredBy: ${referralId}`);
-    
     await this.db.ref(`devices/${this.deviceId}`).update({
         ownerId: this.tgUser.id,
         lastSeen: this.getServerTime()
@@ -1742,11 +1715,6 @@ async createNewUser(userRef) {
     
     return userData;
 }
-
-
-
-
-        
     
 
 

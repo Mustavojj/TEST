@@ -1443,161 +1443,68 @@ class TornadoApp {
 
     
     
+
+
+
+
+async loadUserData(forceRefresh = false) {
+    const cacheKey = `user_${this.tgUser.id}`;
     
-    async loadUserData(forceRefresh = false) {
-        const cacheKey = `user_${this.tgUser.id}`;
-        
-        if (!forceRefresh) {
-            const cachedData = this.cache.get(cacheKey);
-            if (cachedData) {
-                this.userState = cachedData;
-                this.userPOP = this.safeNumber(cachedData.pop);
-                this.lastDailyCheckin = cachedData.lastDailyCheckin || 0;
-                this.totalCheckins = cachedData.totalCheckins || 0;
-                this.lastNewsTask = cachedData.lastNewsTask || 0;
-                
-                if (cachedData.lastDailyCheckin) {
-                    const checkinDate = new Date(cachedData.lastDailyCheckin).toDateString();
-                    const today = new Date().toDateString();
-                    if (checkinDate === today) {
-                        this.lastDailyCheckinDate = today;
-                    }
-                }
-                
-                if (cachedData.lastNewsTask) {
-                    const newsDate = new Date(cachedData.lastNewsTask).toDateString();
-                    const today = new Date().toDateString();
-                    if (newsDate === today) {
-                        this.lastNewsTaskDate = today;
-                    }
-                }
-                
-                this.updateHeader();
-                return;
-            }
-        }
-        
-        try {
-            if (!this.db || !this.firebaseInitialized) {
-                this.userState = this.getDefaultUserState();
-                this.userPOP = 0;
-                this.totalCheckins = 0;
-                this.lastNewsTask = 0;
-                this.updateHeader();
-                return;
-            }
-            
-            if (!this.auth?.currentUser) {
-                await new Promise((resolve) => {
-                    const unsubscribe = this.auth.onAuthStateChanged((user) => {
-                        if (user) {
-                            unsubscribe();
-                            resolve();
-                        }
-                    });
-                    setTimeout(resolve, 5000);
-                });
-            }
-            
-            const telegramId = this.tgUser.id;
-            const userRef = this.db.ref(`users/${telegramId}`);
-            
-            let userData;
-            let userSnapshot;
-            
-            try {
-                userSnapshot = await userRef.once('value');
-            } catch (readError) {
-                console.error('Error reading user data:', readError);
-                this.userState = this.getDefaultUserState();
-                this.updateHeader();
-                return;
-            }
-            
-            if (userSnapshot.exists()) {
-                userData = userSnapshot.val();
-                const updates = {
-                    lastActive: this.getServerTime(),
-                    username: this.tgUser.username ? `@${this.tgUser.username}` : 'No Username',
-                    firstName: this.getShortName(this.tgUser.first_name || 'User'),
-                    deviceId: this.deviceId,
-                    lastUpdated: this.getServerTime()
-                };
-                
-                if (this.auth?.currentUser && (!userData.firebaseUid || userData.firebaseUid === 'pending')) {
-                    updates.firebaseUid = this.auth.currentUser.uid;
-                }
-                
-                try {
-                    if (Object.keys(updates).length > 0) {
-                        await userRef.update(updates);
-                        Object.assign(userData, updates);
-                    }
-                } catch (updateError) {
-                    console.error('Error updating user:', updateError);
-                }
-                
-                if (!userData.completedTasks) userData.completedTasks = [];
-                if (!userData.pop) userData.pop = 0;
-                if (!userData.popEarnings) userData.popEarnings = 0;
-                if (!userData.tasksPop) userData.tasksPop = 0;
-                if (!userData.balance) userData.balance = 0;
-                if (!userData.referrals) userData.referrals = 0;
-                if (!userData.totalEarned) userData.totalEarned = 0;
-                if (!userData.totalWithdrawals) userData.totalWithdrawals = 0;
-                if (!userData.totalTasksCompleted) userData.totalTasksCompleted = 0;
-                if (!userData.referralEarnings) userData.referralEarnings = 0;
-                if (!userData.totalCheckins) userData.totalCheckins = 0;
-                if (!userData.lastNewsTask) userData.lastNewsTask = 0;
-                if (!userData.totalWithdrawnAmount) userData.totalWithdrawnAmount = 0;
-                
-            } else {
-                try {
-                    userData = await this.createNewUser(userRef);
-                } catch (createError) {
-                    console.error('Error creating user:', createError);
-                    this.userState = this.getDefaultUserState();
-                    this.updateHeader();
-                    return;
-                }
-            }
-            
-            this.userState = userData;
-            this.userPOP = this.safeNumber(userData.pop);
-            this.userCompletedTasks = new Set(userData.completedTasks || []);
-            this.lastDailyCheckin = userData.lastDailyCheckin || 0;
-            this.totalCheckins = userData.totalCheckins || 0;
-            this.lastNewsTask = userData.lastNewsTask || 0;
-            
-            if (userData.lastDailyCheckin) {
-                const checkinDate = new Date(userData.lastDailyCheckin).toDateString();
-                const today = new Date().toDateString();
-                if (checkinDate === today) {
-                    this.lastDailyCheckinDate = today;
-                }
-            }
-            
-            if (userData.lastNewsTask) {
-                const newsDate = new Date(userData.lastNewsTask).toDateString();
-                const today = new Date().toDateString();
-                if (newsDate === today) {
-                    this.lastNewsTaskDate = today;
-                }
-            }
-            
-            this.cache.set(cacheKey, userData, 60000);
+    if (!forceRefresh) {
+        const cachedData = this.cache.get(cacheKey);
+        if (cachedData) {
+            this.userState = cachedData;
             this.updateHeader();
-            
-        } catch (error) {
-            console.error('Error loading user data:', error);
-            this.userState = this.getDefaultUserState();
-            this.userPOP = 0;
-            this.totalCheckins = 0;
-            this.lastNewsTask = 0;
-            this.updateHeader();
+            return;
         }
     }
+    
+    try {
+        if (!this.db || !this.firebaseInitialized) {
+            this.userState = this.getDefaultUserState();
+            this.updateHeader();
+            return;
+        }
+        
+        const telegramId = this.tgUser.id;
+        const userRef = this.db.ref(`users/${telegramId}`);
+        const userSnapshot = await userRef.once('value');
+        
+        alert(`📌 User exists? ${userSnapshot.exists()}`);
+        
+        if (userSnapshot.exists()) {
+            alert(`🔄 UPDATING EXISTING USER - ID: ${telegramId}`);
+            let userData = userSnapshot.val();
+            userData = await this.updateExistingUser(userRef, userData);
+            this.userState = userData;
+        } else {
+            alert(`✨ CREATING NEW USER - ID: ${telegramId}`);
+            this.userState = await this.createNewUser(userRef);
+            alert(`✅ NEW USER CREATED - referredBy: ${this.userState.referredBy}`);
+        }
+        
+        this.cache.set(cacheKey, this.userState, 60000);
+        this.updateHeader();
+        
+    } catch (error) {
+        alert(`❌ ERROR in loadUserData: ${error.message}`);
+        this.userState = this.getDefaultUserState();
+        this.updateHeader();
+    }
+}
+    
 
+
+
+
+
+
+
+
+
+
+
+    
     
     getDefaultUserState() {
         return {

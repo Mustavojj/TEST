@@ -1,3 +1,4 @@
+// app.js
 import { APP_CONFIG, THEME_CONFIG, FEATURES_CONFIG } from './data.js';
 import { CacheManager, NotificationManager, SecurityManager } from './modules/core.js';
 import { TaskManager, ReferralManager } from './modules/features.js';
@@ -95,6 +96,8 @@ class TornadoApp {
         ];
         this.currentLoadingStep = 0;
         this.loadingComplete = false;
+        
+        this.referralIdToProcess = null;
     }
 
     startDailyResetCheck() {
@@ -254,147 +257,191 @@ class TornadoApp {
         }
     }
 
-    
-    
-    
-    
+    extractReferralIdFromStartParam() {
+        if (!this.tg || !this.tg.initDataUnsafe) return null;
+        
+        const startParam = this.tg.initDataUnsafe.start_param;
+        if (!startParam) return null;
+        
+        if (!isNaN(startParam)) {
+            return parseInt(startParam);
+        } else if (startParam.includes('startapp=')) {
+            const match = startParam.match(/startapp=(\d+)/);
+            if (match && match[1]) {
+                return parseInt(match[1]);
+            }
+        } else if (startParam.includes('=')) {
+            const parts = startParam.split('=');
+            if (parts.length > 1 && !isNaN(parts[1])) {
+                return parseInt(parts[1]);
+            }
+        }
+        
+        return null;
+    }
+
+    async processReferralIfExists() {
+        if (!this.tgUser) return null;
+        
+        const referralId = this.extractReferralIdFromStartParam();
+        
+        if (!referralId || referralId <= 0 || referralId === this.tgUser.id) {
+            return null;
+        }
+        
+        try {
+            if (!this.db) return null;
+            
+            const referrerRef = this.db.ref(`users/${referralId}`);
+            const referrerSnapshot = await referrerRef.once('value');
+            
+            if (referrerSnapshot.exists()) {
+                const referrerData = referrerSnapshot.val();
+                if (referrerData.status !== 'ban') {
+                    return referralId;
+                }
+            }
+        } catch (error) {
+            console.error("Error checking referrer:", error);
+        }
+        
+        return null;
+    }
+
     async initialize() {
-    if (this.isInitializing || this.isInitialized) return;
-    
-    this.isInitializing = true;
-    
-    try {
-        this.initLoadingElements();
+        if (this.isInitializing || this.isInitialized) return;
         
-        this.updateLoadingStep(0, "App Data Loading...", 'fa-spinner fa-pulse', false);
-        
-        if (!window.Telegram || !window.Telegram.WebApp) {
-            this.showError("Please open from Telegram Mini App");
-            return;
-        }
-        
-        this.tg = window.Telegram.WebApp;
-        
-        if (!this.tg.initDataUnsafe || !this.tg.initDataUnsafe.user) {
-            this.showError("User data not available");
-            return;
-        }
-        
-        this.tgUser = this.tg.initDataUnsafe.user;
-        
-        this.updateLoadingStep(0, "App Data Loaded", 'fa-check-circle', true);
-        
-        this.telegramVerified = await this.verifyTelegramUser();
-        this.botToken = await this.getBotToken();
-        
-        this.tg.ready();
-        this.tg.expand();
-        
-        this.setupTelegramTheme();
-        
-        this.notificationManager = new NotificationManager();
-        
-        const firebaseSuccess = await this.initializeFirebase();
-        
-        if (firebaseSuccess) {
-            this.setupFirebaseAuth();
-        }
-        
-        await this.syncServerTime();
-        
-        if (this.timeSyncInterval) {
-            clearInterval(this.timeSyncInterval);
-        }
-        this.timeSyncInterval = setInterval(() => this.syncServerTime(), 300000);
-        
-        // ⭐ التحقق من الجهاز أولاً ⭐
-        const deviceCheck = await this.checkDeviceAndRegister();
-        if (!deviceCheck.allowed) {
-            this.showDeviceBanPage();
-            return;
-        }
-        
-        this.updateLoadingStep(1, "User Data Loading...", 'fa-spinner fa-pulse', false);
-        
-        // ⭐ إنشاء المستخدم إذا لم يكن موجوداً ⭐
-        const userRef = this.db.ref(`users/${this.tgUser.id}`);
-        const userSnapshot = await userRef.once('value');
-        
-        if (!userSnapshot.exists()) {
-            await this.createNewUser(userRef);
-        }
-        
-        await this.loadUserData();
-        
-        if (this.userState.status === 'ban') {
-            this.showBannedPage();
-            return;
-        }
-        
-        this.updateLoadingStep(1, "User Data Loaded", 'fa-check-circle', true);
-        
-        this.updateLoadingStep(2, "User Tasks Loading...", 'fa-spinner fa-pulse', false);
-        
-        this.taskManager = new TaskManager(this);
-        this.referralManager = new ReferralManager(this);
-        
-        this.startReferralMonitor();
+        this.isInitializing = true;
         
         try {
-            await this.loadTasksData();
-            await this.loadUserCreatedTasks();
-            await this.loadAdditionalRewards();
-            this.updateLoadingStep(2, "Tasks Loaded", 'fa-check-circle', true);
-        } catch (taskError) {
-            this.updateLoadingStep(2, "Tasks Loaded (partial)", 'fa-exclamation-triangle', false);
-        }
-        
-        this.updateLoadingStep(3, "Checking Device Data...", 'fa-spinner fa-pulse', false);
-        this.updateLoadingStep(3, "Device Verified", 'fa-check-circle', true);
-        
-        this.updateLoadingStep(4, "Loading App Data...", 'fa-spinner fa-pulse', false);
-        
-        try {
-            await this.loadHistoryData();
-        } catch (historyError) {}
-        
-        this.renderUI();
-        
-        this.darkMode = true;
-        this.applyTheme();
-        
-        this.isInitialized = true;
-        this.isInitializing = false;
-        
-        this.updateLoadingStep(4, "Ready to Launch", 'fa-check-circle', true);
-        
-        this.loadingComplete = true;
-        this.showLaunchButton();
-        
-        await this.processPendingReferralBonuses();
-        
-    } catch (error) {
-        this.showNotification("Error", "Initialization failed: " + error.message, "error");
-        
-        try {
-            this.userState = this.getDefaultUserState();
+            this.initLoadingElements();
+            
+            this.updateLoadingStep(0, "App Data Loading...", 'fa-spinner fa-pulse', false);
+            
+            if (!window.Telegram || !window.Telegram.WebApp) {
+                this.showError("Please open from Telegram Mini App");
+                return;
+            }
+            
+            this.tg = window.Telegram.WebApp;
+            
+            if (!this.tg.initDataUnsafe || !this.tg.initDataUnsafe.user) {
+                this.showError("User data not available");
+                return;
+            }
+            
+            this.tgUser = this.tg.initDataUnsafe.user;
+            
+            this.updateLoadingStep(0, "App Data Loaded", 'fa-check-circle', true);
+            
+            this.telegramVerified = await this.verifyTelegramUser();
+            this.botToken = await this.getBotToken();
+            
+            this.tg.ready();
+            this.tg.expand();
+            
+            this.setupTelegramTheme();
+            
+            this.notificationManager = new NotificationManager();
+            
+            const firebaseSuccess = await this.initializeFirebase();
+            
+            if (firebaseSuccess) {
+                this.setupFirebaseAuth();
+            }
+            
+            await this.syncServerTime();
+            
+            if (this.timeSyncInterval) {
+                clearInterval(this.timeSyncInterval);
+            }
+            this.timeSyncInterval = setInterval(() => this.syncServerTime(), 300000);
+            
+            this.updateLoadingStep(1, "Checking Referral Link...", 'fa-spinner fa-pulse', false);
+            
+            const validReferralId = await this.processReferralIfExists();
+            if (validReferralId) {
+                this.referralIdToProcess = validReferralId;
+                this.updateLoadingStep(1, "Referral Link Valid", 'fa-check-circle', true);
+            } else {
+                this.updateLoadingStep(1, "No Referral Link", 'fa-check-circle', true);
+            }
+            
+            this.updateLoadingStep(2, "Checking Device Data...", 'fa-spinner fa-pulse', false);
+            
+            const deviceCheck = await this.checkDeviceAndRegister();
+            if (!deviceCheck.allowed) {
+                this.showDeviceBanPage();
+                return;
+            }
+            this.updateLoadingStep(2, "Device Verified", 'fa-check-circle', true);
+            
+            this.updateLoadingStep(3, "User Data Loading...", 'fa-spinner fa-pulse', false);
+            
+            await this.loadUserData();
+            
+            if (this.userState.status === 'ban') {
+                this.showBannedPage();
+                return;
+            }
+            
+            this.updateLoadingStep(3, "User Data Loaded", 'fa-check-circle', true);
+            
+            this.updateLoadingStep(4, "User Tasks Loading...", 'fa-spinner fa-pulse', false);
+            
+            this.taskManager = new TaskManager(this);
+            this.referralManager = new ReferralManager(this);
+            
+            this.startReferralMonitor();
+            
+            try {
+                await this.loadTasksData();
+                await this.loadUserCreatedTasks();
+                await this.loadAdditionalRewards();
+                this.updateLoadingStep(4, "Tasks Loaded", 'fa-check-circle', true);
+            } catch (taskError) {
+                this.updateLoadingStep(4, "Tasks Loaded (partial)", 'fa-exclamation-triangle', false);
+            }
+            
+            try {
+                await this.loadHistoryData();
+            } catch (historyError) {}
+            
             this.renderUI();
             
-            const appLoader = document.getElementById('app-loader');
-            const app = document.getElementById('app');
+            this.darkMode = true;
+            this.applyTheme();
             
-            if (appLoader) appLoader.style.display = 'none';
-            if (app) app.style.display = 'block';
+            this.isInitialized = true;
+            this.isInitializing = false;
             
-        } catch (renderError) {
-            this.showError("Failed to initialize app: " + error.message);
+            this.loadingComplete = true;
+            this.showLaunchButton();
+            
+            await this.processPendingReferralBonuses();
+            
+        } catch (error) {
+            this.showNotification("Error", "Initialization failed: " + error.message, "error");
+            
+            try {
+                this.userState = this.getDefaultUserState();
+                this.renderUI();
+                
+                const appLoader = document.getElementById('app-loader');
+                const app = document.getElementById('app');
+                
+                if (appLoader) appLoader.style.display = 'none';
+                if (app) app.style.display = 'block';
+                
+            } catch (renderError) {
+                this.showError("Failed to initialize app: " + error.message);
+            }
+            
+            this.isInitializing = false;
         }
-        
-        this.isInitializing = false;
     }
-}
-
     
+
     async processPendingReferralBonuses() {
         try {
             if (!this.db || !this.tgUser) return;
@@ -1454,167 +1501,163 @@ class TornadoApp {
     }
 
     
-
-
-async loadUserData(forceRefresh = false) {
-    const cacheKey = `user_${this.tgUser.id}`;
     
-    if (!forceRefresh) {
-        const cachedData = this.cache.get(cacheKey);
-        if (cachedData) {
-            this.userState = cachedData;
-            this.userPOP = this.safeNumber(cachedData.pop);
-            this.lastDailyCheckin = cachedData.lastDailyCheckin || 0;
-            this.totalCheckins = cachedData.totalCheckins || 0;
-            this.lastNewsTask = cachedData.lastNewsTask || 0;
+    
+    async loadUserData(forceRefresh = false) {
+        const cacheKey = `user_${this.tgUser.id}`;
+        
+        if (!forceRefresh) {
+            const cachedData = this.cache.get(cacheKey);
+            if (cachedData) {
+                this.userState = cachedData;
+                this.userPOP = this.safeNumber(cachedData.pop);
+                this.lastDailyCheckin = cachedData.lastDailyCheckin || 0;
+                this.totalCheckins = cachedData.totalCheckins || 0;
+                this.lastNewsTask = cachedData.lastNewsTask || 0;
+                
+                if (cachedData.lastDailyCheckin) {
+                    const checkinDate = new Date(cachedData.lastDailyCheckin).toDateString();
+                    const today = new Date().toDateString();
+                    if (checkinDate === today) {
+                        this.lastDailyCheckinDate = today;
+                    }
+                }
+                
+                if (cachedData.lastNewsTask) {
+                    const newsDate = new Date(cachedData.lastNewsTask).toDateString();
+                    const today = new Date().toDateString();
+                    if (newsDate === today) {
+                        this.lastNewsTaskDate = today;
+                    }
+                }
+                
+                this.updateHeader();
+                return;
+            }
+        }
+        
+        try {
+            if (!this.db || !this.firebaseInitialized) {
+                this.userState = this.getDefaultUserState();
+                this.userPOP = 0;
+                this.totalCheckins = 0;
+                this.lastNewsTask = 0;
+                this.updateHeader();
+                return;
+            }
             
-            if (cachedData.lastDailyCheckin) {
-                const checkinDate = new Date(cachedData.lastDailyCheckin).toDateString();
+            if (!this.auth?.currentUser) {
+                await new Promise((resolve) => {
+                    const unsubscribe = this.auth.onAuthStateChanged((user) => {
+                        if (user) {
+                            unsubscribe();
+                            resolve();
+                        }
+                    });
+                    setTimeout(resolve, 5000);
+                });
+            }
+            
+            const telegramId = this.tgUser.id;
+            const userRef = this.db.ref(`users/${telegramId}`);
+            
+            let userData;
+            let userSnapshot;
+            
+            try {
+                userSnapshot = await userRef.once('value');
+            } catch (readError) {
+                console.error('Error reading user data:', readError);
+                this.userState = this.getDefaultUserState();
+                this.updateHeader();
+                return;
+            }
+            
+            if (userSnapshot.exists()) {
+                userData = userSnapshot.val();
+                
+                if (userData.status === 'ban') {
+                    this.userState = userData;
+                    return;
+                }
+                
+                const updates = {
+                    lastActive: this.getServerTime(),
+                    username: this.tgUser.username ? `@${this.tgUser.username}` : 'No Username',
+                    firstName: this.getShortName(this.tgUser.first_name || 'User'),
+                    deviceId: this.deviceId,
+                    lastUpdated: this.getServerTime()
+                };
+                
+                if (this.auth?.currentUser && (!userData.firebaseUid || userData.firebaseUid === 'pending')) {
+                    updates.firebaseUid = this.auth.currentUser.uid;
+                }
+                
+                try {
+                    if (Object.keys(updates).length > 0) {
+                        await userRef.update(updates);
+                        Object.assign(userData, updates);
+                    }
+                } catch (updateError) {
+                    console.error('Error updating user:', updateError);
+                }
+                
+                if (!userData.completedTasks) userData.completedTasks = [];
+                if (!userData.pop) userData.pop = 0;
+                if (!userData.popEarnings) userData.popEarnings = 0;
+                if (!userData.tasksPop) userData.tasksPop = 0;
+                if (!userData.balance) userData.balance = 0;
+                if (!userData.referrals) userData.referrals = 0;
+                if (!userData.totalEarned) userData.totalEarned = 0;
+                if (!userData.totalWithdrawals) userData.totalWithdrawals = 0;
+                if (!userData.totalTasksCompleted) userData.totalTasksCompleted = 0;
+                if (!userData.referralEarnings) userData.referralEarnings = 0;
+                if (!userData.totalCheckins) userData.totalCheckins = 0;
+                if (!userData.lastNewsTask) userData.lastNewsTask = 0;
+                if (!userData.totalWithdrawnAmount) userData.totalWithdrawnAmount = 0;
+                if (userData.referredBy === undefined) userData.referredBy = 'Unknown';
+                
+                this.userState = userData;
+            } else {
+                userData = await this.createNewUser(userRef);
+                this.userState = userData;
+            }
+            
+            this.userPOP = this.safeNumber(this.userState.pop);
+            this.userCompletedTasks = new Set(this.userState.completedTasks || []);
+            this.lastDailyCheckin = this.userState.lastDailyCheckin || 0;
+            this.totalCheckins = this.userState.totalCheckins || 0;
+            this.lastNewsTask = this.userState.lastNewsTask || 0;
+            
+            if (this.userState.lastDailyCheckin) {
+                const checkinDate = new Date(this.userState.lastDailyCheckin).toDateString();
                 const today = new Date().toDateString();
                 if (checkinDate === today) {
                     this.lastDailyCheckinDate = today;
                 }
             }
             
-            if (cachedData.lastNewsTask) {
-                const newsDate = new Date(cachedData.lastNewsTask).toDateString();
+            if (this.userState.lastNewsTask) {
+                const newsDate = new Date(this.userState.lastNewsTask).toDateString();
                 const today = new Date().toDateString();
                 if (newsDate === today) {
                     this.lastNewsTaskDate = today;
                 }
             }
             
+            this.cache.set(cacheKey, this.userState, 60000);
             this.updateHeader();
-            return;
-        }
-    }
-    
-    try {
-        if (!this.db || !this.firebaseInitialized) {
+            
+        } catch (error) {
+            console.error('Error loading user data:', error);
             this.userState = this.getDefaultUserState();
             this.userPOP = 0;
             this.totalCheckins = 0;
             this.lastNewsTask = 0;
             this.updateHeader();
-            return;
         }
-        
-        if (!this.auth?.currentUser) {
-            await new Promise((resolve) => {
-                const unsubscribe = this.auth.onAuthStateChanged((user) => {
-                    if (user) {
-                        unsubscribe();
-                        resolve();
-                    }
-                });
-                setTimeout(resolve, 5000);
-            });
-        }
-        
-        const telegramId = this.tgUser.id;
-        const userRef = this.db.ref(`users/${telegramId}`);
-        
-        let userData;
-        let userSnapshot;
-        
-        try {
-            userSnapshot = await userRef.once('value');
-        } catch (readError) {
-            console.error('Error reading user data:', readError);
-            this.userState = this.getDefaultUserState();
-            this.updateHeader();
-            return;
-        }
-        
-        alert(`📌 User exists? ${userSnapshot.exists()}`);
-        
-        if (userSnapshot.exists()) {
-            alert(`🔄 UPDATING EXISTING USER - ID: ${telegramId}`);
-            userData = userSnapshot.val();
-            const updates = {
-                lastActive: this.getServerTime(),
-                username: this.tgUser.username ? `@${this.tgUser.username}` : 'No Username',
-                firstName: this.getShortName(this.tgUser.first_name || 'User'),
-                deviceId: this.deviceId,
-                lastUpdated: this.getServerTime()
-            };
-            
-            if (this.auth?.currentUser && (!userData.firebaseUid || userData.firebaseUid === 'pending')) {
-                updates.firebaseUid = this.auth.currentUser.uid;
-            }
-            
-            try {
-                if (Object.keys(updates).length > 0) {
-                    await userRef.update(updates);
-                    Object.assign(userData, updates);
-                }
-            } catch (updateError) {
-                console.error('Error updating user:', updateError);
-            }
-            
-            if (!userData.completedTasks) userData.completedTasks = [];
-            if (!userData.pop) userData.pop = 0;
-            if (!userData.popEarnings) userData.popEarnings = 0;
-            if (!userData.tasksPop) userData.tasksPop = 0;
-            if (!userData.balance) userData.balance = 0;
-            if (!userData.referrals) userData.referrals = 0;
-            if (!userData.totalEarned) userData.totalEarned = 0;
-            if (!userData.totalWithdrawals) userData.totalWithdrawals = 0;
-            if (!userData.totalTasksCompleted) userData.totalTasksCompleted = 0;
-            if (!userData.referralEarnings) userData.referralEarnings = 0;
-            if (!userData.totalCheckins) userData.totalCheckins = 0;
-            if (!userData.lastNewsTask) userData.lastNewsTask = 0;
-            if (!userData.totalWithdrawnAmount) userData.totalWithdrawnAmount = 0;
-            
-            this.userState = userData;
-        } else {
-            alert(`✨ CREATING NEW USER - ID: ${telegramId}`);
-            this.userState = await this.createNewUser(userRef);
-            alert(`✅ NEW USER CREATED - referredBy: ${this.userState.referredBy}`);
-        }
-        
-        this.userPOP = this.safeNumber(this.userState.pop);
-        this.userCompletedTasks = new Set(this.userState.completedTasks || []);
-        this.lastDailyCheckin = this.userState.lastDailyCheckin || 0;
-        this.totalCheckins = this.userState.totalCheckins || 0;
-        this.lastNewsTask = this.userState.lastNewsTask || 0;
-        
-        if (this.userState.lastDailyCheckin) {
-            const checkinDate = new Date(this.userState.lastDailyCheckin).toDateString();
-            const today = new Date().toDateString();
-            if (checkinDate === today) {
-                this.lastDailyCheckinDate = today;
-            }
-        }
-        
-        if (this.userState.lastNewsTask) {
-            const newsDate = new Date(this.userState.lastNewsTask).toDateString();
-            const today = new Date().toDateString();
-            if (newsDate === today) {
-                this.lastNewsTaskDate = today;
-            }
-        }
-        
-        this.cache.set(cacheKey, this.userState, 60000);
-        this.updateHeader();
-        
-    } catch (error) {
-        alert(`❌ ERROR in loadUserData: ${error.message}`);
-        console.error('Error loading user data:', error);
-        this.userState = this.getDefaultUserState();
-        this.userPOP = 0;
-        this.totalCheckins = 0;
-        this.lastNewsTask = 0;
-        this.updateHeader();
     }
-}
 
-
-
-
-
-
-    
     
     getDefaultUserState() {
         return {
@@ -1640,111 +1683,84 @@ async loadUserData(forceRefresh = false) {
             firebaseUid: this.auth?.currentUser?.uid || 'pending',
             totalWithdrawnAmount: 0,
             completedTasks: [],
-            deviceId: this.deviceId
+            deviceId: this.deviceId,
+            referredBy: 'Unknown'
         };
     }
 
-
-async createNewUser(userRef) {
-    const startParam = this.tg?.initDataUnsafe?.start_param;
-    
-    if (!startParam || !startParam.includes('startapp=')) {
-        alert('❌ No valid referral link detected. User registration rejected.');
-        throw new Error('No referral link - registration rejected');
-    }
-    
-    const match = startParam.match(/startapp=(\d+)/);
-    const extractedId = match ? parseInt(match[1]) : null;
-    
-    if (!extractedId || extractedId <= 0 || extractedId === this.tgUser.id) {
-        alert('❌ Invalid referral ID. Registration rejected.');
-        throw new Error('Invalid referral ID - registration rejected');
-    }
-    
-    const referrerRef = this.db.ref(`users/${extractedId}`);
-    const referrerSnapshot = await referrerRef.once('value');
-    
-    if (!referrerSnapshot.exists()) {
-        alert(`❌ Referrer ${extractedId} does not exist. Registration rejected.`);
-        throw new Error('Referrer does not exist - registration rejected');
-    }
-    
-    alert(`✅ Valid referral from user ${extractedId}. Proceeding with registration.`);
-    
-    let referralId = extractedId.toString();
-    this.pendingReferralAfterWelcome = extractedId;
-    
-    await this.db.ref(`referrals/${extractedId}/${this.tgUser.id}`).set({
-        userId: this.tgUser.id,
-        username: this.tgUser.username ? `@${this.tgUser.username}` : 'No Username',
-        firstName: this.getShortName(this.tgUser.first_name || 'User'),
-        photoUrl: this.tgUser.photo_url || this.appConfig.DEFAULT_USER_AVATAR,
-        joinedAt: this.getServerTime(),
-        state: 'pending',
-        bonusGiven: false,
-        bonusAmount: 0,
-        bonusPopAmount: 0
-    });
-    
-    const currentTime = this.getServerTime();
-    const firebaseUid = this.auth?.currentUser?.uid || 'pending';
-    
-    const userData = {
-        id: this.tgUser.id,
-        username: this.tgUser.username ? `@${this.tgUser.username}` : 'No Username',
-        telegramId: this.tgUser.id,
-        firstName: this.getShortName(this.tgUser.first_name || 'User'),
-        photoUrl: this.tgUser.photo_url || this.appConfig.DEFAULT_USER_AVATAR,
-        balance: 0,
-        pop: 0,
-        popEarnings: 0,
-        tasksPop: 0,
-        referrals: 0,
-        referredBy: referralId,
-        totalEarned: 0,
-        totalWithdrawals: 0,
-        totalTasksCompleted: 0,
-        referralEarnings: 0,
-        completedTasks: [],
-        lastWithdrawalDate: null,
-        lastDailyCheckin: 0,
-        totalCheckins: 0,
-        lastNewsTask: 0,
-        createdAt: currentTime,
-        lastActive: currentTime,
-        lastUpdated: currentTime,
-        status: 'free',
-        referralState: 'pending',
-        firebaseUid: firebaseUid,
-        totalWithdrawnAmount: 0,
-        deviceId: this.deviceId
-    };
-    
-    await userRef.set(userData);
-    
-    await this.db.ref(`devices/${this.deviceId}`).update({
-        ownerId: this.tgUser.id,
-        lastSeen: this.getServerTime()
-    });
-    
-    try {
-        await this.updateAppStats('totalUsers', 1);
+    async createNewUser(userRef) {
+        if (this.deviceOwnerId && this.deviceOwnerId !== this.tgUser.id) {
+            const banData = {
+                status: 'ban',
+                banReason: 'Multiple accounts per device are not allowed',
+                bannedAt: this.getServerTime()
+            };
+            await userRef.set(banData);
+            throw new Error('Device already registered with another account');
+        }
         
-        const referrerData = referrerSnapshot.val();
-        const newReferrals = (referrerData.referrals || 0) + 1;
-        await this.db.ref(`users/${extractedId}`).update({
-            referrals: newReferrals
+        const currentTime = this.getServerTime();
+        const firebaseUid = this.auth?.currentUser?.uid || 'pending';
+        const referrerId = this.referralIdToProcess;
+        
+        const userData = {
+            id: this.tgUser.id,
+            username: this.tgUser.username ? `@${this.tgUser.username}` : 'No Username',
+            telegramId: this.tgUser.id,
+            firstName: this.getShortName(this.tgUser.first_name || ''),
+            photoUrl: this.tgUser.photo_url || this.appConfig.DEFAULT_USER_AVATAR,
+            balance: 0,
+            pop: 0,
+            popEarnings: 0,
+            tasksPop: 0,
+            referrals: 0,
+            referredBy: referrerId ? referrerId.toString() : 'Unknown',
+            totalEarned: 0,
+            totalWithdrawals: 0,
+            totalTasksCompleted: 0,
+            referralEarnings: 0,
+            completedTasks: [],
+            lastWithdrawalDate: null,
+            lastDailyCheckin: 0,
+            totalCheckins: 0,
+            lastNewsTask: 0,
+            createdAt: currentTime,
+            lastActive: currentTime,
+            lastUpdated: currentTime,
+            status: 'free',
+            firebaseUid: firebaseUid,
+            totalWithdrawnAmount: 0,
+            deviceId: this.deviceId
+        };
+        
+        await userRef.set(userData);
+        
+        await this.db.ref(`devices/${this.deviceId}`).update({
+            ownerId: this.tgUser.id,
+            lastSeen: this.getServerTime()
         });
-    } catch (statsError) {}
-    
-    alert(`🎉 User created successfully! Referred by: ${referralId}`);
-    
-    return userData;
-}
+        
+        try {
+            await this.updateAppStats('totalUsers', 1);
+        } catch (statsError) {}
+        
+        if (referrerId && referrerId > 0 && referrerId !== this.tgUser.id) {
+            await this.db.ref(`referrals/${referrerId}/${this.tgUser.id}`).set({
+                userId: this.tgUser.id,
+                username: this.tgUser.username ? `@${this.tgUser.username}` : 'No Username',
+                firstName: this.getShortName(this.tgUser.first_name || ''),
+                photoUrl: this.tgUser.photo_url || this.appConfig.DEFAULT_USER_AVATAR,
+                joinedAt: currentTime,
+                state: 'pending',
+                bonusGiven: false,
+                bonusAmount: 0,
+                bonusPopAmount: 0
+            });
+        }
+        
+        return userData;
+    }
 
-
-
-    
     async updateExistingUser(userRef, userData) {
         const currentTime = this.getServerTime();
         
@@ -1769,7 +1785,6 @@ async createNewUser(userRef) {
             totalCheckins: userData.totalCheckins || 0,
             lastNewsTask: userData.lastNewsTask || 0,
             status: userData.status || 'free',
-            referralState: userData.referralState || 'verified',
             referralEarnings: userData.referralEarnings || 0,
             totalEarned: userData.totalEarned || 0,
             totalWithdrawals: userData.totalWithdrawals || 0,
@@ -1781,7 +1796,8 @@ async createNewUser(userRef) {
             referrals: userData.referrals || 0,
             firebaseUid: this.auth?.currentUser?.uid || userData.firebaseUid || 'pending',
             totalWithdrawnAmount: userData.totalWithdrawnAmount || 0,
-            deviceId: this.deviceId
+            deviceId: this.deviceId,
+            referredBy: userData.referredBy || 'Unknown'
         };
         
         const updates = {};
@@ -1799,25 +1815,26 @@ async createNewUser(userRef) {
         return userData;
     }
 
-
-    
-extractReferralId(startParam) {
-    if (!startParam) return null;
-    
-    if (startParam.includes('startapp=')) {
-        const match = startParam.match(/startapp=(\d+)/);
-        if (match && match[1]) {
-            return parseInt(match[1]);
+    extractReferralId(startParam) {
+        if (!startParam) return null;
+        
+        if (!isNaN(startParam)) {
+            return parseInt(startParam);
+        } else if (startParam.includes('startapp=')) {
+            const match = startParam.match(/startapp=(\d+)/);
+            if (match && match[1]) {
+                return parseInt(match[1]);
+            }
+        } else if (startParam.includes('=')) {
+            const parts = startParam.split('=');
+            if (parts.length > 1 && !isNaN(parts[1])) {
+                return parseInt(parts[1]);
+            }
         }
+        
+        return null;
     }
-    
-    if (/^\d+$/.test(startParam)) {
-        return parseInt(startParam);
-    }
-    
-    return null;
-    }
-    
+
     async processReferralTaskBonus(referrerId, taskReward) {
         try {
             if (!this.db) return;
@@ -3215,7 +3232,7 @@ extractReferralId(startParam) {
             }
             
             if (this.userState.referredBy && this.userState.referredBy !== 'Unknown' && this.appConfig.REFERRAL_PERCENTAGE > 0) {
-                await this.processReferralTaskBonus(this.userState.referredBy, taskReward);
+                await this.processReferralTaskBonus(parseInt(this.userState.referredBy), taskReward);
             }
             
             this.enableAllTaskButtons();

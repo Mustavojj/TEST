@@ -129,14 +129,13 @@ class NotificationManager {
             style.id = 'notification-styles';
             style.textContent = `
                 @keyframes notificationSlideIn {
-                    0% { opacity: 0; transform: translateX(-50%) translateY(20px) scale(0.9); }
-                    70% { opacity: 1; transform: translateX(-50%) translateY(-5px) scale(1.02); }
+                    0% { opacity: 0; transform: translateX(-50%) translateY(20px) scale(0.95); }
                     100% { opacity: 1; transform: translateX(-50%) translateY(0) scale(1); }
                 }
                 
                 @keyframes notificationSlideOut {
                     0% { opacity: 1; transform: translateX(-50%) translateY(0) scale(1); }
-                    100% { opacity: 0; transform: translateX(-50%) translateY(20px) scale(0.9); }
+                    100% { opacity: 0; transform: translateX(-50%) translateY(20px) scale(0.95); }
                 }
                 
                 @keyframes notificationProgress {
@@ -151,52 +150,52 @@ class NotificationManager {
                     transform: translateX(-50%);
                     width: 85%;
                     max-width: 320px;
-                    background: var(--card-bg);
+                    background: var(--card-bg-solid);
                     backdrop-filter: blur(20px);
-                    border-radius: 20px;
-                    padding: 15px 18px;
-                    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+                    border-radius: 16px;
+                    padding: 14px 16px;
+                    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
                     z-index: 10000;
-                    animation: notificationSlideIn 0.4s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+                    animation: notificationSlideIn 0.3s cubic-bezier(0.34, 1.2, 0.64, 1) forwards;
                     border: 1px solid var(--card-border);
                     overflow: hidden;
                     display: flex;
                     align-items: center;
-                    gap: 15px;
+                    gap: 12px;
                 }
                 
-                .notification.info { border-left: 6px solid var(--info-color); }
-                .notification.success { border-left: 6px solid var(--success-color); }
-                .notification.error { border-left: 6px solid var(--error-color); }
-                .notification.warning { border-left: 6px solid var(--warning-color); }
+                .notification.info { border-left: 4px solid #0ea5e9; }
+                .notification.success { border-left: 4px solid #16a34a; }
+                .notification.error { border-left: 4px solid #dc2626; }
+                .notification.warning { border-left: 4px solid #f59e0b; }
                 
                 .notification-icon {
-                    width: 42px;
-                    height: 42px;
-                    border-radius: 50%;
+                    width: 36px;
+                    height: 36px;
+                    border-radius: 12px;
                     display: flex;
                     align-items: center;
                     justify-content: center;
-                    font-size: 1.1rem;
+                    font-size: 1rem;
                     flex-shrink: 0;
-                    background: var(--card-bg-solid);
+                    background: rgba(0, 0, 0, 0.3);
                     border: 1px solid var(--card-border);
                 }
                 
                 .notification.info .notification-icon {
-                    color: var(--info-color);
+                    color: #0ea5e9;
                 }
                 
                 .notification.success .notification-icon {
-                    color: var(--success-color);
+                    color: #16a34a;
                 }
                 
                 .notification.error .notification-icon {
-                    color: var(--error-color);
+                    color: #dc2626;
                 }
                 
                 .notification.warning .notification-icon {
-                    color: var(--warning-color);
+                    color: #f59e0b;
                 }
                 
                 .notification-content {
@@ -205,16 +204,16 @@ class NotificationManager {
                 }
                 
                 .notification-title {
-                    font-weight: 700;
+                    font-weight: 600;
                     color: var(--text-primary);
-                    font-size: 0.95rem;
-                    margin-bottom: 3px;
-                    line-height: 1.2;
+                    font-size: 0.9rem;
+                    margin-bottom: 2px;
+                    line-height: 1.3;
                 }
                 
                 .notification-body {
                     color: var(--text-secondary);
-                    font-size: 0.85rem;
+                    font-size: 0.8rem;
                     line-height: 1.3;
                 }
                 
@@ -223,8 +222,8 @@ class NotificationManager {
                     bottom: 0;
                     left: 0;
                     width: 100%;
-                    height: 3px;
-                    background: rgba(0, 0, 0, 0.1);
+                    height: 2px;
+                    background: rgba(255, 255, 255, 0.1);
                 }
                 
                 .notification-progress-fill {
@@ -237,24 +236,24 @@ class NotificationManager {
                     position: absolute;
                     top: 8px;
                     right: 8px;
-                    width: 22px;
-                    height: 22px;
-                    background: rgba(255, 255, 255, 0.1);
+                    width: 24px;
+                    height: 24px;
+                    background: transparent;
                     border: none;
                     border-radius: 50%;
                     color: var(--text-light);
-                    font-size: 0.8rem;
+                    font-size: 0.75rem;
                     cursor: pointer;
                     display: flex;
                     align-items: center;
                     justify-content: center;
-                    opacity: 0.6;
+                    opacity: 0.5;
                     transition: all 0.2s;
                 }
                 
                 .notification-close:hover {
                     opacity: 1;
-                    background: rgba(255, 255, 255, 0.2);
+                    background: rgba(255, 255, 255, 0.1);
                 }
             `;
             document.head.appendChild(style);
@@ -324,8 +323,7 @@ class NotificationManager {
         const notification = document.getElementById(notificationId);
         if (!notification) return;
         
-        notification.style.animation = 'notificationSlideOut 0.3s ease forwards';
-        notification.style.opacity = '0';
+        notification.style.animation = 'notificationSlideOut 0.25s ease forwards';
         
         setTimeout(() => {
             if (notification.parentNode) notification.parentNode.removeChild(notification);

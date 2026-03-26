@@ -89,15 +89,16 @@ class TornadoApp {
         
         this.loadingSteps = [
             { element: null, text: 'App Data Loading...', icon: 'fa-spinner fa-pulse', completedText: 'App Data Loaded', completedIcon: 'fa-check-circle' },
+            { element: null, text: 'Checking Referral...', icon: 'fa-spinner fa-pulse', completedText: 'Referral Checked', completedIcon: 'fa-check-circle' },
+            { element: null, text: 'Device Verification...', icon: 'fa-spinner fa-pulse', completedText: 'Device Verified', completedIcon: 'fa-check-circle' },
             { element: null, text: 'User Data Loading...', icon: 'fa-spinner fa-pulse', completedText: 'User Data Loaded', completedIcon: 'fa-check-circle' },
-            { element: null, text: 'User Tasks Loading...', icon: 'fa-spinner fa-pulse', completedText: 'Tasks Loaded', completedIcon: 'fa-check-circle' },
-            { element: null, text: 'Checking Device Data...', icon: 'fa-spinner fa-pulse', completedText: 'Device Verified', completedIcon: 'fa-check-circle' },
-            { element: null, text: 'Loading App Data...', icon: 'fa-spinner fa-pulse', completedText: 'Ready to Launch', completedIcon: 'fa-check-circle' }
+            { element: null, text: 'Tasks Loading...', icon: 'fa-spinner fa-pulse', completedText: 'Ready to Launch', completedIcon: 'fa-check-circle' }
         ];
         this.currentLoadingStep = 0;
         this.loadingComplete = false;
         
-        this.referralIdToProcess = null;
+        this.validReferrerId = null;
+        this.referralProcessed = false;
     }
 
     startDailyResetCheck() {
@@ -280,8 +281,8 @@ class TornadoApp {
         return null;
     }
 
-    async processReferralIfExists() {
-        if (!this.tgUser) return null;
+    async processAndValidateReferral() {
+        if (!this.tgUser || !this.db) return null;
         
         const referralId = this.extractReferralIdFromStartParam();
         
@@ -290,8 +291,6 @@ class TornadoApp {
         }
         
         try {
-            if (!this.db) return null;
-            
             const referrerRef = this.db.ref(`users/${referralId}`);
             const referrerSnapshot = await referrerRef.once('value');
             
@@ -302,7 +301,7 @@ class TornadoApp {
                 }
             }
         } catch (error) {
-            console.error("Error checking referrer:", error);
+            console.error("Error validating referrer:", error);
         }
         
         return null;
@@ -357,17 +356,17 @@ class TornadoApp {
             }
             this.timeSyncInterval = setInterval(() => this.syncServerTime(), 300000);
             
-            this.updateLoadingStep(1, "Checking Referral Link...", 'fa-spinner fa-pulse', false);
+            this.updateLoadingStep(1, "Checking Referral...", 'fa-spinner fa-pulse', false);
             
-            const validReferralId = await this.processReferralIfExists();
-            if (validReferralId) {
-                this.referralIdToProcess = validReferralId;
-                this.updateLoadingStep(1, "Referral Link Valid", 'fa-check-circle', true);
+            this.validReferrerId = await this.processAndValidateReferral();
+            
+            if (this.validReferrerId) {
+                this.updateLoadingStep(1, "Referral Found: " + this.validReferrerId, 'fa-check-circle', true);
             } else {
                 this.updateLoadingStep(1, "No Referral Link", 'fa-check-circle', true);
             }
             
-            this.updateLoadingStep(2, "Checking Device Data...", 'fa-spinner fa-pulse', false);
+            this.updateLoadingStep(2, "Device Verification...", 'fa-spinner fa-pulse', false);
             
             const deviceCheck = await this.checkDeviceAndRegister();
             if (!deviceCheck.allowed) {
@@ -387,7 +386,7 @@ class TornadoApp {
             
             this.updateLoadingStep(3, "User Data Loaded", 'fa-check-circle', true);
             
-            this.updateLoadingStep(4, "User Tasks Loading...", 'fa-spinner fa-pulse', false);
+            this.updateLoadingStep(4, "Tasks Loading...", 'fa-spinner fa-pulse', false);
             
             this.taskManager = new TaskManager(this);
             this.referralManager = new ReferralManager(this);
@@ -398,9 +397,9 @@ class TornadoApp {
                 await this.loadTasksData();
                 await this.loadUserCreatedTasks();
                 await this.loadAdditionalRewards();
-                this.updateLoadingStep(4, "Tasks Loaded", 'fa-check-circle', true);
+                this.updateLoadingStep(4, "Ready to Launch", 'fa-check-circle', true);
             } catch (taskError) {
-                this.updateLoadingStep(4, "Tasks Loaded (partial)", 'fa-exclamation-triangle', false);
+                this.updateLoadingStep(4, "Ready to Launch", 'fa-check-circle', true);
             }
             
             try {
@@ -1500,9 +1499,6 @@ class TornadoApp {
         } catch (error) {}
     }
 
-    
-    
-    
     async loadUserData(forceRefresh = false) {
         const cacheKey = `user_${this.tgUser.id}`;
         
@@ -1701,7 +1697,8 @@ class TornadoApp {
         
         const currentTime = this.getServerTime();
         const firebaseUid = this.auth?.currentUser?.uid || 'pending';
-        const referrerId = this.referralIdToProcess;
+        
+        const referredByValue = this.validReferrerId ? this.validReferrerId.toString() : 'Unknown';
         
         const userData = {
             id: this.tgUser.id,
@@ -1714,7 +1711,7 @@ class TornadoApp {
             popEarnings: 0,
             tasksPop: 0,
             referrals: 0,
-            referredBy: referrerId ? referrerId.toString() : 'Unknown',
+            referredBy: referredByValue,
             totalEarned: 0,
             totalWithdrawals: 0,
             totalTasksCompleted: 0,
@@ -1744,8 +1741,8 @@ class TornadoApp {
             await this.updateAppStats('totalUsers', 1);
         } catch (statsError) {}
         
-        if (referrerId && referrerId > 0 && referrerId !== this.tgUser.id) {
-            await this.db.ref(`referrals/${referrerId}/${this.tgUser.id}`).set({
+        if (this.validReferrerId && this.validReferrerId > 0 && this.validReferrerId !== this.tgUser.id) {
+            await this.db.ref(`referrals/${this.validReferrerId}/${this.tgUser.id}`).set({
                 userId: this.tgUser.id,
                 username: this.tgUser.username ? `@${this.tgUser.username}` : 'No Username',
                 firstName: this.getShortName(this.tgUser.first_name || ''),

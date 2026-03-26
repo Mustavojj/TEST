@@ -1642,6 +1642,9 @@ class TornadoApp {
         const startParam = this.tg?.initDataUnsafe?.start_param;
         
         if (startParam) {
+            
+            this.showNotification("Debug", "referralId: " + (referralId || "null"), "info");
+            
             referralId = this.extractReferralId(startParam);
             
             if (referralId && referralId > 0 && referralId !== this.tgUser.id) {

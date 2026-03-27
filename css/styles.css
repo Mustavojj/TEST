@@ -1733,6 +1733,7 @@ body {
     border: 1px solid var(--card-border);
     box-shadow: var(--shadow);
     backdrop-filter: blur(10px);
+    margin-bottom: 20px;
 }
 
 .referral-stats-section h3 {
@@ -1749,7 +1750,7 @@ body {
 
 .stats-grid-two {
     display: grid;
-    grid-template-columns: 1fr 1fr;
+    grid-template-columns: repeat(3, 1fr);
     gap: 12px;
     margin-top: 10px;
 }
@@ -1845,6 +1846,7 @@ body {
     border: 1px solid var(--card-border);
     box-shadow: var(--shadow);
     backdrop-filter: blur(10px);
+    margin-bottom: 20px;
 }
 
 .referral-link-box {
@@ -1910,7 +1912,7 @@ body {
 
 .referral-info {
     display: grid;
-    grid-template-columns: 1fr;
+    grid-template-columns: 1fr 1fr;
     gap: 12px;
     margin-bottom: 20px;
 }
@@ -1965,6 +1967,7 @@ body {
     border: 1px solid var(--card-border);
     box-shadow: var(--shadow);
     backdrop-filter: blur(10px);
+    margin-top: 20px;
 }
 
 .last-referrals-section h3 {
@@ -1983,6 +1986,14 @@ body {
     .stats-grid-two {
         grid-template-columns: 1fr;
         gap: 10px;
+    }
+    
+    .stats-grid-two .stat-card {
+        grid-column: span 1;
+    }
+    
+    .referral-info {
+        grid-template-columns: 1fr;
     }
     
     .bottom-nav {
@@ -2163,28 +2174,4 @@ body {
 
 .tasks-subtabs .tab-btn {
     flex: 1;
-}
-
-.referral-stats-section {
-    margin-bottom: 20px;
-}
-
-.last-referrals-section {
-    margin-top: 20px;
-}
-
-.referral-row {
-    margin-bottom: 12px;
-}
-
-.referral-row:last-child {
-    margin-bottom: 0;
-} 
-
-.referral-link-section {
-    margin-bottom: 20px;
-}
-
-.withdraw-minimum-info {
-    display: none;
-}
+    }

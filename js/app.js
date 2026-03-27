@@ -262,7 +262,7 @@ class TornadoApp {
     }
 
     
-    async initialize() {
+async initialize() {
     if (this.isInitializing || this.isInitialized) return;
     
     this.isInitializing = true;
@@ -306,7 +306,6 @@ class TornadoApp {
             this.setupFirebaseAuth();
         }
         
-        // نقلت هنا بعد تهيئة Firebase
         const deviceCheck = await this.checkDeviceAndRegister();
         if (!deviceCheck.allowed) {
             return;
@@ -365,6 +364,10 @@ class TornadoApp {
         await this.processPendingReferralBonuses();
         
     } catch (error) {
+        if (error.message === 'Device already registered with another account') {
+            return;
+        }
+        
         this.showNotification("Error", "Initialization failed: " + error.message, "error");
         
         try {
@@ -384,9 +387,6 @@ class TornadoApp {
         this.isInitializing = false;
     }
 }
-
-
-    
 
     async processPendingReferralBonuses() {
         try {

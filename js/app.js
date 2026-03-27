@@ -2,7 +2,7 @@ import { APP_CONFIG, THEME_CONFIG, FEATURES_CONFIG } from './data.js';
 import { CacheManager, NotificationManager, SecurityManager } from './modules/core.js';
 import { TaskManager, ReferralManager } from './modules/features.js';
 
-class TornadoApp {
+class App {
     
     constructor() {
         this.darkMode = true;
@@ -4156,7 +4156,7 @@ document.addEventListener('DOMContentLoaded', () => {
         return;
     }
     
-    window.app = new TornadoApp();
+    window.app = new App();
     
     setTimeout(() => {
         if (window.app && typeof window.app.initialize === 'function') {

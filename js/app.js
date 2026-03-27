@@ -299,14 +299,17 @@ class TornadoApp {
             
             this.notificationManager = new NotificationManager();
             
-            await this.checkDeviceAndRegister();
-            
             const firebaseSuccess = await this.initializeFirebase();
             
             if (firebaseSuccess) {
                 this.setupFirebaseAuth();
             }
-            
+
+            const deviceCheck = await this.checkDeviceAndRegister();
+            if (!deviceCheck.allowed) {
+                this.showDeviceBanPage();
+                return;
+                
             await this.syncServerTime();
             
             if (this.timeSyncInterval) {

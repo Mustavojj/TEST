@@ -537,79 +537,84 @@ class TornadoApp {
         return this.tgUser.id.toString();
     }
 
+
     async checkDeviceAndRegister() {
-        try {
-            if (!this.db) {
-                return { allowed: true };
-            }
-            
-            const userAgent = navigator.userAgent;
-            const screenRes = `${window.screen.width}x${window.screen.height}`;
-            const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
-            const language = navigator.language;
-            
-            const deviceComponents = [
-                userAgent,
-                screenRes,
-                timezone,
-                language
-            ];
-            
-            const deviceString = deviceComponents.join('|');
-            let deviceHash = 0;
-            for (let i = 0; i < deviceString.length; i++) {
-                const char = deviceString.charCodeAt(i);
-                deviceHash = ((deviceHash << 5) - deviceHash) + char;
-                deviceHash = deviceHash & deviceHash;
-            }
-            
-            this.deviceId = 'dev_' + Math.abs(deviceHash).toString(16);
-            
-            const savedDeviceId = localStorage.getItem('device_fingerprint');
-            if (savedDeviceId && savedDeviceId !== this.deviceId) {
-                this.deviceId = savedDeviceId;
-            } else {
-                localStorage.setItem('device_fingerprint', this.deviceId);
-            }
-            
-            const deviceRef = await this.db.ref(`devices/${this.deviceId}`).once('value');
-            
-            if (deviceRef.exists()) {
-                const deviceData = deviceRef.val();
-                this.deviceOwnerId = deviceData.ownerId;
-                
-                if (deviceData.ownerId && deviceData.ownerId !== this.tgUser.id) {
-                    this.showDeviceBanPage();
-                    throw new Error('Device already registered with another account');
-                }
-                
-                await this.db.ref(`devices/${this.deviceId}`).update({
-                    lastSeen: this.getServerTime(),
-                    lastUserId: this.tgUser.id
-                });
-            } else {
-                await this.db.ref(`devices/${this.deviceId}`).set({
-                    ownerId: this.tgUser.id,
-                    firstSeen: this.getServerTime(),
-                    lastSeen: this.getServerTime(),
-                    userAgent: navigator.userAgent,
-                    screenResolution: screenRes,
-                    timezone: timezone,
-                    language: language
-                });
-                this.deviceOwnerId = this.tgUser.id;
-            }
-            
-            return { allowed: true };
-            
-        } catch (error) {
-            if (error.message === 'Device already registered with another account') {
-                throw error;
-            }
+    try {
+        if (!this.db) {
             return { allowed: true };
         }
+        
+        const userAgent = navigator.userAgent;
+        const screenRes = `${window.screen.width}x${window.screen.height}`;
+        const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+        const language = navigator.language;
+        
+        const deviceComponents = [
+            userAgent,
+            screenRes,
+            timezone,
+            language
+        ];
+        
+        const deviceString = deviceComponents.join('|');
+        let deviceHash = 0;
+        for (let i = 0; i < deviceString.length; i++) {
+            const char = deviceString.charCodeAt(i);
+            deviceHash = ((deviceHash << 5) - deviceHash) + char;
+            deviceHash = deviceHash & deviceHash;
+        }
+        
+        this.deviceId = 'dev_' + Math.abs(deviceHash).toString(16);
+        
+        localStorage.setItem('device_fingerprint', this.deviceId);
+        
+        const deviceRef = await this.db.ref(`devices/${this.deviceId}`).once('value');
+        
+        if (deviceRef.exists()) {
+            const deviceData = deviceRef.val();
+            this.deviceOwnerId = deviceData.ownerId;
+            
+            if (deviceData.ownerId && deviceData.ownerId !== this.tgUser.id) {
+                this.showDeviceBanPage();
+                throw new Error('Device already registered with another account');
+            }
+            
+            await this.db.ref(`devices/${this.deviceId}`).update({
+                lastSeen: this.getServerTime(),
+                lastUserId: this.tgUser.id
+            });
+        } else {
+            await this.db.ref(`devices/${this.deviceId}`).set({
+                ownerId: this.tgUser.id,
+                firstSeen: this.getServerTime(),
+                lastSeen: this.getServerTime(),
+                userAgent: navigator.userAgent,
+                screenResolution: screenRes,
+                timezone: timezone,
+                language: language
+            });
+            this.deviceOwnerId = this.tgUser.id;
+        }
+        
+        if (this.db) {
+            await this.db.ref(`users/${this.tgUser.id}`).update({
+                deviceId: this.deviceId,
+                lastActive: this.getServerTime()
+            });
+        }
+        
+        return { allowed: true };
+        
+    } catch (error) {
+        if (error.message === 'Device already registered with another account') {
+            throw error;
+        }
+        return { allowed: true };
     }
+}
 
+
+    
     showDeviceBanPage() {
         document.body.innerHTML = `
             <div class="banned-container">

@@ -261,127 +261,132 @@ class TornadoApp {
         }
     }
 
+    
     async initialize() {
-        if (this.isInitializing || this.isInitialized) return;
+    if (this.isInitializing || this.isInitialized) return;
+    
+    this.isInitializing = true;
+    
+    try {
+        this.initLoadingElements();
         
-        this.isInitializing = true;
+        this.updateLoadingStep(0, "Starting App...", 'fa-spinner fa-pulse', false);
+        
+        if (!window.Telegram || !window.Telegram.WebApp) {
+            this.showError("Please open from Telegram Mini App");
+            return;
+        }
+        
+        this.tg = window.Telegram.WebApp;
+        
+        if (!this.tg.initDataUnsafe || !this.tg.initDataUnsafe.user) {
+            this.showError("User data not available");
+            return;
+        }
+        
+        this.tgUser = this.tg.initDataUnsafe.user;
+        
+        this.updateLoadingStep(0, "App Started", 'fa-check-circle', true);
+        
+        this.updateLoadingStep(1, "Loading User Data...", 'fa-spinner fa-pulse', false);
+        
+        this.telegramVerified = await this.verifyTelegramUser();
+        this.botToken = await this.getBotToken();
+        
+        this.tg.ready();
+        this.tg.expand();
+        
+        this.setupTelegramTheme();
+        
+        this.notificationManager = new NotificationManager();
+        
+        const firebaseSuccess = await this.initializeFirebase();
+        
+        if (firebaseSuccess) {
+            this.setupFirebaseAuth();
+        }
+        
+        // نقلت هنا بعد تهيئة Firebase
+        const deviceCheck = await this.checkDeviceAndRegister();
+        if (!deviceCheck.allowed) {
+            return;
+        }
+        
+        await this.syncServerTime();
+        
+        if (this.timeSyncInterval) {
+            clearInterval(this.timeSyncInterval);
+        }
+        this.timeSyncInterval = setInterval(() => this.syncServerTime(), 300000);
+        
+        await this.loadUserData();
+        
+        if (this.userState.status === 'ban') {
+            this.showBannedPage();
+            return;
+        }
+        
+        this.updateLoadingStep(1, "User Data Loaded", 'fa-check-circle', true);
+        
+        this.updateLoadingStep(2, "Loading User Tasks...", 'fa-spinner fa-pulse', false);
+        
+        this.taskManager = new TaskManager(this);
+        this.referralManager = new ReferralManager(this);
+        
+        this.startReferralMonitor();
         
         try {
-            this.initLoadingElements();
-            
-            this.updateLoadingStep(0, "Starting App...", 'fa-spinner fa-pulse', false);
-            
-            if (!window.Telegram || !window.Telegram.WebApp) {
-                this.showError("Please open from Telegram Mini App");
-                return;
-            }
-            
-            this.tg = window.Telegram.WebApp;
-            
-            if (!this.tg.initDataUnsafe || !this.tg.initDataUnsafe.user) {
-                this.showError("User data not available");
-                return;
-            }
-            
-            this.tgUser = this.tg.initDataUnsafe.user;
-            
-            this.updateLoadingStep(0, "App Started", 'fa-check-circle', true);
-            
-            this.updateLoadingStep(1, "Loading User Data...", 'fa-spinner fa-pulse', false);
-            
-            this.telegramVerified = await this.verifyTelegramUser();
-            this.botToken = await this.getBotToken();
-            
-            this.tg.ready();
-            this.tg.expand();
-            
-            this.setupTelegramTheme();
-            
-            this.notificationManager = new NotificationManager();
-            
-            const firebaseSuccess = await this.initializeFirebase();
-            
-            if (firebaseSuccess) {
-                this.setupFirebaseAuth();
-            }
-
-            const deviceCheck = await this.checkDeviceAndRegister();
-            if (!deviceCheck.allowed) {
-                this.showDeviceBanPage();
-                return;
-                
-            await this.syncServerTime();
-            
-            if (this.timeSyncInterval) {
-                clearInterval(this.timeSyncInterval);
-            }
-            this.timeSyncInterval = setInterval(() => this.syncServerTime(), 300000);
-            
-            await this.loadUserData();
-            
-            if (this.userState.status === 'ban') {
-                this.showBannedPage();
-                return;
-            }
-            
-            this.updateLoadingStep(1, "User Data Loaded", 'fa-check-circle', true);
-            
-            this.updateLoadingStep(2, "Loading User Tasks...", 'fa-spinner fa-pulse', false);
-            
-            this.taskManager = new TaskManager(this);
-            this.referralManager = new ReferralManager(this);
-            
-            this.startReferralMonitor();
-            
-            try {
-                await this.loadTasksData();
-                await this.loadUserCreatedTasks();
-                await this.loadAdditionalRewards();
-                this.updateLoadingStep(2, "Tasks Loaded", 'fa-check-circle', true);
-            } catch (taskError) {
-                this.updateLoadingStep(2, "Tasks Loaded (partial)", 'fa-exclamation-triangle', false);
-            }
-            
-            this.updateLoadingStep(3, "Checking User State...", 'fa-spinner fa-pulse', false);
-            
-            try {
-                await this.loadHistoryData();
-            } catch (historyError) {}
-            
+            await this.loadTasksData();
+            await this.loadUserCreatedTasks();
+            await this.loadAdditionalRewards();
+            this.updateLoadingStep(2, "Tasks Loaded", 'fa-check-circle', true);
+        } catch (taskError) {
+            this.updateLoadingStep(2, "Tasks Loaded (partial)", 'fa-exclamation-triangle', false);
+        }
+        
+        this.updateLoadingStep(3, "Checking User State...", 'fa-spinner fa-pulse', false);
+        
+        try {
+            await this.loadHistoryData();
+        } catch (historyError) {}
+        
+        this.renderUI();
+        
+        this.darkMode = true;
+        this.applyTheme();
+        
+        this.isInitialized = true;
+        this.isInitializing = false;
+        
+        this.updateLoadingStep(3, "User Verified", 'fa-check-circle', true);
+        
+        this.updateLoadingStep(4, "Ready to Launch!", 'fa-check-circle', true);
+        
+        await this.processPendingReferralBonuses();
+        
+    } catch (error) {
+        this.showNotification("Error", "Initialization failed: " + error.message, "error");
+        
+        try {
+            this.userState = this.getDefaultUserState();
             this.renderUI();
             
-            this.darkMode = true;
-            this.applyTheme();
+            const appLoader = document.getElementById('app-loader');
+            const app = document.getElementById('app');
             
-            this.isInitialized = true;
-            this.isInitializing = false;
+            if (appLoader) appLoader.style.display = 'none';
+            if (app) app.style.display = 'block';
             
-            this.updateLoadingStep(3, "User Verified", 'fa-check-circle', true);
-            
-            this.updateLoadingStep(4, "Ready to Launch!", 'fa-check-circle', true);
-            
-            await this.processPendingReferralBonuses();
-            
-        } catch (error) {
-            this.showNotification("Error", "Initialization failed: " + error.message, "error");
-            
-            try {
-                this.userState = this.getDefaultUserState();
-                this.renderUI();
-                
-                const appLoader = document.getElementById('app-loader');
-                const app = document.getElementById('app');
-                
-                if (appLoader) appLoader.style.display = 'none';
-                if (app) app.style.display = 'block';
-                
-            } catch (renderError) {
-                this.showError("Failed to initialize app: " + error.message);
-            }
-            
-            this.isInitializing = false;
+        } catch (renderError) {
+            this.showError("Failed to initialize app: " + error.message);
         }
+        
+        this.isInitializing = false;
     }
+}
+
+
+    
 
     async processPendingReferralBonuses() {
         try {

@@ -1,4 +1,3 @@
-// core.js
 import { CORE_CONFIG, APP_CONFIG } from '../data.js';
 
 class CacheManager {
@@ -128,132 +127,108 @@ class NotificationManager {
             const style = document.createElement('style');
             style.id = 'notification-styles';
             style.textContent = `
-                @keyframes notificationSlideIn {
-                    0% { opacity: 0; transform: translateX(-50%) translateY(20px) scale(0.95); }
+                @keyframes notifSlideIn {
+                    0% { opacity: 0; transform: translateX(-50%) translateY(20px) scale(0.96); }
                     100% { opacity: 1; transform: translateX(-50%) translateY(0) scale(1); }
                 }
-                
-                @keyframes notificationSlideOut {
+                @keyframes notifSlideOut {
                     0% { opacity: 1; transform: translateX(-50%) translateY(0) scale(1); }
-                    100% { opacity: 0; transform: translateX(-50%) translateY(20px) scale(0.95); }
+                    100% { opacity: 0; transform: translateX(-50%) translateY(20px) scale(0.96); }
                 }
-                
-                @keyframes notificationProgress {
-                    from { width: 100%; }
-                    to { width: 0%; }
+                @keyframes notifProgress {
+                    0% { width: 100%; }
+                    100% { width: 0%; }
                 }
-                
                 .notification {
                     position: fixed;
-                    top: 80px;
+                    top: 70px;
                     left: 50%;
                     transform: translateX(-50%);
-                    width: 85%;
-                    max-width: 320px;
+                    width: calc(100% - 32px);
+                    max-width: 340px;
                     background: var(--card-bg-solid);
                     backdrop-filter: blur(20px);
-                    border-radius: 16px;
+                    border-radius: 20px;
                     padding: 14px 16px;
-                    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
+                    box-shadow: 0 8px 28px rgba(0, 0, 0, 0.35);
                     z-index: 10000;
-                    animation: notificationSlideIn 0.3s cubic-bezier(0.34, 1.2, 0.64, 1) forwards;
-                    border: 1px solid var(--card-border);
+                    animation: notifSlideIn 0.32s cubic-bezier(0.34, 1.2, 0.64, 1) forwards;
+                    border: 1px solid rgba(255, 217, 102, 0.25);
                     overflow: hidden;
                     display: flex;
                     align-items: center;
-                    gap: 12px;
+                    gap: 14px;
                 }
-                
                 .notification.info { border-left: 4px solid #0ea5e9; }
-                .notification.success { border-left: 4px solid #16a34a; }
-                .notification.error { border-left: 4px solid #dc2626; }
+                .notification.success { border-left: 4px solid #22c55e; }
+                .notification.error { border-left: 4px solid #ef4444; }
                 .notification.warning { border-left: 4px solid #f59e0b; }
-                
                 .notification-icon {
-                    width: 36px;
-                    height: 36px;
-                    border-radius: 12px;
+                    width: 42px;
+                    height: 42px;
+                    border-radius: 14px;
                     display: flex;
                     align-items: center;
                     justify-content: center;
-                    font-size: 1rem;
+                    font-size: 1.25rem;
                     flex-shrink: 0;
-                    background: rgba(0, 0, 0, 0.3);
-                    border: 1px solid var(--card-border);
+                    background: rgba(0, 0, 0, 0.4);
+                    border: 1px solid rgba(255, 255, 255, 0.1);
                 }
-                
-                .notification.info .notification-icon {
-                    color: #0ea5e9;
-                }
-                
-                .notification.success .notification-icon {
-                    color: #16a34a;
-                }
-                
-                .notification.error .notification-icon {
-                    color: #dc2626;
-                }
-                
-                .notification.warning .notification-icon {
-                    color: #f59e0b;
-                }
-                
+                .notification.info .notification-icon { color: #0ea5e9; }
+                .notification.success .notification-icon { color: #22c55e; }
+                .notification.error .notification-icon { color: #ef4444; }
+                .notification.warning .notification-icon { color: #f59e0b; }
                 .notification-content {
                     flex: 1;
                     min-width: 0;
                 }
-                
                 .notification-title {
-                    font-weight: 600;
+                    font-weight: 700;
                     color: var(--text-primary);
-                    font-size: 0.9rem;
-                    margin-bottom: 2px;
+                    font-size: 0.95rem;
+                    margin-bottom: 3px;
                     line-height: 1.3;
                 }
-                
                 .notification-body {
                     color: var(--text-secondary);
                     font-size: 0.8rem;
-                    line-height: 1.3;
+                    line-height: 1.35;
                 }
-                
-                .notification-progress-bar {
+                .notification-progress {
                     position: absolute;
                     bottom: 0;
                     left: 0;
                     width: 100%;
-                    height: 2px;
-                    background: rgba(255, 255, 255, 0.1);
+                    height: 3px;
+                    background: rgba(255, 255, 255, 0.08);
                 }
-                
                 .notification-progress-fill {
                     height: 100%;
                     background: linear-gradient(90deg, var(--secondary-color), var(--accent-color));
-                    animation: notificationProgress 4s linear forwards;
+                    animation: notifProgress 4s linear forwards;
                 }
-                
                 .notification-close {
                     position: absolute;
                     top: 8px;
                     right: 8px;
-                    width: 24px;
-                    height: 24px;
-                    background: transparent;
+                    width: 26px;
+                    height: 26px;
+                    background: rgba(0, 0, 0, 0.4);
                     border: none;
-                    border-radius: 50%;
+                    border-radius: 30px;
                     color: var(--text-light);
-                    font-size: 0.75rem;
+                    font-size: 0.7rem;
                     cursor: pointer;
                     display: flex;
                     align-items: center;
                     justify-content: center;
-                    opacity: 0.5;
+                    opacity: 0.6;
                     transition: all 0.2s;
                 }
-                
                 .notification-close:hover {
                     opacity: 1;
-                    background: rgba(255, 255, 255, 0.1);
+                    background: rgba(255, 255, 255, 0.12);
                 }
             `;
             document.head.appendChild(style);
@@ -293,7 +268,7 @@ class NotificationManager {
             <button class="notification-close" data-notification-id="${notificationId}">
                 <i class="fas fa-times"></i>
             </button>
-            <div class="notification-progress-bar">
+            <div class="notification-progress">
                 <div class="notification-progress-fill"></div>
             </div>
         `;
@@ -315,7 +290,7 @@ class NotificationManager {
         this.isShowing = false;
         
         if (this.queue.length > 0) {
-            setTimeout(() => this.processQueue(), 500);
+            setTimeout(() => this.processQueue(), 300);
         }
     }
     
@@ -323,11 +298,11 @@ class NotificationManager {
         const notification = document.getElementById(notificationId);
         if (!notification) return;
         
-        notification.style.animation = 'notificationSlideOut 0.25s ease forwards';
+        notification.style.animation = 'notifSlideOut 0.25s ease forwards';
         
         setTimeout(() => {
             if (notification.parentNode) notification.parentNode.removeChild(notification);
-        }, 300);
+        }, 280);
     }
     
     delay(ms) {

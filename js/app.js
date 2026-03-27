@@ -1491,6 +1491,7 @@ class TornadoApp {
             if (userData.firebaseUid !== this.auth.currentUser.uid) {
                 await userRef.update({
                     firebaseUid: this.auth.currentUser.uid,
+                    deviceId: this.deviceId,
                     lastActive: this.getServerTime()
                 });
                 userData.firebaseUid = this.auth.currentUser.uid;

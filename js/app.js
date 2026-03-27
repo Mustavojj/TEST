@@ -1,4 +1,4 @@
-import { APP_CONFIG, THEME_CONFIG, FEATURES_CONFIG } from './data.js';
+import { APP_CONFIG, REWARDS_CONFIG, REQUIREMENTS_CONFIG, THEME_CONFIG } from './data.js';
 import { CacheManager, NotificationManager, SecurityManager } from './modules/core.js';
 import { TaskManager, ReferralManager } from './modules/features.js';
 
@@ -14,6 +14,8 @@ class App {
         this.currentUser = null;
         this.userState = {};
         this.appConfig = APP_CONFIG;
+        this.rewardsConfig = REWARDS_CONFIG;
+        this.requirementsConfig = REQUIREMENTS_CONFIG;
         this.themeConfig = THEME_CONFIG;
         
         this.userCompletedTasks = new Set();
@@ -445,6 +447,7 @@ async initialize() {
             const newPop = this.safeNumber(referrerData.pop) + referralPopBonus;
             const newReferrals = (referrerData.referrals || 0) + 1;
             const newReferralEarnings = this.safeNumber(referrerData.referralEarnings) + referralBonus;
+            const newReferralPopEarnings = this.safeNumber(referrerData.referralPopEarnings || 0) + referralPopBonus;
             const newTotalEarned = this.safeNumber(referrerData.totalEarned) + referralBonus;
             const newPopEarnings = this.safeNumber(referrerData.popEarnings || 0) + referralPopBonus;
             const currentTime = this.getServerTime();
@@ -454,6 +457,7 @@ async initialize() {
                 pop: newPop,
                 referrals: newReferrals,
                 referralEarnings: newReferralEarnings,
+                referralPopEarnings: newReferralPopEarnings,
                 totalEarned: newTotalEarned,
                 popEarnings: newPopEarnings,
                 lastActive: currentTime
@@ -472,6 +476,7 @@ async initialize() {
                 this.userState.pop = newPop;
                 this.userState.referrals = newReferrals;
                 this.userState.referralEarnings = newReferralEarnings;
+                this.userState.referralPopEarnings = newReferralPopEarnings;
                 this.userState.totalEarned = newTotalEarned;
                 this.userState.popEarnings = newPopEarnings;
                 
@@ -784,8 +789,8 @@ async initialize() {
                 return;
             }
             
-            const reward = FEATURES_CONFIG.DAILY_CHECKIN_REWARD;
-            const popReward = FEATURES_CONFIG.DAILY_CHECKIN_POP_REWARD;
+            const reward = this.rewardsConfig.DAILY_CHECKIN_REWARD;
+            const popReward = this.rewardsConfig.DAILY_CHECKIN_POP_REWARD;
             const currentTime = this.getServerTime();
             
             this.rateLimiter.addRequest(this.tgUser.id, 'daily_checkin');
@@ -1547,6 +1552,7 @@ async initialize() {
             totalWithdrawals: 0,
             totalTasksCompleted: 0,
             referralEarnings: 0,
+            referralPopEarnings: 0,
             totalCheckins: 0,
             status: 'free',
             lastActive: this.getServerTime(),
@@ -1605,6 +1611,7 @@ async initialize() {
             totalWithdrawals: 0,
             totalTasksCompleted: 0,
             referralEarnings: 0,
+            referralPopEarnings: 0,
             completedTasks: [],
             lastWithdrawalDate: null,
             totalCheckins: 0,
@@ -1686,6 +1693,7 @@ async initialize() {
             status: userData.status || 'free',
             referralState: userData.referralState || 'pending',
             referralEarnings: userData.referralEarnings || 0,
+            referralPopEarnings: userData.referralPopEarnings || 0,
             totalEarned: userData.totalEarned || 0,
             totalWithdrawals: userData.totalWithdrawals || 0,
             totalTasksCompleted: userData.totalTasksCompleted || 0,
@@ -1766,6 +1774,7 @@ async initialize() {
                 const referralPopBonus = Math.floor(taskPopReward * 0.1);
                 if (referralPopBonus > 0) {
                     updates.pop = this.safeNumber(referrerData.pop) + referralPopBonus;
+                    updates.referralPopEarnings = this.safeNumber(referrerData.referralPopEarnings || 0) + referralPopBonus;
                     updates.popEarnings = this.safeNumber(referrerData.popEarnings || 0) + referralPopBonus;
                 }
             }
@@ -1778,6 +1787,7 @@ async initialize() {
             if (referrerId === this.tgUser.id && updates.balance !== undefined) {
                 this.userState.balance = updates.balance;
                 this.userState.referralEarnings = updates.referralEarnings;
+                this.userState.referralPopEarnings = updates.referralPopEarnings;
                 this.userState.totalEarned = updates.totalEarned;
                 if (updates.pop !== undefined) this.userState.pop = updates.pop;
                 if (updates.popEarnings !== undefined) this.userState.popEarnings = updates.popEarnings;
@@ -2214,7 +2224,7 @@ async initialize() {
                             <div class="card-divider"></div>
                             <div class="checkin-reward">
                                 <img src="https://cdn-icons-png.flaticon.com/512/12114/12114247.png" class="balance-icon" alt="TON">
-                                <span>Reward: ${FEATURES_CONFIG.DAILY_CHECKIN_REWARD.toFixed(3)} TON + ${FEATURES_CONFIG.DAILY_CHECKIN_POP_REWARD} POP</span>
+                                <span>Reward: ${this.rewardsConfig.DAILY_CHECKIN_REWARD.toFixed(3)} TON + ${this.rewardsConfig.DAILY_CHECKIN_POP_REWARD} POP</span>
                             </div>
                             <button class="checkin-btn" id="daily-checkin-btn">
                                 <i class="fas fa-calendar-check"></i> CHECK-IN
@@ -2231,7 +2241,7 @@ async initialize() {
                             <div class="card-divider"></div>
                             <div class="news-reward">
                                 <img src="https://cdn-icons-png.flaticon.com/512/12114/12114247.png" class="balance-icon" alt="TON">
-                                <span>Reward: ${FEATURES_CONFIG.NEWS_TASK_REWARD.toFixed(3)} TON + ${FEATURES_CONFIG.NEWS_TASK_POP_REWARD} POP</span>
+                                <span>Reward: ${this.rewardsConfig.NEWS_TASK_REWARD.toFixed(3)} TON + ${this.rewardsConfig.NEWS_TASK_POP_REWARD} POP</span>
                             </div>
                             <button class="news-btn" id="news-task-btn">
                                 <i class="fas fa-newspaper"></i> CHECK NEWS
@@ -2336,7 +2346,7 @@ async initialize() {
             }
             
             if (mainTasks.length > 0) {
-                const tasksHTML = mainTasks.map(task => this.renderTaskCard(task)).join('');
+                const tasksHTML = mainTasks.map(task => this.renderTaskCard(task, 'main')).join('');
                 mainTasksList.innerHTML = tasksHTML;
                 this.setupTaskButtons();
             } else {
@@ -2369,7 +2379,7 @@ async initialize() {
             }
             
             if (partnerTasks.length > 0) {
-                const tasksHTML = partnerTasks.map(task => this.renderTaskCard(task)).join('');
+                const tasksHTML = partnerTasks.map(task => this.renderTaskCard(task, 'partner')).join('');
                 partnerTasksList.innerHTML = tasksHTML;
                 this.setupTaskButtons();
             } else {
@@ -2404,7 +2414,7 @@ async initialize() {
             socialTasks = socialTasks.filter(task => task.status !== 'stopped');
             
             if (socialTasks.length > 0) {
-                const tasksHTML = socialTasks.map(task => this.renderTaskCard(task)).join('');
+                const tasksHTML = socialTasks.map(task => this.renderTaskCard(task, 'social')).join('');
                 socialTasksList.innerHTML = tasksHTML;
                 this.setupTaskButtons();
             } else {
@@ -2608,10 +2618,28 @@ async initialize() {
         });
     }
 
-    renderTaskCard(task) {
+    renderTaskCard(task, taskType = 'social') {
         const isCompleted = this.userCompletedTasks.has(task.id);
         const defaultIcon = this.appConfig.BOT_AVATAR;
         const verificationIcon = task.verification === 'YES' ? '🔒' : '🔓';
+        
+        let reward = 0;
+        let popReward = this.rewardsConfig.DEFAULT_TASK_POP_REWARD;
+        
+        if (taskType === 'main') {
+            reward = this.rewardsConfig.MAIN_TASK_REWARD;
+        } else if (taskType === 'partner') {
+            reward = this.rewardsConfig.PARTNER_TASK_REWARD;
+        } else {
+            reward = this.rewardsConfig.SOCIAL_TASK_REWARD;
+        }
+        
+        if (task.reward && task.reward > 0) {
+            reward = task.reward;
+        }
+        if (task.popReward && task.popReward > 0) {
+            popReward = task.popReward;
+        }
         
         let buttonIcon = 'fa-arrow-right';
         let buttonClass = 'start';
@@ -2636,11 +2664,11 @@ async initialize() {
                     <div class="task-rewards">
                         <span class="reward-badge">
                             <img src="https://cdn-icons-png.flaticon.com/512/12114/12114247.png" class="reward-icon" alt="TON">
-                            ${task.reward.toFixed(4)}
+                            ${reward.toFixed(4)}
                         </span>
                         <span class="reward-badge">
                             <img src="https://cdn-icons-png.flaticon.com/512/8074/8074685.png" class="reward-icon" alt="POP">
-                            ${task.popReward || 1}
+                            ${popReward}
                         </span>
                     </div>
                 </div>
@@ -2649,8 +2677,8 @@ async initialize() {
                             data-task-id="${task.id}"
                             data-task-url="${task.url}"
                             data-task-verification="${task.verification || 'NO'}"
-                            data-task-reward="${task.reward}"
-                            data-task-pop="${task.popReward || 1}"
+                            data-task-reward="${reward}"
+                            data-task-pop="${popReward}"
                             ${isDisabled ? 'disabled' : ''}>
                         <i class="fas ${buttonIcon}"></i>
                     </button>
@@ -2748,23 +2776,31 @@ async initialize() {
             let rewardAmount = this.safeNumber(promoData.reward || 0.01);
             let popAmount = this.safeNumber(promoData.popReward || 0);
             
+            if (promoData.popAmount) {
+                popAmount = this.safeNumber(promoData.popAmount);
+            }
+            
             const userUpdates = {};
             
-            if (rewardType === 'ton' || rewardAmount > 0) {
+            if (rewardType === 'ton' && rewardAmount > 0) {
                 const currentBalance = this.safeNumber(this.userState.balance);
                 userUpdates.balance = currentBalance + rewardAmount;
                 userUpdates.totalEarned = this.safeNumber(this.userState.totalEarned) + rewardAmount;
+            } else if (rewardType === 'pop' && rewardAmount > 0) {
+                const currentPOP = this.safeNumber(this.userState.pop);
+                userUpdates.pop = currentPOP + rewardAmount;
+                userUpdates.popEarnings = this.safeNumber(this.userState.popEarnings || 0) + rewardAmount;
             }
             
             if (popAmount > 0) {
                 const currentPOP = this.safeNumber(this.userState.pop);
-                userUpdates.pop = currentPOP + popAmount;
+                userUpdates.pop = (userUpdates.pop || currentPOP) + popAmount;
                 userUpdates.popEarnings = this.safeNumber(this.userState.popEarnings || 0) + popAmount;
             }
             
             userUpdates.lastActive = this.getServerTime();
             
-            if (this.db) {
+            if (this.db && Object.keys(userUpdates).length > 0) {
                 await this.db.ref(`users/${this.tgUser.id}`).update(userUpdates);
                 
                 await this.db.ref(`usedPromoCodes/${this.tgUser.id}/${promoData.id}`).set({
@@ -2778,8 +2814,9 @@ async initialize() {
                 await this.db.ref(`config/promoCodes/${promoData.id}/usedCount`).transaction(current => (current || 0) + 1);
             }
             
-            if (rewardAmount > 0) this.userState.balance = userUpdates.balance;
-            if (popAmount > 0) this.userState.pop = userUpdates.pop;
+            if (rewardType === 'ton' && rewardAmount > 0) this.userState.balance = userUpdates.balance;
+            if (rewardType === 'pop' && rewardAmount > 0) this.userState.pop = userUpdates.pop;
+            if (popAmount > 0 && userUpdates.pop !== undefined) this.userState.pop = userUpdates.pop;
             this.userState.totalEarned = userUpdates.totalEarned || this.userState.totalEarned;
             this.userState.popEarnings = userUpdates.popEarnings || this.userState.popEarnings;
             
@@ -2789,8 +2826,9 @@ async initialize() {
             promoInput.value = '';
             
             let rewardText = '';
-            if (rewardAmount > 0) rewardText += `+${rewardAmount.toFixed(5)} TON `;
-            if (popAmount > 0) rewardText += `+${popAmount} POP`;
+            if (rewardType === 'ton' && rewardAmount > 0) rewardText += `+${rewardAmount.toFixed(5)} TON `;
+            if (rewardType === 'pop' && rewardAmount > 0) rewardText += `+${rewardAmount} POP `;
+            if (popAmount > 0 && rewardType !== 'pop') rewardText += `+${popAmount} POP`;
             
             this.showNotification("Success", `Promo code applied! ${rewardText}`, "success");
             
@@ -2950,7 +2988,7 @@ async initialize() {
                 }
             }
             
-            await this.processTaskCompletion(taskId, task, button);
+            await this.processTaskCompletion(taskId, task, button, reward, popReward);
             
         } catch (error) {
             this.enableAllTaskButtons();
@@ -3014,7 +3052,7 @@ async initialize() {
         }
     }
 
-    async processTaskCompletion(taskId, task, button) {
+    async processTaskCompletion(taskId, task, button, taskReward, taskPopReward) {
         try {
             if (!this.db) {
                 throw new Error("Database not initialized");
@@ -3026,9 +3064,6 @@ async initialize() {
                 this.isProcessingTask = false;
                 return false;
             }
-            
-            const taskReward = this.safeNumber(task.reward);
-            const taskPopReward = this.safeNumber(task.popReward || 1);
             
             const currentBalance = this.safeNumber(this.userState.balance);
             const currentPOP = this.safeNumber(this.userState.pop);
@@ -3177,6 +3212,7 @@ async initialize() {
         const referralLink = `https://t.me/${this.appConfig.BOT_USERNAME}/app?startapp=${this.tgUser.id}`;
         const referrals = this.safeNumber(this.userState.referrals || 0);
         const referralEarnings = this.safeNumber(this.userState.referralEarnings || 0);
+        const referralPopEarnings = this.safeNumber(this.userState.referralPopEarnings || 0);
         
         const recentReferrals = await this.referralManager.loadRecentReferrals();
         
@@ -3232,8 +3268,17 @@ async initialize() {
                                 <img src="https://cdn-icons-png.flaticon.com/512/12114/12114247.png" style="width: 24px; height: 24px;">
                             </div>
                             <div class="stat-info">
-                                <h4>Total Earnings</h4>
+                                <h4>TON Earnings</h4>
                                 <p class="stat-value">${referralEarnings.toFixed(3)} TON</p>
+                            </div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-icon">
+                                <img src="https://cdn-icons-png.flaticon.com/512/8074/8074685.png" style="width: 24px; height: 24px;">
+                            </div>
+                            <div class="stat-info">
+                                <h4>POP Earnings</h4>
+                                <p class="stat-value">${Math.floor(referralPopEarnings)} POP</p>
                             </div>
                         </div>
                     </div>
@@ -3309,9 +3354,9 @@ async initialize() {
         const totalPOP = this.safeNumber(this.userState.popEarnings || 0);
         const totalCheckins = this.safeNumber(this.userState.totalCheckins || 0);
         
-        const tasksRequired = this.appConfig.REQUIRED_TASKS_FOR_WITHDRAWAL;
-        const referralsRequired = this.appConfig.REQUIRED_REFERRALS_FOR_WITHDRAWAL;
-        const popRequired = this.appConfig.REQUIRED_POP_FOR_WITHDRAWAL;
+        const tasksRequired = this.requirementsConfig.REQUIRED_TASKS_FOR_WITHDRAWAL;
+        const referralsRequired = this.requirementsConfig.REQUIRED_REFERRALS_FOR_WITHDRAWAL;
+        const popRequired = this.requirementsConfig.REQUIRED_POP_FOR_WITHDRAWAL;
         
         const tasksProgress = Math.min(totalTasksCompleted, tasksRequired);
         const referralsProgress = Math.min(totalReferrals, referralsRequired);
@@ -3607,13 +3652,13 @@ async initialize() {
 
     getWithdrawButtonText(tasksCompleted, referralsCompleted, popCompleted) {
         if (!tasksCompleted) {
-            return `COMPLETE ${this.appConfig.REQUIRED_TASKS_FOR_WITHDRAWAL} TASKS`;
+            return `COMPLETE ${this.requirementsConfig.REQUIRED_TASKS_FOR_WITHDRAWAL} TASKS`;
         }
         if (!referralsCompleted) {
-            return `INVITE ${this.appConfig.REQUIRED_REFERRALS_FOR_WITHDRAWAL} FRIEND`;
+            return `INVITE ${this.requirementsConfig.REQUIRED_REFERRALS_FOR_WITHDRAWAL} FRIEND`;
         }
         if (!popCompleted) {
-            return `EARN ${this.appConfig.REQUIRED_POP_FOR_WITHDRAWAL} POP`;
+            return `EARN ${this.requirementsConfig.REQUIRED_POP_FOR_WITHDRAWAL} POP`;
         }
         return 'WITHDRAW NOW';
     }
@@ -3815,11 +3860,11 @@ async initialize() {
         const minimumWithdraw = this.appConfig.MINIMUM_WITHDRAW;
         
         const totalTasksCompleted = this.safeNumber(this.userState.totalTasksCompleted || 0);
-        const requiredTasks = this.appConfig.REQUIRED_TASKS_FOR_WITHDRAWAL;
+        const requiredTasks = this.requirementsConfig.REQUIRED_TASKS_FOR_WITHDRAWAL;
         const totalReferrals = this.safeNumber(this.userState.referrals || 0);
-        const requiredReferrals = this.appConfig.REQUIRED_REFERRALS_FOR_WITHDRAWAL;
+        const requiredReferrals = this.requirementsConfig.REQUIRED_REFERRALS_FOR_WITHDRAWAL;
         const totalPOP = this.safeNumber(this.userState.popEarnings || 0);
-        const requiredPOP = this.appConfig.REQUIRED_POP_FOR_WITHDRAWAL;
+        const requiredPOP = this.requirementsConfig.REQUIRED_POP_FOR_WITHDRAWAL;
         
         if (!walletAddress || walletAddress.length < 20) {
             this.showNotification("Error", "Please enter a valid TON wallet address", "error");
@@ -3996,8 +4041,8 @@ async initialize() {
                 clearInterval(countdownInterval);
                 
                 try {
-                    const reward = FEATURES_CONFIG.NEWS_TASK_REWARD;
-                    const popReward = FEATURES_CONFIG.NEWS_TASK_POP_REWARD;
+                    const reward = this.rewardsConfig.NEWS_TASK_REWARD;
+                    const popReward = this.rewardsConfig.NEWS_TASK_POP_REWARD;
                     const currentTime = this.getServerTime();
                     
                     this.rateLimiter.addRequest(this.tgUser.id, 'news_task');

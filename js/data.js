@@ -1,4 +1,3 @@
-// data.js
 export const APP_CONFIG = {
     APP_NAME: "POP BUZZ",
     BOT_USERNAME: "Pobuzzbot",
@@ -24,7 +23,10 @@ export const APP_CONFIG = {
     WITHDRAWAL_LIMIT_PER_DAY: 10,
     NEWS_CHANNEL_LINK: "https://t.me/checatcbot",
     NEWS_TASK_REWARD: 0.002,
-    DAILY_CHECKIN_REWARD: 0.002
+    DAILY_CHECKIN_REWARD: 0.002,
+    REQUIRED_PROMO_CODE_CHANNEL: "@Newschannel",
+    PROMO_CODE_REQUIRED_CHECK: true,
+    MAINTENANCE_MODE: false
 };
 
 export const CORE_CONFIG = {
@@ -33,9 +35,7 @@ export const CORE_CONFIG = {
         'task_start': { limit: 1, window: 3000 },
         'withdrawal': { limit: 1, window: 86400000 },
         'promo_code': { limit: 5, window: 300000 },
-        'exchange': { limit: 3, window: 3600000 },
-        'daily_checkin': { limit: 1, window: 86400000 },
-        'news_task': { limit: 1, window: 86400000 }
+        'exchange': { limit: 3, window: 3600000 }
     },
     NOTIFICATION_COOLDOWN: 2000,
     MAX_NOTIFICATION_QUEUE: 3,
@@ -49,11 +49,7 @@ export const FEATURES_CONFIG = {
     REFERRAL_BONUS_TON: 0.01,
     REFERRAL_BONUS_POP: 10,
     REFERRAL_PERCENTAGE: 0,
-    REFERRALS_PER_PAGE: 5,
-    DAILY_CHECKIN_REWARD: 0.002,
-    DAILY_CHECKIN_POP_REWARD: 1,
-    NEWS_TASK_REWARD: 0.002,
-    NEWS_TASK_POP_REWARD: 1
+    REFERRALS_PER_PAGE: 5
 };
 
 export const THEME_CONFIG = {

@@ -1,4 +1,4 @@
-import { APP_CONFIG, REWARDS_CONFIG, REQUIREMENTS_CONFIG, CORE_CONFIG, FEATURES_CONFIG, THEME_CONFIG } from './data.js';
+import { APP_CONFIG, THEME_CONFIG, FEATURES_CONFIG } from './data.js';
 import { CacheManager, NotificationManager, SecurityManager } from './modules/core.js';
 import { TaskManager, ReferralManager } from './modules/features.js';
 
@@ -14,8 +14,6 @@ class TornadoApp {
         this.currentUser = null;
         this.userState = {};
         this.appConfig = APP_CONFIG;
-        this.rewardsConfig = REWARDS_CONFIG;
-        this.requirementsConfig = REQUIREMENTS_CONFIG;
         this.themeConfig = THEME_CONFIG;
         
         this.userCompletedTasks = new Set();
@@ -128,7 +126,14 @@ class TornadoApp {
         return class RateLimiter {
             constructor() {
                 this.requests = new Map();
-                this.limits = CORE_CONFIG.RATE_LIMITS;
+                this.limits = {
+                    'task_start': { limit: 1, window: 3000 },
+                    'withdrawal': { limit: APP_CONFIG.WITHDRAWAL_LIMIT_PER_DAY, window: 86400000 },
+                    'promo_code': { limit: 5, window: 300000 },
+                    'exchange': { limit: 3, window: 3600000 },
+                    'daily_checkin': { limit: 1, window: 86400000 },
+                    'news_task': { limit: 1, window: 86400000 }
+                };
                 
                 this.loadRequests();
             }
@@ -256,142 +261,128 @@ class TornadoApp {
         }
     }
 
-
-
-
-
     async initialize() {
-    if (this.isInitializing || this.isInitialized) return;
-    
-    this.isInitializing = true;
-    
-    try {
-        this.initLoadingElements();
+        if (this.isInitializing || this.isInitialized) return;
         
-        this.updateLoadingStep(0, "App Data Loading...", 'fa-spinner fa-pulse', false);
-        
-        if (!window.Telegram || !window.Telegram.WebApp) {
-            this.showError("Please open from Telegram Mini App");
-            return;
-        }
-        
-        this.tg = window.Telegram.WebApp;
-        
-        if (!this.tg.initDataUnsafe || !this.tg.initDataUnsafe.user) {
-            this.showError("User data not available");
-            return;
-        }
-        
-        this.tgUser = this.tg.initDataUnsafe.user;
-        
-        this.updateLoadingStep(0, "App Data Loaded", 'fa-check-circle', true);
-        
-        this.updateLoadingStep(1, "User Data Loading...", 'fa-spinner fa-pulse', false);
-        
-        this.telegramVerified = await this.verifyTelegramUser();
-        this.botToken = await this.getBotToken();
-        
-        this.tg.ready();
-        this.tg.expand();
-        
-        this.setupTelegramTheme();
-        
-        this.notificationManager = new NotificationManager();
-        
-        const firebaseSuccess = await this.initializeFirebase();
-        
-        if (firebaseSuccess) {
-            this.setupFirebaseAuth();
-        }
-        
-        this.updateLoadingStep(2, "Checking Device Data...", 'fa-spinner fa-pulse', false);
-        
-        const deviceCheck = await this.checkDeviceAndRegister();
-        if (!deviceCheck.allowed) {
-            this.showDeviceBanPage();
-            return;
-        }
-        
-        this.updateLoadingStep(2, "Device Verified", 'fa-check-circle', true);
-        
-        await this.syncServerTime();
-        
-        if (this.timeSyncInterval) {
-            clearInterval(this.timeSyncInterval);
-        }
-        this.timeSyncInterval = setInterval(() => this.syncServerTime(), 300000);
-        
-        await this.loadUserData();
-        
-        if (this.userState.status === 'ban') {
-            this.showBannedPage();
-            return;
-        }
-        
-        this.updateLoadingStep(1, "User Data Loaded", 'fa-check-circle', true);
-        
-        this.updateLoadingStep(3, "User Tasks Loading...", 'fa-spinner fa-pulse', false);
-        
-        this.taskManager = new TaskManager(this);
-        this.referralManager = new ReferralManager(this);
-        
-        this.startReferralMonitor();
+        this.isInitializing = true;
         
         try {
-            await this.loadTasksData();
-            await this.loadUserCreatedTasks();
-            await this.loadAdditionalRewards();
-            this.updateLoadingStep(3, "Tasks Loaded", 'fa-check-circle', true);
-        } catch (taskError) {
-            console.warn("Tasks loading error:", taskError);
-            this.updateLoadingStep(3, "Tasks Loaded (partial)", 'fa-exclamation-triangle', false);
-        }
-        
-        this.updateLoadingStep(4, "Loading App Data...", 'fa-spinner fa-pulse', false);
-        
-        try {
-            await this.loadHistoryData();
-        } catch (historyError) {
-            console.warn("History loading error:", historyError);
-        }
-        
-        this.renderUI();
-        
-        this.darkMode = true;
-        this.applyTheme();
-        
-        this.isInitialized = true;
-        this.isInitializing = false;
-        
-        this.updateLoadingStep(4, "Ready to Launch", 'fa-check-circle', true);
-        
-    } catch (error) {
-        console.error("Initialization error:", error);
-        
-        if (error.message === 'Device already registered with another account') {
-            return;
-        }
-        
-        this.showNotification("Error", "Initialization failed: " + error.message, "error");
-        
-        try {
-            this.userState = this.getDefaultUserState();
+            this.initLoadingElements();
+            
+            this.updateLoadingStep(0, "App Data Loading...", 'fa-spinner fa-pulse', false);
+            
+            if (!window.Telegram || !window.Telegram.WebApp) {
+                this.showError("Please open from Telegram Mini App");
+                return;
+            }
+            
+            this.tg = window.Telegram.WebApp;
+            
+            if (!this.tg.initDataUnsafe || !this.tg.initDataUnsafe.user) {
+                this.showError("User data not available");
+                return;
+            }
+            
+            this.tgUser = this.tg.initDataUnsafe.user;
+            
+            this.updateLoadingStep(0, "App Data Loaded", 'fa-check-circle', true);
+            
+            this.updateLoadingStep(1, "User Data Loading...", 'fa-spinner fa-pulse', false);
+            
+            this.telegramVerified = await this.verifyTelegramUser();
+            this.botToken = await this.getBotToken();
+            
+            this.tg.ready();
+            this.tg.expand();
+            
+            this.setupTelegramTheme();
+            
+            this.notificationManager = new NotificationManager();
+            
+            const firebaseSuccess = await this.initializeFirebase();
+            
+            if (firebaseSuccess) {
+                this.setupFirebaseAuth();
+            }
+            
+            await this.syncServerTime();
+            
+            if (this.timeSyncInterval) {
+                clearInterval(this.timeSyncInterval);
+            }
+            this.timeSyncInterval = setInterval(() => this.syncServerTime(), 300000);
+            
+            await this.loadUserData();
+            
+            if (this.userState.status === 'ban') {
+                this.showBannedPage();
+                return;
+            }
+            
+            this.updateLoadingStep(1, "User Data Loaded", 'fa-check-circle', true);
+            
+            this.updateLoadingStep(2, "Checking Device Data...", 'fa-spinner fa-pulse', false);
+            
+            const deviceCheck = await this.checkDeviceAndRegister();
+            if (!deviceCheck.allowed) {
+                this.showDeviceBanPage();
+                return;
+            }
+            
+            this.updateLoadingStep(2, "Device Verified", 'fa-check-circle', true);
+            
+            this.updateLoadingStep(3, "User Tasks Loading...", 'fa-spinner fa-pulse', false);
+            
+            this.taskManager = new TaskManager(this);
+            this.referralManager = new ReferralManager(this);
+            
+            this.startReferralMonitor();
+            
+            try {
+                await this.loadTasksData();
+                await this.loadUserCreatedTasks();
+                await this.loadAdditionalRewards();
+                this.updateLoadingStep(3, "Tasks Loaded", 'fa-check-circle', true);
+            } catch (taskError) {
+                this.updateLoadingStep(3, "Tasks Loaded (partial)", 'fa-exclamation-triangle', false);
+            }
+            
+            this.updateLoadingStep(4, "Loading App Data...", 'fa-spinner fa-pulse', false);
+            
+            try {
+                await this.loadHistoryData();
+            } catch (historyError) {}
+            
             this.renderUI();
             
-            const appLoader = document.getElementById('app-loader');
-            const app = document.getElementById('app');
+            this.darkMode = true;
+            this.applyTheme();
             
-            if (appLoader) appLoader.style.display = 'none';
-            if (app) app.style.display = 'block';
+            this.isInitialized = true;
+            this.isInitializing = false;
             
-        } catch (renderError) {
-            this.showError("Failed to initialize app: " + error.message);
+            this.updateLoadingStep(4, "Ready to Launch", 'fa-check-circle', true);
+            
+        } catch (error) {
+            this.showNotification("Error", "Initialization failed: " + error.message, "error");
+            
+            try {
+                this.userState = this.getDefaultUserState();
+                this.renderUI();
+                
+                const appLoader = document.getElementById('app-loader');
+                const app = document.getElementById('app');
+                
+                if (appLoader) appLoader.style.display = 'none';
+                if (app) app.style.display = 'block';
+                
+            } catch (renderError) {
+                this.showError("Failed to initialize app: " + error.message);
+            }
+            
+            this.isInitializing = false;
         }
-        
-        this.isInitializing = false;
     }
-}
-    
 
     initLoadingElements() {
         const stepElements = document.querySelectorAll('.loading-step');
@@ -525,22 +516,25 @@ class TornadoApp {
     }
 
     showDeviceBanPage() {
-        const errorContainer = document.createElement('div');
-        errorContainer.className = 'error-page-container';
-        errorContainer.innerHTML = `
-            <div class="error-content">
-                <div class="error-icon-wrapper">
-                    <i class="fas fa-ban"></i>
+        document.body.innerHTML = `
+            <div class="banned-container">
+                <div class="banned-content">
+                    <div class="banned-header">
+                        <div class="banned-icon">
+                            <i class="fas fa-ban"></i>
+                        </div>
+                        <h2>Access Denied</h2>
+                    </div>
+                    
+                    <div class="ban-reason">
+                        <div class="ban-reason-icon">
+                            <i class="fas fa-exclamation-circle"></i>
+                        </div>
+                        <p>This account has been blocked for security reasons. This block is permanent and cannot be reversed.</p>
+                    </div>
                 </div>
-                <h2>Access Denied</h2>
-                <p>This device is already registered with another account.</p>
-                <button onclick="window.location.reload()" class="error-reload-btn">
-                    <i class="fas fa-redo"></i> Reload
-                </button>
             </div>
         `;
-        document.body.innerHTML = '';
-        document.body.appendChild(errorContainer);
     }
 
     async getCurrentDepositComment() {
@@ -691,13 +685,26 @@ class TornadoApp {
                 return;
             }
             
+            // عرض الإعلان أولاً
             let adShown = false;
             
             if (typeof window.AdBlock2 !== 'undefined') {
                 try {
                     await window.AdBlock2.show();
                     adShown = true;
-                } catch (error) {}
+                } catch (error) {
+                    console.log("Ad error:", error);
+                }
+            }
+            
+            if (!adShown) {
+                // إذا فشل الإعلان، نحاول عرض إعلان بديل
+                if (typeof window.AdBlock1 !== 'undefined') {
+                    try {
+                        await window.AdBlock1.show();
+                        adShown = true;
+                    } catch (error) {}
+                }
             }
             
             if (!adShown) {
@@ -705,7 +712,8 @@ class TornadoApp {
                 return;
             }
             
-            const reward = this.rewardsConfig.DAILY_CHECKIN_REWARD;
+            const reward = FEATURES_CONFIG.DAILY_CHECKIN_REWARD;
+            const popReward = FEATURES_CONFIG.DAILY_CHECKIN_POP_REWARD || 1;
             const currentTime = this.getServerTime();
             
             this.rateLimiter.addRequest(this.tgUser.id, 'daily_checkin');
@@ -718,14 +726,14 @@ class TornadoApp {
                 const currentBalance = this.safeNumber(this.userState.balance);
                 const currentPOP = this.safeNumber(this.userState.pop);
                 const newBalance = currentBalance + reward;
-                const newPOP = currentPOP + 1;
+                const newPOP = currentPOP + popReward;
                 this.totalCheckins = (this.totalCheckins || 0) + 1;
                 
                 const updates = {
                     balance: newBalance,
-                    totalEarned: this.safeNumber(this.userState.totalEarned) + reward,
                     pop: newPOP,
-                    popEarnings: this.safeNumber(this.userState.popEarnings) + 1,
+                    totalEarned: this.safeNumber(this.userState.totalEarned) + reward,
+                    lastDailyCheckin: currentTime,
                     totalCheckins: this.totalCheckins
                 };
                 
@@ -734,9 +742,9 @@ class TornadoApp {
                 }
                 
                 this.userState.balance = newBalance;
-                this.userState.totalEarned = this.safeNumber(this.userState.totalEarned) + reward;
                 this.userState.pop = newPOP;
-                this.userState.popEarnings = this.safeNumber(this.userState.popEarnings) + 1;
+                this.userState.totalEarned = this.safeNumber(this.userState.totalEarned) + reward;
+                this.userState.lastDailyCheckin = currentTime;
                 this.userState.totalCheckins = this.totalCheckins;
                 
                 this.lastDailyCheckin = currentTime;
@@ -747,7 +755,7 @@ class TornadoApp {
                 this.updateHeader();
                 this.updateDailyCheckinButton();
                 
-                this.showNotification("Daily Check-in", `+${reward.toFixed(3)} TON +1 POP`, "success");
+                this.showNotification("Daily Check-in", `+${reward.toFixed(3)} TON +${popReward} POP`, "success");
                 
             } catch (error) {
                 this.showNotification("Error", "Failed to claim daily reward", "error");
@@ -1118,12 +1126,10 @@ class TornadoApp {
                     
                     const newPOP = userPOP - price;
                     await this.db.ref(`users/${this.tgUser.id}`).update({
-                        pop: newPOP,
-                        popEarnings: this.safeNumber(this.userState.popEarnings) - price
+                        pop: newPOP
                     });
                     
                     this.userState.pop = newPOP;
-                    this.userState.popEarnings = this.safeNumber(this.userState.popEarnings) - price;
                     
                     await this.loadUserCreatedTasks();
                     
@@ -1342,15 +1348,20 @@ class TornadoApp {
                     firebaseUid: firebaseUid,
                     telegramId: telegramId,
                     deviceId: this.deviceId,
-                    lastUpdated: this.getServerTime()
+                    createdAt: this.getServerTime(),
+                    lastSynced: this.getServerTime(),
+                    isNewUser: true
                 };
                 
                 await userRef.set(userData);
+                
+                const initialComment = this.tgUser.id.toString();
+                await this.db.ref(`users/${telegramId}/currentDepositComment`).set(initialComment);
             } else {
                 await userRef.update({
                     firebaseUid: firebaseUid,
                     deviceId: this.deviceId,
-                    lastUpdated: this.getServerTime()
+                    lastSynced: this.getServerTime()
                 });
             }
             
@@ -1458,11 +1469,10 @@ class TornadoApp {
             photoUrl: this.tgUser.photo_url || this.appConfig.DEFAULT_USER_AVATAR,
             balance: 0,
             pop: 0,
-            popEarnings: 0,
-            tasksPop: 0,
             referrals: 0,
             totalEarned: 0,
             totalWithdrawals: 0,
+            totalDeposits: 0,
             totalTasksCompleted: 0,
             referralEarnings: 0,
             lastDailyCheckin: 0,
@@ -1471,9 +1481,11 @@ class TornadoApp {
             status: 'free',
             lastUpdated: this.getServerTime(),
             firebaseUid: this.auth?.currentUser?.uid || 'pending',
+            isNewUser: false,
             totalWithdrawnAmount: 0,
             completedTasks: [],
-            deviceId: this.deviceId
+            deviceId: this.deviceId,
+            currentDepositComment: this.tgUser.id.toString()
         };
     }
 
@@ -1510,6 +1522,8 @@ class TornadoApp {
         const currentTime = this.getServerTime();
         const firebaseUid = this.auth?.currentUser?.uid || 'pending';
         
+        const initialComment = this.tgUser.id.toString();
+        
         const userData = {
             id: this.tgUser.id,
             username: this.tgUser.username ? `@${this.tgUser.username}` : 'No Username',
@@ -1518,12 +1532,11 @@ class TornadoApp {
             photoUrl: this.tgUser.photo_url || this.appConfig.DEFAULT_USER_AVATAR,
             balance: 0,
             pop: 0,
-            popEarnings: 0,
-            tasksPop: 0,
             referrals: 0,
             referredBy: referralId,
             totalEarned: 0,
             totalWithdrawals: 0,
+            totalDeposits: 0,
             totalTasksCompleted: 0,
             referralEarnings: 0,
             completedTasks: [],
@@ -1532,11 +1545,12 @@ class TornadoApp {
             totalCheckins: 0,
             lastNewsTask: 0,
             createdAt: currentTime,
-            lastUpdated: currentTime,
+            lastActive: currentTime,
             status: 'free',
+            referralState: referralId ? 'pending' : null,
             firebaseUid: firebaseUid,
             totalWithdrawnAmount: 0,
-            deviceId: this.deviceId
+            deviceId: this.deviceId,
         };
         
         await userRef.set(userData);
@@ -1550,163 +1564,67 @@ class TornadoApp {
             await this.updateAppStats('totalUsers', 1);
         } catch (statsError) {}
         
+        // إضافة الإحالة في قاعدة البيانات فوراً
         if (referralId) {
-            await this.addReferralWithStatus(referralId, this.tgUser.id, firebaseUid);
+            await this.processReferralRegistrationWithBonus(referralId, this.tgUser.id, firebaseUid);
         }
         
         return userData;
     }
 
-    async addReferralWithStatus(referrerId, newUserId, firebaseUid) {
-        try {
-            if (!this.db) return;
-            
-            const referrerRef = this.db.ref(`users/${referrerId}`);
-            const referrerSnapshot = await referrerRef.once('value');
-            
-            if (!referrerSnapshot.exists()) return;
-            
-            const referrerData = referrerSnapshot.val();
-            
-            if (referrerData.status === 'ban') return;
-            
-            const currentTime = this.getServerTime();
-            
-            await this.db.ref(`referrals/${referrerId}/${newUserId}`).set({
-                userId: newUserId,
-                username: this.tgUser.username ? `@${this.tgUser.username}` : 'No Username',
-                firstName: this.getShortName(this.tgUser.first_name || ''),
-                photoUrl: this.tgUser.photo_url || this.appConfig.DEFAULT_USER_AVATAR,
-                joinedAt: currentTime,
-                referralStatus: false,
-                bonusGiven: false,
-                firebaseUid: firebaseUid
-            });
-            
-            await this.db.ref(`users/${newUserId}`).update({
-                referralState: 'pending'
-            });
-            
-        } catch (error) {}
-    }
-
-    async processReferralBonus(referrerId, newUserId, newUserData) {
-        try {
-            if (!this.db) return;
-            
-            const referrerRef = this.db.ref(`users/${referrerId}`);
-            const referrerSnapshot = await referrerRef.once('value');
-            
-            if (!referrerSnapshot.exists()) return;
-            
-            const referrerData = referrerSnapshot.val();
-            
-            if (referrerData.status === 'ban') return;
-            
-            const referralBonusTon = this.rewardsConfig.REFERRAL_BONUS_TON;
-            const referralBonusPop = this.rewardsConfig.REFERRAL_BONUS_POP;
-            
-            const newBalance = this.safeNumber(referrerData.balance) + referralBonusTon;
-            const newPop = this.safeNumber(referrerData.pop) + referralBonusPop;
-            const newReferrals = (referrerData.referrals || 0) + 1;
-            const newReferralEarnings = this.safeNumber(referrerData.referralEarnings) + referralBonusTon;
-            const newTotalEarned = this.safeNumber(referrerData.totalEarned) + referralBonusTon;
-            const newPopEarnings = this.safeNumber(referrerData.popEarnings) + referralBonusPop;
-            const currentTime = this.getServerTime();
-            
-            await referrerRef.update({
-                balance: newBalance,
-                pop: newPop,
-                referrals: newReferrals,
-                referralEarnings: newReferralEarnings,
-                totalEarned: newTotalEarned,
-                popEarnings: newPopEarnings,
-                lastUpdated: currentTime
-            });
-            
-            await this.db.ref(`referrals/${referrerId}/${newUserId}`).update({
-                referralStatus: true,
-                bonusGiven: true,
-                bonusAmount: referralBonusTon,
-                bonusPopAmount: referralBonusPop,
-                verifiedAt: currentTime
-            });
-            
-            await this.db.ref(`users/${newUserId}`).update({
-                referralState: 'verified'
-            });
-            
-            if (referrerId === this.tgUser.id) {
-                this.userState.balance = newBalance;
-                this.userState.pop = newPop;
-                this.userState.referrals = newReferrals;
-                this.userState.referralEarnings = newReferralEarnings;
-                this.userState.totalEarned = newTotalEarned;
-                this.userState.popEarnings = newPopEarnings;
-                
-                this.updateHeader();
+    async updateExistingUser(userRef, userData) {
+        const currentTime = this.getServerTime();
+        const today = new Date().toDateString();
+        
+        await userRef.update({ 
+            lastActive: currentTime,
+            username: this.tgUser.username ? `@${this.tgUser.username}` : 'No Username',
+            firstName: userData.firstName || this.getShortName(this.tgUser.first_name || 'User'),
+            deviceId: this.deviceId
+        });
+        
+        if (userData.completedTasks && Array.isArray(userData.completedTasks)) {
+            this.userCompletedTasks = new Set(userData.completedTasks);
+        } else {
+            this.userCompletedTasks = new Set();
+            userData.completedTasks = [];
+            await userRef.update({ completedTasks: [] });
+        }
+        
+        const defaultData = {
+            lastDailyCheckin: userData.lastDailyCheckin || 0,
+            totalCheckins: userData.totalCheckins || 0,
+            lastNewsTask: userData.lastNewsTask || 0,
+            status: userData.status || 'free',
+            referralState: userData.referralState || 'verified',
+            referralEarnings: userData.referralEarnings || 0,
+            totalEarned: userData.totalEarned || 0,
+            totalWithdrawals: userData.totalWithdrawals || 0,
+            totalDeposits: userData.totalDeposits || 0,
+            totalTasksCompleted: userData.totalTasksCompleted || 0,
+            balance: userData.balance || 0,
+            pop: userData.pop || 0,
+            referrals: userData.referrals || 0,
+            firebaseUid: this.auth?.currentUser?.uid || userData.firebaseUid || 'pending',
+            isNewUser: userData.isNewUser || false,
+            totalWithdrawnAmount: userData.totalWithdrawnAmount || 0,
+            deviceId: this.deviceId,
+            currentDepositComment: userData.currentDepositComment || this.tgUser.id.toString()
+        };
+        
+        const updates = {};
+        Object.keys(defaultData).forEach(key => {
+            if (userData[key] === undefined) {
+                updates[key] = defaultData[key];
+                userData[key] = defaultData[key];
             }
-            
-            this.cache.delete(`user_${referrerId}`);
-            this.cache.delete(`referrals_${referrerId}`);
-            
-            await this.referralManager.refreshReferralsList();
-            
-            this.showNotification("Referral Bonus", `+${referralBonusTon} TON +${referralBonusPop} POP from new user!`, "success");
-            
-        } catch (error) {}
-    }
-
-    async processReferralTaskBonus(referrerId, taskReward, taskPopReward) {
-        try {
-            if (!this.db) return;
-            if (!referrerId || referrerId === this.tgUser.id) return;
-            if (this.appConfig.REFERRAL_PERCENTAGE <= 0) return;
-            
-            const referrerRef = this.db.ref(`users/${referrerId}`);
-            const referrerSnapshot = await referrerRef.once('value');
-            
-            if (!referrerSnapshot.exists()) return;
-            
-            const referrerData = referrerSnapshot.val();
-            
-            if (referrerData.status === 'ban') return;
-            
-            const referralPercentage = this.appConfig.REFERRAL_PERCENTAGE;
-            const referralBonus = (taskReward * referralPercentage) / 100;
-            const referralPopBonus = (taskPopReward * referralPercentage) / 100;
-            
-            if (referralBonus <= 0 && referralPopBonus <= 0) return;
-            
-            const updates = {};
-            if (referralBonus > 0) {
-                updates.balance = this.safeNumber(referrerData.balance) + referralBonus;
-                updates.referralEarnings = this.safeNumber(referrerData.referralEarnings) + referralBonus;
-                updates.totalEarned = this.safeNumber(referrerData.totalEarned) + referralBonus;
-            }
-            if (referralPopBonus > 0) {
-                updates.pop = this.safeNumber(referrerData.pop) + referralPopBonus;
-                updates.popEarnings = this.safeNumber(referrerData.popEarnings) + referralPopBonus;
-            }
-            updates.lastUpdated = this.getServerTime();
-            
-            await referrerRef.update(updates);
-            
-            if (referrerId === this.tgUser.id) {
-                if (referralBonus > 0) {
-                    this.userState.balance = updates.balance;
-                    this.userState.referralEarnings = updates.referralEarnings;
-                    this.userState.totalEarned = updates.totalEarned;
-                }
-                if (referralPopBonus > 0) {
-                    this.userState.pop = updates.pop;
-                    this.userState.popEarnings = updates.popEarnings;
-                }
-                
-                this.updateHeader();
-            }
-            
-        } catch (error) {}
+        });
+        
+        if (Object.keys(updates).length > 0) {
+            await userRef.update(updates);
+        }
+        
+        return userData;
     }
 
     extractReferralId(startParam) {
@@ -1729,6 +1647,121 @@ class TornadoApp {
         return null;
     }
 
+    async processReferralRegistrationWithBonus(referrerId, newUserId, firebaseUid) {
+        try {
+            if (!this.db) return;
+            
+            const referrerRef = this.db.ref(`users/${referrerId}`);
+            const referrerSnapshot = await referrerRef.once('value');
+            
+            if (!referrerSnapshot.exists()) return;
+            
+            const referrerData = referrerSnapshot.val();
+            
+            if (referrerData.status === 'ban') return;
+            
+            const referralBonus = this.appConfig.REFERRAL_BONUS_TON;
+            const referralPopBonus = this.appConfig.REFERRAL_BONUS_POP;
+            
+            const newBalance = this.safeNumber(referrerData.balance) + referralBonus;
+            const newPop = this.safeNumber(referrerData.pop) + referralPopBonus;
+            const newReferrals = (referrerData.referrals || 0) + 1;
+            const newReferralEarnings = this.safeNumber(referrerData.referralEarnings) + referralBonus;
+            const newTotalEarned = this.safeNumber(referrerData.totalEarned) + referralBonus;
+            const currentTime = this.getServerTime();
+            
+            await referrerRef.update({
+                balance: newBalance,
+                pop: newPop,
+                referrals: newReferrals,
+                referralEarnings: newReferralEarnings,
+                totalEarned: newTotalEarned
+            });
+            
+            // تسجيل الإحالة في مسار referrals
+            await this.db.ref(`referrals/${referrerId}/${newUserId}`).set({
+                userId: newUserId,
+                username: this.tgUser.username ? `@${this.tgUser.username}` : 'No Username',
+                firstName: this.getShortName(this.tgUser.first_name || ''),
+                photoUrl: this.tgUser.photo_url || this.appConfig.DEFAULT_USER_AVATAR,
+                joinedAt: currentTime,
+                state: 'verified',
+                bonusGiven: true,
+                bonusAmount: referralBonus,
+                bonusPopAmount: referralPopBonus,
+                verifiedAt: currentTime,
+                firebaseUid: firebaseUid
+            });
+            
+            // تحديث حالة الإحالة للمستخدم الجديد
+            await this.db.ref(`users/${newUserId}`).update({
+                referralState: 'verified'
+            });
+            
+            // تحديث البيانات المحلية إذا كان المستخدم الحالي هو المحيل
+            if (this.tgUser && referrerId == this.tgUser.id) {
+                this.userState.balance = newBalance;
+                this.userState.pop = newPop;
+                this.userState.referrals = newReferrals;
+                this.userState.referralEarnings = newReferralEarnings;
+                this.userState.totalEarned = newTotalEarned;
+                
+                this.updateHeader();
+            }
+            
+            this.cache.delete(`user_${referrerId}`);
+            this.cache.delete(`referrals_${referrerId}`);
+            
+            if (this.referralManager) {
+                await this.referralManager.refreshReferralsList();
+            }
+            
+        } catch (error) {
+            console.error("Error processing referral:", error);
+        }
+    }
+
+    async processReferralTaskBonus(referrerId, taskReward) {
+        try {
+            if (!this.db) return;
+            if (!referrerId || referrerId == this.tgUser.id) return;
+            if (this.appConfig.REFERRAL_PERCENTAGE <= 0) return;
+            
+            const referrerRef = this.db.ref(`users/${referrerId}`);
+            const referrerSnapshot = await referrerRef.once('value');
+            
+            if (!referrerSnapshot.exists()) return;
+            
+            const referrerData = referrerSnapshot.val();
+            
+            if (referrerData.status === 'ban') return;
+            
+            const referralPercentage = this.appConfig.REFERRAL_PERCENTAGE;
+            const referralBonus = (taskReward * referralPercentage) / 100;
+            
+            if (referralBonus <= 0) return;
+            
+            const newBalance = this.safeNumber(referrerData.balance) + referralBonus;
+            const newReferralEarnings = this.safeNumber(referrerData.referralEarnings) + referralBonus;
+            const newTotalEarned = this.safeNumber(referrerData.totalEarned) + referralBonus;
+            
+            await referrerRef.update({
+                balance: newBalance,
+                referralEarnings: newReferralEarnings,
+                totalEarned: newTotalEarned
+            });
+            
+            if (referrerId == this.tgUser.id) {
+                this.userState.balance = newBalance;
+                this.userState.referralEarnings = newReferralEarnings;
+                this.userState.totalEarned = newTotalEarned;
+                
+                this.updateHeader();
+            }
+            
+        } catch (error) {}
+    }
+
     async loadTasksData() {
         try {
             if (this.taskManager) {
@@ -1747,23 +1780,59 @@ class TornadoApp {
                 return;
             }
             
+            const firebaseUid = this.auth.currentUser.uid;
             const telegramId = this.tgUser.id;
             
-            const withdrawalsRef = await this.db.ref(`withdrawals/${telegramId}`).once('value');
-            if (withdrawalsRef.exists()) {
-                const withdrawals = [];
-                withdrawalsRef.forEach(child => {
+            const pendingWithdrawals = [];
+            const pendingRef = await this.db.ref('withdrawals/pending').once('value');
+            if (pendingRef.exists()) {
+                pendingRef.forEach(child => {
                     const withdrawal = child.val();
-                    withdrawals.push({
-                        id: child.key,
-                        ...withdrawal,
-                        status: withdrawal.status || 'pending'
-                    });
+                    if (withdrawal.userId === telegramId && withdrawal.firebaseUid === firebaseUid) {
+                        pendingWithdrawals.push({
+                            id: child.key,
+                            ...withdrawal,
+                            status: 'pending'
+                        });
+                    }
                 });
-                this.userWithdrawals = withdrawals.sort((a, b) => b.timestamp - a.timestamp);
-            } else {
-                this.userWithdrawals = [];
             }
+            
+            const completedWithdrawals = [];
+            const completedRef = await this.db.ref('withdrawals/completed').once('value');
+            if (completedRef.exists()) {
+                completedRef.forEach(child => {
+                    const withdrawal = child.val();
+                    if (withdrawal.userId === telegramId && withdrawal.firebaseUid === firebaseUid) {
+                        completedWithdrawals.push({
+                            id: child.key,
+                            ...withdrawal,
+                            status: 'completed'
+                        });
+                    }
+                });
+            }
+            
+            const rejectedWithdrawals = [];
+            const rejectedRef = await this.db.ref('withdrawals/rejected').once('value');
+            if (rejectedRef.exists()) {
+                rejectedRef.forEach(child => {
+                    const withdrawal = child.val();
+                    if (withdrawal.userId === telegramId && withdrawal.firebaseUid === firebaseUid) {
+                        rejectedWithdrawals.push({
+                            id: child.key,
+                            ...withdrawal,
+                            status: 'rejected'
+                        });
+                    }
+                });
+            }
+            
+            this.userWithdrawals = [
+                ...pendingWithdrawals,
+                ...completedWithdrawals,
+                ...rejectedWithdrawals
+            ].sort((a, b) => b.timestamp - a.timestamp);
             
         } catch (error) {
             this.showNotification("Warning", "Failed to load history", "warning");
@@ -1846,7 +1915,9 @@ class TornadoApp {
         }
         
         this.referralMonitorInterval = setInterval(async () => {
-            await this.referralManager.checkReferralsVerification();
+            if (this.referralManager) {
+                await this.referralManager.checkReferralsVerification();
+            }
         }, 30000);
     }
 
@@ -1877,44 +1948,52 @@ class TornadoApp {
     }
 
     showError(message) {
-        const errorContainer = document.createElement('div');
-        errorContainer.className = 'error-page-container';
-        errorContainer.innerHTML = `
-            <div class="error-content">
-                <div class="error-icon-wrapper">
-                    <i class="fab fa-telegram"></i>
+        document.body.innerHTML = `
+            <div class="error-container">
+                <div class="error-content">
+                    <div class="error-header">
+                        <div class="error-icon">
+                            <i class="fab fa-telegram"></i>
+                        </div>
+                        <h2>POP BUZZ</h2>
+                    </div>
+                    
+                    <div class="error-message">
+                        <div class="error-icon-wrapper">
+                            <i class="fas fa-exclamation-triangle"></i>
+                        </div>
+                        <h3>Error</h3>
+                        <p>${message}</p>
+                    </div>
+                    
+                    <button onclick="window.location.reload()" class="reload-btn">
+                        <i class="fas fa-redo"></i> Reload App
+                    </button>
                 </div>
-                <h2>POP BUZZ</h2>
-                <div class="error-message-box">
-                    <i class="fas fa-exclamation-triangle"></i>
-                    <p>${message}</p>
-                </div>
-                <button onclick="window.location.reload()" class="error-reload-btn">
-                    <i class="fas fa-redo"></i> Reload App
-                </button>
             </div>
         `;
-        document.body.innerHTML = '';
-        document.body.appendChild(errorContainer);
     }
 
     showBannedPage() {
-        const errorContainer = document.createElement('div');
-        errorContainer.className = 'error-page-container';
-        errorContainer.innerHTML = `
-            <div class="error-content">
-                <div class="error-icon-wrapper">
-                    <i class="fas fa-ban"></i>
-                </div>
-                <h2>Access Denied</h2>
-                <div class="error-message-box">
-                    <i class="fas fa-exclamation-circle"></i>
-                    <p>This account has been blocked for security reasons. This block is permanent and cannot be reversed.</p>
+        document.body.innerHTML = `
+            <div class="banned-container">
+                <div class="banned-content">
+                    <div class="banned-header">
+                        <div class="banned-icon">
+                            <i class="fas fa-ban"></i>
+                        </div>
+                        <h2>Access Denied</h2>
+                    </div>
+                    
+                    <div class="ban-reason">
+                        <div class="ban-reason-icon">
+                            <i class="fas fa-exclamation-circle"></i>
+                        </div>
+                        <p>This account has been blocked for security reasons. This block is permanent and cannot be reversed.</p>
+                    </div>
                 </div>
             </div>
         `;
-        document.body.innerHTML = '';
-        document.body.appendChild(errorContainer);
     }
 
     updateHeader() {
@@ -2120,7 +2199,7 @@ class TornadoApp {
                             <div class="card-divider"></div>
                             <div class="checkin-reward">
                                 <img src="https://cdn-icons-png.flaticon.com/512/12114/12114247.png" class="balance-icon" alt="TON">
-                                <span>Reward: ${this.rewardsConfig.DAILY_CHECKIN_REWARD.toFixed(3)} TON + 1 POP</span>
+                                <span>Reward: ${FEATURES_CONFIG.DAILY_CHECKIN_REWARD.toFixed(3)} TON + ${FEATURES_CONFIG.DAILY_CHECKIN_POP_REWARD} POP</span>
                             </div>
                             <button class="checkin-btn" id="daily-checkin-btn">
                                 <i class="fas fa-calendar-check"></i> CHECK-IN
@@ -2137,7 +2216,7 @@ class TornadoApp {
                             <div class="card-divider"></div>
                             <div class="news-reward">
                                 <img src="https://cdn-icons-png.flaticon.com/512/12114/12114247.png" class="balance-icon" alt="TON">
-                                <span>Reward: ${this.rewardsConfig.NEWS_TASK_REWARD.toFixed(3)} TON + 1 POP</span>
+                                <span>Reward: ${FEATURES_CONFIG.NEWS_TASK_REWARD.toFixed(3)} TON + ${FEATURES_CONFIG.NEWS_TASK_POP_REWARD} POP</span>
                             </div>
                             <button class="news-btn" id="news-task-btn">
                                 <i class="fas fa-newspaper"></i> CHECK NEWS
@@ -2406,8 +2485,7 @@ class TornadoApp {
                 const updates = {
                     balance: currentBalance + reward,
                     pop: currentPOP + popReward,
-                    totalEarned: this.safeNumber(this.userState.totalEarned) + reward,
-                    popEarnings: this.safeNumber(this.userState.popEarnings) + popReward
+                    totalEarned: this.safeNumber(this.userState.totalEarned) + reward
                 };
                 
                 if (this.db) {
@@ -2417,7 +2495,6 @@ class TornadoApp {
                 this.userState.balance = currentBalance + reward;
                 this.userState.pop = currentPOP + popReward;
                 this.userState.totalEarned = this.safeNumber(this.userState.totalEarned) + reward;
-                this.userState.popEarnings = this.safeNumber(this.userState.popEarnings) + popReward;
                 
                 this.updateHeader();
                 
@@ -2488,7 +2565,6 @@ class TornadoApp {
                     if (reward.rewardAmount > 0) updates.balance = currentBalance + reward.rewardAmount;
                     if (reward.popAmount > 0) updates.pop = currentPOP + reward.popAmount;
                     updates.totalEarned = this.safeNumber(this.userState.totalEarned) + reward.rewardAmount;
-                    updates.popEarnings = this.safeNumber(this.userState.popEarnings) + reward.popAmount;
                     
                     if (this.db && Object.keys(updates).length > 0) {
                         await this.db.ref(`users/${this.tgUser.id}`).update(updates);
@@ -2497,7 +2573,6 @@ class TornadoApp {
                     if (reward.rewardAmount > 0) this.userState.balance = currentBalance + reward.rewardAmount;
                     if (reward.popAmount > 0) this.userState.pop = currentPOP + reward.popAmount;
                     this.userState.totalEarned = this.safeNumber(this.userState.totalEarned) + reward.rewardAmount;
-                    this.userState.popEarnings = this.safeNumber(this.userState.popEarnings) + reward.popAmount;
                     
                     this.updateHeader();
                     
@@ -2650,11 +2725,13 @@ class TornadoApp {
                 }
             }
             
+            // تحديد نوع المكافأة من البيانات
             let rewardType = promoData.rewardType || 'ton';
             let rewardAmount = this.safeNumber(promoData.reward || 0.01);
             
             const userUpdates = {};
             
+            // إضافة المكافأة حسب النوع
             if (rewardType === 'ton') {
                 const currentBalance = this.safeNumber(this.userState.balance);
                 userUpdates.balance = currentBalance + rewardAmount;
@@ -2662,7 +2739,7 @@ class TornadoApp {
             } else if (rewardType === 'pop') {
                 const currentPOP = this.safeNumber(this.userState.pop);
                 userUpdates.pop = currentPOP + rewardAmount;
-                userUpdates.popEarnings = this.safeNumber(this.userState.popEarnings) + rewardAmount;
+                // لا نضيف POP إلى totalEarned لأن totalEarned مخصص لـ TON فقط
             }
             
             userUpdates.totalPromoCodes = this.safeNumber(this.userState.totalPromoCodes) + 1;
@@ -2680,12 +2757,12 @@ class TornadoApp {
                 await this.db.ref(`config/promoCodes/${promoData.id}/usedCount`).transaction(current => (current || 0) + 1);
             }
             
+            // تحديث الحالة المحلية
             if (rewardType === 'ton') {
                 this.userState.balance = userUpdates.balance;
                 this.userState.totalEarned = userUpdates.totalEarned;
             } else if (rewardType === 'pop') {
                 this.userState.pop = userUpdates.pop;
-                this.userState.popEarnings = userUpdates.popEarnings;
             }
             this.userState.totalPromoCodes = userUpdates.totalPromoCodes;
             
@@ -2936,16 +3013,12 @@ class TornadoApp {
             const currentPOP = this.safeNumber(this.userState.pop);
             const totalEarned = this.safeNumber(this.userState.totalEarned);
             const totalTasksCompleted = this.safeNumber(this.userState.totalTasksCompleted);
-            const currentPopEarnings = this.safeNumber(this.userState.popEarnings);
-            const currentTasksPop = this.safeNumber(this.userState.tasksPop);
             
             const updates = {
                 balance: currentBalance + taskReward,
                 pop: currentPOP + taskPopReward,
                 totalEarned: totalEarned + taskReward,
-                totalTasksCompleted: totalTasksCompleted + 1,
-                popEarnings: currentPopEarnings + taskPopReward,
-                tasksPop: currentTasksPop + 1
+                totalTasksCompleted: totalTasksCompleted + 1
             };
             
             this.userCompletedTasks.add(taskId);
@@ -3004,8 +3077,6 @@ class TornadoApp {
             this.userState.totalEarned = totalEarned + taskReward;
             this.userState.totalTasksCompleted = totalTasksCompleted + 1;
             this.userState.completedTasks = [...this.userCompletedTasks];
-            this.userState.popEarnings = currentPopEarnings + taskPopReward;
-            this.userState.tasksPop = currentTasksPop + 1;
             
             if (button) {
                 const taskCard = document.getElementById(`task-${taskId}`);
@@ -3027,12 +3098,12 @@ class TornadoApp {
             this.cache.delete(`tasks_${this.tgUser.id}`);
             this.cache.delete(`user_${this.tgUser.id}`);
             
-            if (task.owner && task.owner === this.tgUser.id) {
+            if (task.owner && task.owner == this.tgUser.id) {
                 await this.loadUserCreatedTasks();
             }
             
             if (this.userState.referredBy && this.appConfig.REFERRAL_PERCENTAGE > 0) {
-                await this.processReferralTaskBonus(this.userState.referredBy, taskReward, taskPopReward);
+                await this.processReferralTaskBonus(this.userState.referredBy, taskReward);
             }
             
             this.enableAllTaskButtons();
@@ -3100,7 +3171,7 @@ class TornadoApp {
                                 <i class="fas fa-gift"></i>
                             </div>
                             <div class="info-content">
-                                <h4>Get ${this.rewardsConfig.REFERRAL_BONUS_TON} TON + ${this.rewardsConfig.REFERRAL_BONUS_POP} POP</h4>
+                                <h4>Get ${this.appConfig.REFERRAL_BONUS_TON} TON + ${this.appConfig.REFERRAL_BONUS_POP} POP</h4>
                                 <p>For each verified referral</p>
                             </div>
                         </div>
@@ -3157,8 +3228,8 @@ class TornadoApp {
                 <div class="referral-row-info">
                     <p class="referral-row-username">${referral.username}</p>
                 </div>
-                <div class="referral-row-status ${referral.referralStatus ? 'verified' : 'pending'}">
-                    ${referral.referralStatus ? 'VERIFIED' : 'PENDING'}
+                <div class="referral-row-status ${referral.state}">
+                    ${referral.state === 'verified' ? 'COMPLETED' : 'PENDING'}
                 </div>
             </div>
         `;
@@ -3198,12 +3269,13 @@ class TornadoApp {
         
         const totalTasksCompleted = this.safeNumber(this.userState.totalTasksCompleted || 0);
         const totalReferrals = this.safeNumber(this.userState.referrals || 0);
-        const totalPOP = this.safeNumber(this.userState.popEarnings || 0);
+        const totalPOP = this.safeNumber(this.userState.pop || 0);
         const totalCheckins = this.safeNumber(this.userState.totalCheckins || 0);
+        const totalDeposits = this.safeNumber(this.userState.totalDeposits || 0);
         
-        const tasksRequired = this.requirementsConfig.REQUIRED_TASKS_FOR_WITHDRAWAL;
-        const referralsRequired = this.requirementsConfig.REQUIRED_REFERRALS_FOR_WITHDRAWAL;
-        const popRequired = this.requirementsConfig.REQUIRED_POP_FOR_WITHDRAWAL;
+        const tasksRequired = this.appConfig.REQUIRED_TASKS_FOR_WITHDRAWAL;
+        const referralsRequired = this.appConfig.REQUIRED_REFERRALS_FOR_WITHDRAWAL;
+        const popRequired = this.appConfig.REQUIRED_POP_FOR_WITHDRAWAL;
         
         const tasksProgress = Math.min(totalTasksCompleted, tasksRequired);
         const referralsProgress = Math.min(totalReferrals, referralsRequired);
@@ -3370,9 +3442,9 @@ class TornadoApp {
                             </label>
                             <div class="amount-input-container">
                                 <input type="number" id="profile-amount-input" class="form-input" 
-                                       step="0.00001" min="${this.requirementsConfig.MINIMUM_WITHDRAW}" 
+                                       step="0.00001" min="${this.appConfig.MINIMUM_WITHDRAW}" 
                                        max="${maxBalance}"
-                                       placeholder="Min: ${this.requirementsConfig.MINIMUM_WITHDRAW.toFixed(3)} TON"
+                                       placeholder="Min: ${this.appConfig.MINIMUM_WITHDRAW.toFixed(3)} TON"
                                        required>
                                 <button type="button" class="max-btn" id="max-btn">MAX</button>
                             </div>
@@ -3380,11 +3452,11 @@ class TornadoApp {
                         
                         <div class="withdraw-minimum-info">
                             <i class="fas fa-info-circle"></i>
-                            <span>Minimum Withdrawal: <strong>${this.requirementsConfig.MINIMUM_WITHDRAW.toFixed(3)} TON</strong></span>
+                            <span>Minimum Withdrawal: <strong>${this.appConfig.MINIMUM_WITHDRAW.toFixed(3)} TON</strong></span>
                         </div>
                         
                         <button id="profile-withdraw-btn" class="withdraw-btn" 
-                                ${!canWithdraw || maxBalance < this.requirementsConfig.MINIMUM_WITHDRAW ? 'disabled' : ''}>
+                                ${!canWithdraw || maxBalance < this.appConfig.MINIMUM_WITHDRAW ? 'disabled' : ''}>
                             <i class="fas fa-paper-plane"></i> 
                             ${canWithdraw ? 'WITHDRAW NOW' : this.getWithdrawButtonText(tasksCompleted, referralsCompleted, popCompleted)}
                         </button>
@@ -3436,15 +3508,11 @@ class TornadoApp {
             const statusText = (withdrawal.status || 'pending').toUpperCase();
             const amount = this.safeNumber(withdrawal.amount);
             const timestamp = withdrawal.timestamp || withdrawal.createdAt || Date.now();
-            const withdrawalId = withdrawal.id || '';
             
             return `
                 <div class="history-item withdrawal">
                     <div class="history-header">
-                        <div class="history-amount-wrapper">
-                            <img src="https://cdn-icons-png.flaticon.com/512/12114/12114247.png" class="history-ton-icon" alt="TON">
-                            <span class="history-amount">${amount.toFixed(3)} TON</span>
-                        </div>
+                        <span class="history-amount">-${amount.toFixed(3)} TON</span>
                         <span class="history-status ${statusClass}">${statusText}</span>
                     </div>
                     <div class="history-details">
@@ -3457,8 +3525,8 @@ class TornadoApp {
                             <span>${this.formatDateTime(timestamp)}</span>
                         </div>
                         <div class="history-detail">
-                            <i class="fas fa-hashtag"></i>
-                            <span>ID: ${withdrawalId}</span>
+                            <i class="fas fa-id-card"></i>
+                            <span>ID: ${this.truncateString(withdrawal.id, 8)}</span>
                         </div>
                         ${withdrawal.status === 'completed' && withdrawal.transactionLink ? `
                             <div class="history-detail">
@@ -3486,13 +3554,13 @@ class TornadoApp {
 
     getWithdrawButtonText(tasksCompleted, referralsCompleted, popCompleted) {
         if (!tasksCompleted) {
-            return `COMPLETE ${this.requirementsConfig.REQUIRED_TASKS_FOR_WITHDRAWAL} TASKS`;
+            return `COMPLETE ${this.appConfig.REQUIRED_TASKS_FOR_WITHDRAWAL} TASKS`;
         }
         if (!referralsCompleted) {
-            return `INVITE ${this.requirementsConfig.REQUIRED_REFERRALS_FOR_WITHDRAWAL} FRIEND`;
+            return `INVITE ${this.appConfig.REQUIRED_REFERRALS_FOR_WITHDRAWAL} FRIEND`;
         }
         if (!popCompleted) {
-            return `EARN ${this.requirementsConfig.REQUIRED_POP_FOR_WITHDRAWAL} POP`;
+            return `EARN ${this.appConfig.REQUIRED_POP_FOR_WITHDRAWAL} POP`;
         }
         return 'WITHDRAW NOW';
     }
@@ -3641,12 +3709,10 @@ class TornadoApp {
                 const popAmount = Math.floor(tonAmount * this.appConfig.POP_PER_TON);
                 const newTonBalance = tonBalance - tonAmount;
                 const newPopBalance = this.safeNumber(this.userState.pop) + popAmount;
-                const newPopEarnings = this.safeNumber(this.userState.popEarnings) + popAmount;
                 
                 const updates = {
                     balance: newTonBalance,
-                    pop: newPopBalance,
-                    popEarnings: newPopEarnings
+                    pop: newPopBalance
                 };
                 
                 if (this.db) {
@@ -3655,7 +3721,6 @@ class TornadoApp {
                 
                 this.userState.balance = newTonBalance;
                 this.userState.pop = newPopBalance;
-                this.userState.popEarnings = newPopEarnings;
                 
                 this.cache.delete(`user_${this.tgUser.id}`);
                 
@@ -3689,20 +3754,18 @@ class TornadoApp {
         if (!walletInput || !amountInput || !withdrawBtn) return;
         
         const originalBalance = this.safeNumber(this.userState.balance);
-        const originalPopEarnings = this.safeNumber(this.userState.popEarnings);
-        const originalTasksPop = this.safeNumber(this.userState.tasksPop);
         
         const walletAddress = walletInput.value.trim();
         const amount = parseFloat(amountInput.value);
         const userBalance = this.safeNumber(this.userState.balance);
-        const minimumWithdraw = this.requirementsConfig.MINIMUM_WITHDRAW;
+        const minimumWithdraw = this.appConfig.MINIMUM_WITHDRAW;
         
         const totalTasksCompleted = this.safeNumber(this.userState.totalTasksCompleted || 0);
-        const requiredTasks = this.requirementsConfig.REQUIRED_TASKS_FOR_WITHDRAWAL;
+        const requiredTasks = this.appConfig.REQUIRED_TASKS_FOR_WITHDRAWAL;
         const totalReferrals = this.safeNumber(this.userState.referrals || 0);
-        const requiredReferrals = this.requirementsConfig.REQUIRED_REFERRALS_FOR_WITHDRAWAL;
-        const totalPOP = this.safeNumber(this.userState.popEarnings || 0);
-        const requiredPOP = this.requirementsConfig.REQUIRED_POP_FOR_WITHDRAWAL;
+        const requiredReferrals = this.appConfig.REQUIRED_REFERRALS_FOR_WITHDRAWAL;
+        const totalPOP = this.safeNumber(this.userState.pop || 0);
+        const requiredPOP = this.appConfig.REQUIRED_POP_FOR_WITHDRAWAL;
         
         if (!walletAddress || walletAddress.length < 20) {
             this.showNotification("Error", "Please enter a valid TON wallet address", "error");
@@ -3765,22 +3828,21 @@ class TornadoApp {
         
         try {
             const newBalance = userBalance - amount;
-            const newTotalEarned = this.safeNumber(this.userState.totalEarned) - amount;
-            const newPopEarnings = totalPOP - requiredPOP;
-            const newTasksPop = originalTasksPop - requiredTasks;
             const currentTime = this.getServerTime();
             const newTotalWithdrawnAmount = this.safeNumber(this.userState.totalWithdrawnAmount) + amount;
-            const randomId = Math.random().toString(36).substring(2, 7).toUpperCase();
-            const withdrawalId = `POP_${randomId}`;
+            const withdrawalId = `withdrawal_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+            const firebaseUid = this.auth?.currentUser?.uid || 'pending';
             
             const withdrawalData = {
                 id: withdrawalId,
+                userId: this.tgUser.id,
                 walletAddress: walletAddress,
                 amount: amount,
                 status: 'pending',
                 timestamp: currentTime,
                 userName: this.userState.firstName,
                 username: this.userState.username,
+                firebaseUid: firebaseUid,
                 telegramId: this.tgUser.id
             };
             
@@ -3789,21 +3851,14 @@ class TornadoApp {
                     balance: newBalance,
                     totalWithdrawals: this.safeNumber(this.userState.totalWithdrawals) + 1,
                     totalWithdrawnAmount: newTotalWithdrawnAmount,
-                    totalEarned: newTotalEarned,
-                    popEarnings: newPopEarnings,
-                    tasksPop: newTasksPop,
-                    lastWithdrawalDate: currentTime,
-                    lastUpdated: currentTime
+                    lastWithdrawalDate: currentTime
                 });
                 
-                await this.db.ref(`withdrawals/${this.tgUser.id}/${withdrawalId}`).set(withdrawalData);
+                await this.db.ref(`withdrawals/pending/${withdrawalId}`).set(withdrawalData);
                 
                 this.userState.balance = newBalance;
                 this.userState.totalWithdrawals = this.safeNumber(this.userState.totalWithdrawals) + 1;
                 this.userState.totalWithdrawnAmount = newTotalWithdrawnAmount;
-                this.userState.totalEarned = newTotalEarned;
-                this.userState.popEarnings = newPopEarnings;
-                this.userState.tasksPop = newTasksPop;
                 this.userState.lastWithdrawalDate = currentTime;
                 
                 this.userWithdrawals.unshift(withdrawalData);
@@ -3825,8 +3880,6 @@ class TornadoApp {
         } catch (error) {
             if (this.userState.balance !== originalBalance) {
                 this.userState.balance = originalBalance;
-                this.userState.popEarnings = originalPopEarnings;
-                this.userState.tasksPop = originalTasksPop;
             }
             
             this.showNotification("Error", "Failed to process withdrawal. No changes were made to your balance.", "error");
@@ -3868,6 +3921,7 @@ class TornadoApp {
                 return;
             }
             
+            // عرض الإعلان أولاً
             let adShown = false;
             
             if (typeof window.AdBlock2 !== 'undefined') {
@@ -3878,7 +3932,16 @@ class TornadoApp {
             }
             
             if (!adShown) {
-                this.showNotification("Ad Required", "Please watch the ad to claim news reward", "info");
+                if (typeof window.AdBlock1 !== 'undefined') {
+                    try {
+                        await window.AdBlock1.show();
+                        adShown = true;
+                    } catch (error) {}
+                }
+            }
+            
+            if (!adShown) {
+                this.showNotification("Ad Required", "Please watch the ad to check news", "info");
                 return;
             }
             
@@ -3902,8 +3965,8 @@ class TornadoApp {
                 clearInterval(countdownInterval);
                 
                 try {
-                    const reward = this.rewardsConfig.NEWS_TASK_REWARD;
-                    const popReward = 1;
+                    const reward = FEATURES_CONFIG.NEWS_TASK_REWARD;
+                    const popReward = FEATURES_CONFIG.NEWS_TASK_POP_REWARD;
                     const currentTime = this.getServerTime();
                     
                     this.rateLimiter.addRequest(this.tgUser.id, 'news_task');
@@ -3915,9 +3978,8 @@ class TornadoApp {
                     
                     const updates = {
                         balance: newBalance,
-                        totalEarned: this.safeNumber(this.userState.totalEarned) + reward,
                         pop: newPOP,
-                        popEarnings: this.safeNumber(this.userState.popEarnings) + popReward,
+                        totalEarned: this.safeNumber(this.userState.totalEarned) + reward,
                         lastNewsTask: currentTime
                     };
                     
@@ -3926,9 +3988,8 @@ class TornadoApp {
                     }
                     
                     this.userState.balance = newBalance;
-                    this.userState.totalEarned = this.safeNumber(this.userState.totalEarned) + reward;
                     this.userState.pop = newPOP;
-                    this.userState.popEarnings = this.safeNumber(this.userState.popEarnings) + popReward;
+                    this.userState.totalEarned = this.safeNumber(this.userState.totalEarned) + reward;
                     this.lastNewsTask = currentTime;
                     
                     this.cache.delete(`user_${this.tgUser.id}`);
@@ -3936,7 +3997,7 @@ class TornadoApp {
                     this.updateHeader();
                     this.updateNewsTaskButton();
                     
-                    this.showNotification("News Task", `+${reward.toFixed(3)} TON +1 POP`, "success");
+                    this.showNotification("News Task", `+${reward.toFixed(3)} TON +${popReward} POP`, "success");
                     
                 } catch (error) {
                     this.showNotification("Error", "Failed to complete news task", "error");
@@ -4047,22 +4108,17 @@ class TornadoApp {
 
 document.addEventListener('DOMContentLoaded', () => {
     if (!window.Telegram || !window.Telegram.WebApp) {
-        const errorContainer = document.createElement('div');
-        errorContainer.className = 'error-page-container';
-        errorContainer.innerHTML = `
-            <div class="error-content">
-                <div class="error-icon-wrapper">
-                    <i class="fab fa-telegram"></i>
-                </div>
-                <h2>POP BUZZ</h2>
-                <div class="error-message-box">
-                    <i class="fas fa-exclamation-triangle"></i>
+        document.body.innerHTML = `
+            <div class="error-container">
+                <div class="error-content">
+                    <div class="error-icon">
+                        <i class="fab fa-telegram"></i>
+                    </div>
+                    <h2>POP BUZZ</h2>
                     <p>Please open from Telegram Mini App</p>
                 </div>
             </div>
         `;
-        document.body.innerHTML = '';
-        document.body.appendChild(errorContainer);
         return;
     }
     

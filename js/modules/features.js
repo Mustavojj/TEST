@@ -1,4 +1,4 @@
-import { APP_CONFIG, REWARDS_CONFIG } from '../data.js';
+import { APP_CONFIG, REWARDS_CONFIG, REQUIREMENTS_CONFIG } from '../data.js';
 
 class TaskManager {
     constructor(app) {
@@ -29,9 +29,9 @@ class TaskManager {
         try {
             this.userCompletedTasks = new Set(this.app.userState.completedTasks || []);
             
-            this.mainTasks = await this.loadTasksFromDatabase('main');
-            this.partnerTasks = await this.loadTasksFromDatabase('partner');
-            this.socialTasks = await this.loadTasksFromDatabase('social');
+            this.mainTasks = await this.loadTasksFromDatabase('main', REWARDS_CONFIG.MAIN_TASK_REWARD);
+            this.partnerTasks = await this.loadTasksFromDatabase('partner', REWARDS_CONFIG.PARTNER_TASK_REWARD);
+            this.socialTasks = await this.loadTasksFromDatabase('social', REWARDS_CONFIG.SOCIAL_TASK_REWARD);
             this.dailyTasks = await this.loadDailyTasksFromDatabase();
             
             this.app.cache.set(cacheKey, {
@@ -50,7 +50,7 @@ class TaskManager {
         }
     }
 
-    async loadTasksFromDatabase(category) {
+    async loadTasksFromDatabase(category, defaultReward) {
         try {
             if (!this.app.db) return [];
             
@@ -73,11 +73,6 @@ class TaskManager {
                         const currentCompletions = taskData.currentCompletions || 0;
                         const maxCompletions = taskData.maxCompletions || 999999;
                         
-                        let reward = 0;
-                        if (category === 'main') reward = REWARDS_CONFIG.MAIN_TASK_REWARD;
-                        else if (category === 'partner') reward = REWARDS_CONFIG.PARTNER_TASK_REWARD;
-                        else if (category === 'social') reward = REWARDS_CONFIG.SOCIAL_TASK_REWARD;
-                        
                         const task = {
                             id: child.key,
                             name: taskData.name || 'Unknown Task',
@@ -85,8 +80,8 @@ class TaskManager {
                             url: taskData.url || '',
                             type: taskData.type || 'channel',
                             category: category,
-                            reward: this.app.safeNumber(reward),
-                            popReward: REWARDS_CONFIG.TASK_POP_REWARD,
+                            reward: this.app.safeNumber(taskData.reward || defaultReward),
+                            popReward: this.app.safeNumber(taskData.popReward || REWARDS_CONFIG.TASK_POP_REWARD),
                             currentCompletions: currentCompletions,
                             maxCompletions: maxCompletions,
                             status: taskData.status || 'active',
@@ -119,11 +114,6 @@ class TaskManager {
                             const currentCompletions = taskData.currentCompletions || 0;
                             const maxCompletions = taskData.maxCompletions || 999999;
                             
-                            let reward = 0;
-                            if (category === 'main') reward = REWARDS_CONFIG.MAIN_TASK_REWARD;
-                            else if (category === 'partner') reward = REWARDS_CONFIG.PARTNER_TASK_REWARD;
-                            else if (category === 'social') reward = REWARDS_CONFIG.SOCIAL_TASK_REWARD;
-                            
                             const task = {
                                 id: taskSnapshot.key,
                                 name: taskData.name || 'Unknown Task',
@@ -131,8 +121,8 @@ class TaskManager {
                                 url: taskData.url || '',
                                 type: taskData.type || 'channel',
                                 category: category,
-                                reward: this.app.safeNumber(reward),
-                                popReward: REWARDS_CONFIG.TASK_POP_REWARD,
+                                reward: this.app.safeNumber(taskData.reward || defaultReward),
+                                popReward: this.app.safeNumber(taskData.popReward || REWARDS_CONFIG.TASK_POP_REWARD),
                                 currentCompletions: currentCompletions,
                                 maxCompletions: maxCompletions,
                                 status: taskData.status || 'active',
@@ -266,7 +256,7 @@ class ReferralManager {
             
             for (const referralId in referrals) {
                 const referral = referrals[referralId];
-                if (referral.referralStatus === true) {
+                if (referral.referralStatus === true && referral.bonusGiven) {
                     verifiedReferrals.push({
                         id: referralId,
                         ...referral
@@ -291,7 +281,36 @@ class ReferralManager {
         try {
             if (!this.app.db || !this.app.tgUser) return;
             
-            await this.app.processPendingReferralBonuses(this.app.tgUser.id);
+            const referralsRef = await this.app.db.ref(`referrals/${this.app.tgUser.id}`).once('value');
+            if (!referralsRef.exists()) return;
+            
+            const referrals = referralsRef.val();
+            let updated = false;
+            
+            for (const referralId in referrals) {
+                const referral = referrals[referralId];
+                
+                if (referral.referralStatus === false) {
+                    const newUserRef = await this.app.db.ref(`users/${referralId}`).once('value');
+                    if (newUserRef.exists()) {
+                        const newUserData = newUserRef.val();
+                        
+                        if (newUserData && newUserData.id) {
+                            await this.app.processReferralBonus(this.app.tgUser.id, referralId, newUserData);
+                            updated = true;
+                        }
+                    }
+                }
+            }
+            
+            if (updated) {
+                this.app.cache.delete(`user_${this.app.tgUser.id}`);
+                this.app.cache.delete(`referrals_${this.app.tgUser.id}`);
+                
+                if (document.getElementById('referrals-page')?.classList.contains('active')) {
+                    this.app.renderReferralsPage();
+                }
+            }
             
         } catch (error) {}
     }

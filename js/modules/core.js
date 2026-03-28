@@ -1,4 +1,4 @@
-import { CORE_CONFIG, APP_CONFIG } from '../data.js';
+import { CORE_CONFIG, APP_CONFIG, REWARDS_CONFIG } from '../data.js';
 
 class CacheManager {
     constructor() {
@@ -146,89 +146,91 @@ class NotificationManager {
                     transform: translateX(-50%);
                     width: calc(100% - 32px);
                     max-width: 340px;
-                    background: var(--card-bg-solid);
+                    background: rgba(26, 38, 58, 0.98);
                     backdrop-filter: blur(20px);
-                    border-radius: 20px;
-                    padding: 14px 16px;
-                    box-shadow: 0 8px 28px rgba(0, 0, 0, 0.35);
+                    border-radius: 24px;
+                    padding: 16px 18px;
+                    box-shadow: 0 12px 32px rgba(0, 0, 0, 0.4);
                     z-index: 10000;
-                    animation: notifSlideIn 0.32s cubic-bezier(0.34, 1.2, 0.64, 1) forwards;
-                    border: 1px solid rgba(255, 217, 102, 0.25);
+                    animation: notifSlideIn 0.28s cubic-bezier(0.34, 1.2, 0.64, 1) forwards;
+                    border: 1px solid rgba(255, 217, 102, 0.2);
                     overflow: hidden;
                     display: flex;
                     align-items: center;
                     gap: 14px;
                 }
-                .notification.info { border-left: 4px solid #0ea5e9; }
-                .notification.success { border-left: 4px solid #22c55e; }
-                .notification.error { border-left: 4px solid #ef4444; }
-                .notification.warning { border-left: 4px solid #f59e0b; }
+                .notification.info { border-left: 3px solid #5dade2; }
+                .notification.success { border-left: 3px solid #58d68d; }
+                .notification.error { border-left: 3px solid #e67e7e; }
+                .notification.warning { border-left: 3px solid #f7dc6f; }
                 .notification-icon {
-                    width: 42px;
-                    height: 42px;
-                    border-radius: 14px;
+                    width: 44px;
+                    height: 44px;
+                    border-radius: 30px;
                     display: flex;
                     align-items: center;
                     justify-content: center;
                     font-size: 1.25rem;
                     flex-shrink: 0;
-                    background: rgba(0, 0, 0, 0.4);
-                    border: 1px solid rgba(255, 255, 255, 0.1);
+                    background: rgba(0, 0, 0, 0.5);
+                    border: 1px solid rgba(255, 255, 255, 0.08);
                 }
-                .notification.info .notification-icon { color: #0ea5e9; }
-                .notification.success .notification-icon { color: #22c55e; }
-                .notification.error .notification-icon { color: #ef4444; }
-                .notification.warning .notification-icon { color: #f59e0b; }
+                .notification.info .notification-icon { color: #5dade2; }
+                .notification.success .notification-icon { color: #58d68d; }
+                .notification.error .notification-icon { color: #e67e7e; }
+                .notification.warning .notification-icon { color: #f7dc6f; }
                 .notification-content {
                     flex: 1;
                     min-width: 0;
                 }
                 .notification-title {
-                    font-weight: 700;
+                    font-weight: 600;
                     color: var(--text-primary);
                     font-size: 0.95rem;
-                    margin-bottom: 3px;
+                    margin-bottom: 4px;
                     line-height: 1.3;
+                    letter-spacing: -0.2px;
                 }
                 .notification-body {
-                    color: var(--text-secondary);
+                    color: rgba(224, 224, 224, 0.85);
                     font-size: 0.8rem;
-                    line-height: 1.35;
+                    line-height: 1.4;
                 }
                 .notification-progress {
                     position: absolute;
                     bottom: 0;
                     left: 0;
                     width: 100%;
-                    height: 3px;
-                    background: rgba(255, 255, 255, 0.08);
+                    height: 2px;
+                    background: rgba(255, 255, 255, 0.1);
                 }
                 .notification-progress-fill {
                     height: 100%;
-                    background: linear-gradient(90deg, var(--secondary-color), var(--accent-color));
+                    background: linear-gradient(90deg, rgba(255, 217, 102, 0.7), rgba(255, 179, 71, 0.7));
                     animation: notifProgress 4s linear forwards;
+                    border-radius: 2px;
                 }
                 .notification-close {
                     position: absolute;
-                    top: 8px;
-                    right: 8px;
+                    top: 10px;
+                    right: 10px;
                     width: 26px;
                     height: 26px;
                     background: rgba(0, 0, 0, 0.4);
                     border: none;
-                    border-radius: 30px;
-                    color: var(--text-light);
+                    border-radius: 20px;
+                    color: rgba(255, 255, 255, 0.5);
                     font-size: 0.7rem;
                     cursor: pointer;
                     display: flex;
                     align-items: center;
                     justify-content: center;
-                    opacity: 0.6;
+                    opacity: 0.5;
                     transition: all 0.2s;
                 }
                 .notification-close:hover {
                     opacity: 1;
-                    background: rgba(255, 255, 255, 0.12);
+                    background: rgba(255, 255, 255, 0.1);
                 }
             `;
             document.head.appendChild(style);
@@ -290,7 +292,7 @@ class NotificationManager {
         this.isShowing = false;
         
         if (this.queue.length > 0) {
-            setTimeout(() => this.processQueue(), 300);
+            setTimeout(() => this.processQueue(), 200);
         }
     }
     
@@ -298,11 +300,11 @@ class NotificationManager {
         const notification = document.getElementById(notificationId);
         if (!notification) return;
         
-        notification.style.animation = 'notifSlideOut 0.25s ease forwards';
+        notification.style.animation = 'notifSlideOut 0.22s ease forwards';
         
         setTimeout(() => {
             if (notification.parentNode) notification.parentNode.removeChild(notification);
-        }, 280);
+        }, 240);
     }
     
     delay(ms) {

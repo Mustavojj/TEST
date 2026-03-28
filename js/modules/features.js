@@ -1,4 +1,4 @@
-import { APP_CONFIG, REWARDS_CONFIG, REQUIREMENTS_CONFIG } from '../data.js';
+import { APP_CONFIG, FEATURES_CONFIG } from '../data.js';
 
 class TaskManager {
     constructor(app) {
@@ -29,9 +29,9 @@ class TaskManager {
         try {
             this.userCompletedTasks = new Set(this.app.userState.completedTasks || []);
             
-            this.mainTasks = await this.loadTasksFromDatabase('main', REWARDS_CONFIG.MAIN_TASK_REWARD);
-            this.partnerTasks = await this.loadTasksFromDatabase('partner', REWARDS_CONFIG.PARTNER_TASK_REWARD);
-            this.socialTasks = await this.loadTasksFromDatabase('social', REWARDS_CONFIG.SOCIAL_TASK_REWARD);
+            this.mainTasks = await this.loadTasksFromDatabase('main');
+            this.partnerTasks = await this.loadTasksFromDatabase('partner');
+            this.socialTasks = await this.loadTasksFromDatabase('social');
             this.dailyTasks = await this.loadDailyTasksFromDatabase();
             
             this.app.cache.set(cacheKey, {
@@ -50,7 +50,7 @@ class TaskManager {
         }
     }
 
-    async loadTasksFromDatabase(category, defaultReward) {
+    async loadTasksFromDatabase(category) {
         try {
             if (!this.app.db) return [];
             
@@ -80,8 +80,8 @@ class TaskManager {
                             url: taskData.url || '',
                             type: taskData.type || 'channel',
                             category: category,
-                            reward: this.app.safeNumber(taskData.reward || defaultReward),
-                            popReward: this.app.safeNumber(taskData.popReward || REWARDS_CONFIG.TASK_POP_REWARD),
+                            reward: this.app.safeNumber(taskData.reward || 0.0001),
+                            popReward: this.app.safeNumber(taskData.popReward || 1),
                             currentCompletions: currentCompletions,
                             maxCompletions: maxCompletions,
                             status: taskData.status || 'active',
@@ -121,8 +121,8 @@ class TaskManager {
                                 url: taskData.url || '',
                                 type: taskData.type || 'channel',
                                 category: category,
-                                reward: this.app.safeNumber(taskData.reward || defaultReward),
-                                popReward: this.app.safeNumber(taskData.popReward || REWARDS_CONFIG.TASK_POP_REWARD),
+                                reward: this.app.safeNumber(taskData.reward || 0.0001),
+                                popReward: this.app.safeNumber(taskData.popReward || 1),
                                 currentCompletions: currentCompletions,
                                 maxCompletions: maxCompletions,
                                 status: taskData.status || 'active',
@@ -256,7 +256,7 @@ class ReferralManager {
             
             for (const referralId in referrals) {
                 const referral = referrals[referralId];
-                if (referral.referralStatus === true && referral.bonusGiven) {
+                if (referral.state === 'verified' && referral.bonusGiven) {
                     verifiedReferrals.push({
                         id: referralId,
                         ...referral
@@ -290,13 +290,13 @@ class ReferralManager {
             for (const referralId in referrals) {
                 const referral = referrals[referralId];
                 
-                if (referral.referralStatus === false) {
+                if (referral.state === 'pending') {
                     const newUserRef = await this.app.db.ref(`users/${referralId}`).once('value');
                     if (newUserRef.exists()) {
                         const newUserData = newUserRef.val();
                         
-                        if (newUserData && newUserData.id) {
-                            await this.app.processReferralBonus(this.app.tgUser.id, referralId, newUserData);
+                        if (newUserData.isNewUser === false) {
+                            await this.app.processReferralRegistrationWithBonus(this.app.tgUser.id, referralId, newUserData.firebaseUid);
                             updated = true;
                         }
                     }

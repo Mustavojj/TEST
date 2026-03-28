@@ -1,4 +1,4 @@
-import { CORE_CONFIG, APP_CONFIG, REWARDS_CONFIG } from '../data.js';
+import { CORE_CONFIG } from '../data.js';
 
 class CacheManager {
     constructor() {
@@ -127,107 +127,129 @@ class NotificationManager {
             const style = document.createElement('style');
             style.id = 'notification-styles';
             style.textContent = `
-                @keyframes notifSlideIn {
+                @keyframes notificationSlideIn {
                     0% { opacity: 0; transform: translateX(-50%) translateY(20px) scale(0.96); }
                     100% { opacity: 1; transform: translateX(-50%) translateY(0) scale(1); }
                 }
-                @keyframes notifSlideOut {
+                
+                @keyframes notificationSlideOut {
                     0% { opacity: 1; transform: translateX(-50%) translateY(0) scale(1); }
                     100% { opacity: 0; transform: translateX(-50%) translateY(20px) scale(0.96); }
                 }
-                @keyframes notifProgress {
-                    0% { width: 100%; }
-                    100% { width: 0%; }
+                
+                @keyframes notificationProgress {
+                    from { width: 100%; }
+                    to { width: 0%; }
                 }
+                
                 .notification {
                     position: fixed;
                     top: 70px;
                     left: 50%;
                     transform: translateX(-50%);
-                    width: calc(100% - 32px);
+                    width: 90%;
                     max-width: 340px;
                     background: rgba(26, 38, 58, 0.98);
                     backdrop-filter: blur(20px);
-                    border-radius: 24px;
-                    padding: 16px 18px;
-                    box-shadow: 0 12px 32px rgba(0, 0, 0, 0.4);
+                    border-radius: 20px;
+                    padding: 14px 18px;
+                    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
                     z-index: 10000;
-                    animation: notifSlideIn 0.28s cubic-bezier(0.34, 1.2, 0.64, 1) forwards;
+                    animation: notificationSlideIn 0.35s cubic-bezier(0.2, 0.9, 0.4, 1.1) forwards;
                     border: 1px solid rgba(255, 217, 102, 0.2);
                     overflow: hidden;
                     display: flex;
                     align-items: center;
                     gap: 14px;
                 }
-                .notification.info { border-left: 3px solid #5dade2; }
-                .notification.success { border-left: 3px solid #58d68d; }
-                .notification.error { border-left: 3px solid #e67e7e; }
-                .notification.warning { border-left: 3px solid #f7dc6f; }
+                
+                .notification.info { border-left: 4px solid #0ea5e9; }
+                .notification.success { border-left: 4px solid #10b981; }
+                .notification.error { border-left: 4px solid #ef4444; }
+                .notification.warning { border-left: 4px solid #f59e0b; }
+                
                 .notification-icon {
-                    width: 44px;
-                    height: 44px;
-                    border-radius: 30px;
+                    width: 40px;
+                    height: 40px;
+                    border-radius: 12px;
                     display: flex;
                     align-items: center;
                     justify-content: center;
-                    font-size: 1.25rem;
+                    font-size: 1.1rem;
                     flex-shrink: 0;
-                    background: rgba(0, 0, 0, 0.5);
-                    border: 1px solid rgba(255, 255, 255, 0.08);
+                    background: rgba(0, 0, 0, 0.3);
                 }
-                .notification.info .notification-icon { color: #5dade2; }
-                .notification.success .notification-icon { color: #58d68d; }
-                .notification.error .notification-icon { color: #e67e7e; }
-                .notification.warning .notification-icon { color: #f7dc6f; }
+                
+                .notification.info .notification-icon {
+                    color: #0ea5e9;
+                }
+                
+                .notification.success .notification-icon {
+                    color: #10b981;
+                }
+                
+                .notification.error .notification-icon {
+                    color: #ef4444;
+                }
+                
+                .notification.warning .notification-icon {
+                    color: #f59e0b;
+                }
+                
                 .notification-content {
                     flex: 1;
                     min-width: 0;
                 }
+                
                 .notification-title {
                     font-weight: 600;
                     color: var(--text-primary);
-                    font-size: 0.95rem;
-                    margin-bottom: 4px;
+                    font-size: 0.9rem;
+                    margin-bottom: 2px;
                     line-height: 1.3;
-                    letter-spacing: -0.2px;
                 }
+                
                 .notification-body {
-                    color: rgba(224, 224, 224, 0.85);
+                    color: var(--text-secondary);
                     font-size: 0.8rem;
-                    line-height: 1.4;
+                    line-height: 1.3;
+                    opacity: 0.85;
                 }
-                .notification-progress {
+                
+                .notification-progress-bar {
                     position: absolute;
                     bottom: 0;
                     left: 0;
                     width: 100%;
-                    height: 2px;
+                    height: 3px;
                     background: rgba(255, 255, 255, 0.1);
                 }
+                
                 .notification-progress-fill {
                     height: 100%;
-                    background: linear-gradient(90deg, rgba(255, 217, 102, 0.7), rgba(255, 179, 71, 0.7));
-                    animation: notifProgress 4s linear forwards;
-                    border-radius: 2px;
+                    background: linear-gradient(90deg, var(--secondary-color), var(--accent-color));
+                    animation: notificationProgress 4s linear forwards;
                 }
+                
                 .notification-close {
                     position: absolute;
-                    top: 10px;
-                    right: 10px;
-                    width: 26px;
-                    height: 26px;
-                    background: rgba(0, 0, 0, 0.4);
+                    top: 8px;
+                    right: 8px;
+                    width: 24px;
+                    height: 24px;
+                    background: rgba(255, 255, 255, 0.05);
                     border: none;
-                    border-radius: 20px;
-                    color: rgba(255, 255, 255, 0.5);
+                    border-radius: 12px;
+                    color: var(--text-light);
                     font-size: 0.7rem;
                     cursor: pointer;
                     display: flex;
                     align-items: center;
                     justify-content: center;
                     opacity: 0.5;
-                    transition: all 0.2s;
+                    transition: all 0.2s ease;
                 }
+                
                 .notification-close:hover {
                     opacity: 1;
                     background: rgba(255, 255, 255, 0.1);
@@ -270,7 +292,7 @@ class NotificationManager {
             <button class="notification-close" data-notification-id="${notificationId}">
                 <i class="fas fa-times"></i>
             </button>
-            <div class="notification-progress">
+            <div class="notification-progress-bar">
                 <div class="notification-progress-fill"></div>
             </div>
         `;
@@ -286,13 +308,13 @@ class NotificationManager {
         
         setTimeout(() => {
             this.closeNotification(notificationId);
-        }, 4000);
+        }, 3800);
         
         await this.delay(this.cooldown);
         this.isShowing = false;
         
         if (this.queue.length > 0) {
-            setTimeout(() => this.processQueue(), 200);
+            setTimeout(() => this.processQueue(), 300);
         }
     }
     
@@ -300,11 +322,11 @@ class NotificationManager {
         const notification = document.getElementById(notificationId);
         if (!notification) return;
         
-        notification.style.animation = 'notifSlideOut 0.22s ease forwards';
+        notification.style.animation = 'notificationSlideOut 0.3s ease forwards';
         
         setTimeout(() => {
             if (notification.parentNode) notification.parentNode.removeChild(notification);
-        }, 240);
+        }, 300);
     }
     
     delay(ms) {

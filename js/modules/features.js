@@ -6,7 +6,6 @@ class TaskManager {
         this.mainTasks = [];
         this.partnerTasks = [];
         this.socialTasks = [];
-        this.dailyTasks = [];
         this.taskTimers = new Map();
         this.userCompletedTasks = new Set();
     }
@@ -20,7 +19,6 @@ class TaskManager {
                 this.mainTasks = cached.mainTasks || [];
                 this.partnerTasks = cached.partnerTasks || [];
                 this.socialTasks = cached.socialTasks || [];
-                this.dailyTasks = cached.dailyTasks || [];
                 this.userCompletedTasks = new Set(cached.completedTasks || []);
                 return;
             }
@@ -32,13 +30,11 @@ class TaskManager {
             this.mainTasks = await this.loadTasksFromDatabase('main');
             this.partnerTasks = await this.loadTasksFromDatabase('partner');
             this.socialTasks = await this.loadTasksFromDatabase('social');
-            this.dailyTasks = await this.loadDailyTasksFromDatabase();
             
             this.app.cache.set(cacheKey, {
                 mainTasks: this.mainTasks,
                 partnerTasks: this.partnerTasks,
                 socialTasks: this.socialTasks,
-                dailyTasks: this.dailyTasks,
                 completedTasks: Array.from(this.userCompletedTasks)
             }, 30000);
             
@@ -46,7 +42,6 @@ class TaskManager {
             this.mainTasks = [];
             this.partnerTasks = [];
             this.socialTasks = [];
-            this.dailyTasks = [];
         }
     }
 
@@ -139,45 +134,6 @@ class TaskManager {
             }
             
             return tasks;
-            
-        } catch (error) {
-            return [];
-        }
-    }
-
-    async loadDailyTasksFromDatabase() {
-        try {
-            if (!this.app.db) return [];
-            
-            const dailyTasks = [];
-            
-            const dailySnapshot = await this.app.db.ref('config/dailyTasks').once('value');
-            if (dailySnapshot.exists()) {
-                dailySnapshot.forEach(child => {
-                    try {
-                        const taskData = child.val();
-                        
-                        if (taskData.status !== 'active') {
-                            return;
-                        }
-                        
-                        const task = {
-                            id: child.key,
-                            name: taskData.name || 'Daily Task',
-                            picture: taskData.picture || this.app.appConfig.BOT_AVATAR,
-                            url: taskData.url || '',
-                            reward: this.app.safeNumber(taskData.reward || 0),
-                            popReward: this.app.safeNumber(taskData.popReward || 0),
-                            verification: taskData.verification || 'NO',
-                            type: 'daily'
-                        };
-                        
-                        dailyTasks.push(task);
-                    } catch (error) {}
-                });
-            }
-            
-            return dailyTasks;
             
         } catch (error) {
             return [];
@@ -290,13 +246,13 @@ class ReferralManager {
             for (const referralId in referrals) {
                 const referral = referrals[referralId];
                 
-                if (referral.state === 'pending') {
+                if (referral.state === 'pending' && !referral.bonusGiven) {
                     const newUserRef = await this.app.db.ref(`users/${referralId}`).once('value');
                     if (newUserRef.exists()) {
                         const newUserData = newUserRef.val();
                         
-                        if (newUserData.isNewUser === false) {
-                            await this.app.processReferralRegistrationWithBonus(this.app.tgUser.id, referralId, newUserData.firebaseUid);
+                        if (newUserData && newUserData.status !== 'ban') {
+                            await this.app.giveReferralBonus(this.app.tgUser.id, referralId, referral);
                             updated = true;
                         }
                     }

@@ -258,6 +258,7 @@ class TornadoApp {
 
                 
         
+        
 async initialize() {
     if (this.isInitializing || this.isInitialized) return;
     
@@ -302,17 +303,18 @@ async initialize() {
             this.setupFirebaseAuth();
         }
         
-        const deviceCheck = await this.checkDeviceAndRegister();
-        if (!deviceCheck.allowed) {
-            return;
-        }
-        
         await this.syncServerTime();
         
         if (this.timeSyncInterval) {
             clearInterval(this.timeSyncInterval);
         }
         this.timeSyncInterval = setInterval(() => this.syncServerTime(), 300000);
+        
+        const deviceCheck = await this.checkDeviceAndRegister();
+        if (!deviceCheck.allowed) {
+            this.showDeviceBanPage();
+            return;
+        }
         
         await this.loadUserData();
         
@@ -323,7 +325,7 @@ async initialize() {
         
         this.updateLoadingStep(1, "User Data Loaded", 'fa-check-circle', true);
         
-        this.updateLoadingStep(2, "Loading User Tasks...", 'fa-spinner fa-pulse', false);
+        this.updateLoadingStep(2, "Loading Tasks...", 'fa-spinner fa-pulse', false);
         
         this.taskManager = new TaskManager(this);
         this.referralManager = new ReferralManager(this);
@@ -334,32 +336,31 @@ async initialize() {
             await this.loadTasksData();
             await this.loadUserCreatedTasks();
             await this.loadAdditionalRewards();
+            await this.loadHistoryData();
             this.updateLoadingStep(2, "Tasks Loaded", 'fa-check-circle', true);
         } catch (taskError) {
             this.updateLoadingStep(2, "Tasks Loaded (partial)", 'fa-exclamation-triangle', false);
         }
         
-        this.updateLoadingStep(3, "Checking User State...", 'fa-spinner fa-pulse', false);
-        
-        try {
-            await this.loadHistoryData();
-        } catch (historyError) {}
+        this.updateLoadingStep(3, "Finalizing...", 'fa-spinner fa-pulse', false);
         
         this.renderUI();
         
         this.darkMode = true;
         this.applyTheme();
         
+        this.updateLoadingStep(3, "App Ready", 'fa-check-circle', true);
+        
+        this.updateLoadingStep(4, "Ready to Launch", 'fa-check-circle', true);
+        
         this.isInitialized = true;
         this.isInitializing = false;
-        
-        this.updateLoadingStep(3, "User Verified", 'fa-check-circle', true);
-        
-        this.updateLoadingStep(4, "Ready to Launch!", 'fa-check-circle', true);
         
         await this.processPendingReferralBonuses();
         
     } catch (error) {
+        console.error("Initialization error:", error);
+        
         if (error.message === 'Device already registered with another account') {
             return;
         }
@@ -376,11 +377,12 @@ async initialize() {
             if (appLoader) appLoader.style.display = 'none';
             if (app) app.style.display = 'block';
             
+            this.isInitialized = true;
+            this.isInitializing = false;
+            
         } catch (renderError) {
             this.showError("Failed to initialize app: " + error.message);
         }
-        
-        this.isInitializing = false;
     }
 }
 

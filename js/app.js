@@ -2,7 +2,7 @@ import { APP_CONFIG, THEME_CONFIG, FEATURES_CONFIG } from './data.js';
 import { CacheManager, NotificationManager, SecurityManager } from './modules/core.js';
 import { TaskManager, ReferralManager } from './modules/features.js';
 
-class TornadoApp {
+class App {
     
     constructor() {
         this.darkMode = true;
@@ -2957,7 +2957,7 @@ class TornadoApp {
         const referralsPage = document.getElementById('referrals-page');
         if (!referralsPage) return;
         
-        const referralLink = `https://t.me/${this.appConfig.BOT_USERNAME}/app?startapp=${this.tgUser.id}`;
+        const referralLink = `https://t.me/Pobuzzbot/app?startapp=${this.tgUser.id}`;
         const referrals = this.safeNumber(this.userState.referrals || 0);
         const referralEarnings = this.safeNumber(this.userState.referralEarnings || 0);
         
@@ -3040,7 +3040,7 @@ class TornadoApp {
                     <p class="referral-row-username">${referral.username}</p>
                 </div>
                 <div class="referral-row-status ${referral.state}">
-                    ${referral.state === 'verified' ? 'COMPLETED' : 'PENDING'}
+                    ${referral.state === 'verified' ? 'VERIFIED' : 'PENDING'}
                 </div>
             </div>
         `;
@@ -3848,7 +3848,7 @@ document.addEventListener('DOMContentLoaded', () => {
         return;
     }
     
-    window.app = new TornadoApp();
+    window.app = new App();
     
     setTimeout(() => {
         if (window.app && typeof window.app.initialize === 'function') {

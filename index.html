@@ -1,256 +1,126 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="ar">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <title>POP BUZZ</title>
-    
+    <title>Pop Buzz - Admin Panel</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
-    
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" />
-    
-    <link rel="stylesheet" href="css/styles.css">
-    
-    <script src="https://telegram.org/js/telegram-web-app.js"></script>
-    
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css"/>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div id="login-container">
+        <div class="login-card">
+            <div class="login-logo">
+                <div class="logo-icon">
+                    <i class="fas fa-crown"></i>
+                </div>
+                <h1>Pop Buzz</h1>
+                <p class="login-subtitle">Admin Control Panel</p>
+            </div>
+            <div class="form-group">
+                <div class="input-with-icon">
+                    <i class="fas fa-lock"></i>
+                    <input type="password" id="login-password" placeholder="Admin Password" autocomplete="current-password">
+                </div>
+            </div>
+            <button class="login-btn" id="login-button">
+                <i class="fas fa-arrow-right-to-bracket"></i> Login
+            </button>
+            <div id="login-message" class="login-message"></div>
+        </div>
+    </div>
+
+    <div id="app-container">
+        <div id="sidebar-overlay" class="sidebar-overlay"></div>
+        <aside id="sidebar">
+            <div id="sidebar-header">
+                <div class="sidebar-logo">
+                    <div class="logo-icon">
+                        <i class="fas fa-crown"></i>
+                    </div>
+                    <div>
+                        <h2>Pop Buzz</h2>
+                        <p class="logo-subtitle">Admin Panel</p>
+                    </div>
+                </div>
+                <button class="sidebar-close">&times;</button>
+            </div>
+            
+            <nav class="sidebar-nav">
+                <ul class="nav-menu">
+                    <li class="nav-item active" data-page="dashboard">
+                        <i class="fas fa-chart-pie"></i>
+                        <span>Dashboard</span>
+                    </li>
+                    <li class="nav-item" data-page="users">
+                        <i class="fas fa-users"></i>
+                        <span>Users</span>
+                    </li>
+                    <li class="nav-item" data-page="tasks">
+                        <i class="fas fa-list-check"></i>
+                        <span>Tasks</span>
+                    </li>
+                    <li class="nav-item" data-page="promoCodes">
+                        <i class="fas fa-ticket"></i>
+                        <span>Promo Codes</span>
+                    </li>
+                    <li class="nav-item" data-page="withdrawals">
+                        <i class="fas fa-money-bill-wave"></i>
+                        <span>Withdrawals</span>
+                    </li>
+                    <li class="nav-item" data-page="broadcast">
+                        <i class="fas fa-bullhorn"></i>
+                        <span>Broadcast</span>
+                    </li>
+                    <li class="nav-item" data-page="settings">
+                        <i class="fas fa-sliders-h"></i>
+                        <span>Settings</span>
+                    </li>
+                    <li class="nav-item" data-page="myUid">
+                        <i class="fas fa-id-card"></i>
+                        <span>My UID</span>
+                    </li>
+                </ul>
+            </nav>
+            
+            <div class="sidebar-footer">
+                <div class="user-info">
+                    <i class="fas fa-user-circle"></i>
+                    <span>Administrator</span>
+                </div>
+                <button class="logout-btn" id="logout-btn">
+                    <i class="fas fa-sign-out-alt"></i> Logout
+                </button>
+            </div>
+        </aside>
+
+        <main id="main-content">
+            <header id="top-bar">
+                <button id="menu-toggle" class="mobile-menu-btn">
+                    <i class="fas fa-bars"></i>
+                </button>
+                <h1 id="page-title">Dashboard</h1>
+                <div class="header-actions">
+                    <div class="status-indicator">
+                        <i class="fas fa-circle"></i>
+                        <span>Online</span>
+                    </div>
+                </div>
+            </header>
+            
+            <div id="content-area"></div>
+        </main>
+    </div>
+
+    <div id="notification-container"></div>
+
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-auth.js"></script>
     
-    <script src="https://sad.adsgram.ai/js/sad.min.js"></script>
-    
-    <script>
-        document.addEventListener('DOMContentLoaded', function() {
-            if (typeof Adsgram !== 'undefined') {
-                window.AdBlock2 = Adsgram.init({ blockId: "25805" });
-                window.AdBlock1 = Adsgram.init({ blockId: "int-25806" });
-            }
-        });
-    </script>
-</head>
-<body>
-    
-    <div class="app-background"></div>
-    
-    <div id="app-loader" style="
-        position: fixed;
-        top: 0;
-        left: 0;
-        width: 100%;
-        height: 100%;
-        background: #0a1428;
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        justify-content: center;
-        z-index: 9999;
-    ">
-        <div class="loading-container" style="
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            text-align: center;
-            width: 90%;
-            max-width: 380px;
-        ">
-            <div style="
-                width: 100px;
-                height: 100px;
-                border-radius: 50%;
-                overflow: hidden;
-                margin-bottom: 30px;
-                animation: pulse-scale 2s infinite ease-in-out;
-                border: 2px solid #FFD966;
-                box-shadow: 0 0 20px rgba(255, 217, 102, 0.5);
-            ">
-                <img src="https://i.ibb.co/gLb6qFhn/file-00000000473871f4b2902b2708daa633.png" 
-                     alt="POP BUZZ" 
-                     style="
-                        width: 100%;
-                        height: 100%;
-                        object-fit: cover;
-                        border-radius: 50%;
-                     "
-                     oncontextmenu="return false;" 
-                     ondragstart="return false;">
-            </div>
-            
-            <div class="loading-steps" style="width: 100%; margin-top: 10px; background: rgba(26,38,58,0.9); border-radius: 16px; padding: 15px; border: 1px solid rgba(255,217,102,0.2);">
-                <div class="loading-step" style="color: #FFD966; margin: 8px 0; font-size: 14px; text-align: left; padding: 12px 15px; background: rgba(0,0,0,0.3); border-radius: 12px; border-left: 3px solid #FFD966; display: flex; align-items: center;">
-                    <i class="fas fa-spinner fa-pulse" style="color: #FFD966; margin-right: 12px; width: 20px;"></i>
-                    <span>App Data Loading...</span>
-                </div>
-                <div class="loading-step" style="color: #FFD966; margin: 8px 0; font-size: 14px; text-align: left; padding: 12px 15px; background: rgba(0,0,0,0.3); border-radius: 12px; border-left: 3px solid #FFD966; display: flex; align-items: center;">
-                    <i class="fas fa-spinner fa-pulse" style="color: #FFD966; margin-right: 12px; width: 20px;"></i>
-                    <span>User Data Loading...</span>
-                </div>
-                <div class="loading-step" style="color: #FFD966; margin: 8px 0; font-size: 14px; text-align: left; padding: 12px 15px; background: rgba(0,0,0,0.3); border-radius: 12px; border-left: 3px solid #FFD966; display: flex; align-items: center;">
-                    <i class="fas fa-spinner fa-pulse" style="color: #FFD966; margin-right: 12px; width: 20px;"></i>
-                    <span>User Tasks Loading...</span>
-                </div>
-                <div class="loading-step" style="color: #FFD966; margin: 8px 0; font-size: 14px; text-align: left; padding: 12px 15px; background: rgba(0,0,0,0.3); border-radius: 12px; border-left: 3px solid #FFD966; display: flex; align-items: center;">
-                    <i class="fas fa-spinner fa-pulse" style="color: #FFD966; margin-right: 12px; width: 20px;"></i>
-                    <span>Checking Device Data...</span>
-                </div>
-                <div class="loading-step" style="color: #FFD966; margin: 8px 0; font-size: 14px; text-align: left; padding: 12px 15px; background: rgba(0,0,0,0.3); border-radius: 12px; border-left: 3px solid #FFD966; display: flex; align-items: center;">
-                    <i class="fas fa-spinner fa-pulse" style="color: #FFD966; margin-right: 12px; width: 20px;"></i>
-                    <span>Loading App Data...</span>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <style>
-        .launch-btn {
-            background: linear-gradient(135deg, #FFD966, #FFB347);
-            border: none;
-            border-radius: 50px;
-            padding: 15px 40px;
-            color: #0a1428;
-            font-weight: bold;
-            font-size: 18px;
-            margin-top: 30px;
-            cursor: pointer;
-            box-shadow: 0 10px 30px rgba(255, 217, 102, 0.3);
-            transition: transform 0.3s, box-shadow 0.3s;
-            width: 100%;
-            max-width: 280px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            gap: 8px;
-            animation: fadeIn 0.5s ease;
-        }
-        
-        .launch-btn:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 15px 40px rgba(255, 217, 102, 0.4);
-        }
-        
-        @keyframes pulse-scale {
-            0% { transform: scale(1); }
-            50% { transform: scale(1.1); }
-            100% { transform: scale(1); }
-        }
-        
-        @keyframes fadeIn {
-            from { opacity: 0; transform: translateY(20px); }
-            to { opacity: 1; transform: translateY(0); }
-        }
-        
-        .loading-step {
-            transition: all 0.3s ease;
-        }
-        
-        .loading-step i {
-            transition: color 0.3s ease;
-        }
-    </style>
-
-    <div id="app" style="display: none;">
-        <header class="app-header">
-            <div class="profile-card">
-                <div class="profile-content">
-                    <div class="profile-left">
-                        <div class="user-avatar-container">
-                            <img id="user-photo" class="user-avatar" 
-                                 src="https://cdn-icons-png.flaticon.com/512/9195/9195920.png" 
-                                 alt="User" 
-                                 oncontextmenu="return false;" 
-                                 ondragstart="return false;">
-                        </div>
-                         <div class="user-info-left">
-                            <h2 id="user-name" class="user-name">User</h2>
-                         </div>
-                    </div>
-                </div>
-            </div>
-        </header>
-        
-        <main id="main-content">
-            <div id="tasks-page" class="page"></div>
-            <div id="referrals-page" class="page"></div>
-            <div id="profile-page" class="page"></div>
-        </main>
-          
-        <nav class="bottom-nav">
-            <button class="nav-btn active" data-page="tasks-page">
-                <i class="fas fa-coins"></i>
-                <span>Earn</span>
-            </button>
-            <button class="nav-btn" data-page="referrals-page">
-                <i class="fas fa-user-plus"></i>
-                <span>Invite</span>
-            </button>
-            <button class="nav-btn user-photo-btn" data-page="profile-page">
-                <img id="bottom-nav-user-photo" 
-                     src="https://cdn-icons-png.flaticon.com/512/9195/9195920.png" 
-                     alt="Profile"
-                     oncontextmenu="return false;" 
-                     ondragstart="return false;">
-                <span>Profile</span>
-            </button>
-        </nav>
-    </div>
-
-    <script type="module" src="js/app.js"></script>
-    
-    <script>
-        (function() {
-            'use strict';
-            
-            function showError() {
-                document.body.innerHTML = `
-                    <div class="telegram-error">
-                        <div class="error-content">
-                            <div class="error-header">
-                                <div class="error-icon">
-                                    <i class="fab fa-telegram"></i>
-                                </div>
-                                <h2>POP BUZZ</h2>
-                            </div>
-                            
-                            <div class="error-message">
-                                <div class="error-icon-wrapper">
-                                    <i class="fas fa-exclamation-triangle"></i>
-                                </div>
-                                <h3>Access Denied</h3>
-                                <p>This application works only inside Telegram.</p>
-                            </div>
-                            
-                            <a href="https://t.me/Tornado_Rbot" target="_blank" class="telegram-btn">
-                                <i class="fab fa-telegram"></i> Open in Telegram
-                            </a>
-                        </div>
-                    </div>
-                `;
-            }
-            
-            function verify() {
-                if (!window.Telegram || !window.Telegram.WebApp) return false;
-                
-                const tg = window.Telegram.WebApp;
-                if (!tg.initDataUnsafe || !tg.initDataUnsafe.user) return false;
-                
-                const user = tg.initDataUnsafe.user;
-                if (!user.id || typeof user.id !== 'number' || user.id <= 0) return false;
-                if (!user.first_name || user.first_name.trim().length === 0) return false;
-                if (!tg.initData || tg.initData.length < 10) return false;
-                
-                return true;
-            }
-            
-            document.addEventListener('DOMContentLoaded', function() {
-                if (!window.Telegram || !window.Telegram.WebApp) {
-                    showError();
-                    return;
-                }
-            });
-            
-        })();
-    </script>
+    <script src="app.js"></script>
 </body>
 </html>

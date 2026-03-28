@@ -257,7 +257,8 @@ class TornadoApp {
     }
 
                 
-            async initialize() {
+        
+async initialize() {
     if (this.isInitializing || this.isInitialized) return;
     
     this.isInitializing = true;

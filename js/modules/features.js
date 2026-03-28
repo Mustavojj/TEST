@@ -1,5 +1,4 @@
-// features.js
-import { APP_CONFIG, FEATURES_CONFIG } from '../data.js';
+import { APP_CONFIG, REWARDS_CONFIG, REQUIREMENTS_CONFIG } from '../data.js';
 
 class TaskManager {
     constructor(app) {
@@ -56,6 +55,16 @@ class TaskManager {
             if (!this.app.db) return [];
             
             const tasks = [];
+            let taskReward = 0;
+            let taskPopReward = REWARDS_CONFIG.TASK_POP_REWARD;
+            
+            if (category === 'main') {
+                taskReward = REWARDS_CONFIG.MAIN_TASK_REWARD;
+            } else if (category === 'partner') {
+                taskReward = REWARDS_CONFIG.PARTNER_TASK_REWARD;
+            } else {
+                taskReward = REWARDS_CONFIG.SOCIAL_TASK_REWARD;
+            }
             
             const tasksSnapshot = await this.app.db.ref('config/tasks').once('value');
             if (tasksSnapshot.exists()) {
@@ -81,8 +90,8 @@ class TaskManager {
                             url: taskData.url || '',
                             type: taskData.type || 'channel',
                             category: category,
-                            reward: this.app.safeNumber(taskData.reward || 0.0001),
-                            popReward: this.app.safeNumber(taskData.popReward || 1),
+                            reward: this.app.safeNumber(taskReward),
+                            popReward: taskPopReward,
                             currentCompletions: currentCompletions,
                             maxCompletions: maxCompletions,
                             status: taskData.status || 'active',
@@ -122,8 +131,8 @@ class TaskManager {
                                 url: taskData.url || '',
                                 type: taskData.type || 'channel',
                                 category: category,
-                                reward: this.app.safeNumber(taskData.reward || 0.0001),
-                                popReward: this.app.safeNumber(taskData.popReward || 1),
+                                reward: this.app.safeNumber(taskReward),
+                                popReward: taskPopReward,
                                 currentCompletions: currentCompletions,
                                 maxCompletions: maxCompletions,
                                 status: taskData.status || 'active',
@@ -216,6 +225,142 @@ class ReferralManager {
     constructor(app) {
         this.app = app;
         this.recentReferrals = [];
+        this.referralCheckInterval = null;
+    }
+
+    async startReferralMonitor() {
+        if (this.referralCheckInterval) {
+            clearInterval(this.referralCheckInterval);
+        }
+        
+        this.referralCheckInterval = setInterval(async () => {
+            await this.checkPendingReferrals();
+        }, 30000);
+        
+        await this.checkPendingReferrals();
+    }
+
+    async checkPendingReferrals() {
+        try {
+            if (!this.app.db || !this.app.tgUser) return;
+            
+            const referralsRef = await this.app.db.ref(`referrals/${this.app.tgUser.id}`).once('value');
+            if (!referralsRef.exists()) return;
+            
+            const referrals = referralsRef.val();
+            let updated = false;
+            
+            for (const referralId in referrals) {
+                const referral = referrals[referralId];
+                
+                if (referral.referralStatus === false) {
+                    const newUserRef = await this.app.db.ref(`users/${referralId}`).once('value');
+                    if (newUserRef.exists()) {
+                        const newUserData = newUserRef.val();
+                        
+                        if (newUserData.telegramId && newUserData.status !== 'ban') {
+                            await this.giveReferralBonus(this.app.tgUser.id, referralId, newUserData);
+                            updated = true;
+                        }
+                    }
+                }
+            }
+            
+            if (updated) {
+                this.app.cache.delete(`user_${this.app.tgUser.id}`);
+                this.app.cache.delete(`referrals_${this.app.tgUser.id}`);
+                
+                if (document.getElementById('referrals-page')?.classList.contains('active')) {
+                    this.app.renderReferralsPage();
+                }
+                this.app.updateHeader();
+            }
+            
+        } catch (error) {}
+    }
+
+    async giveReferralBonus(referrerId, newUserId, newUserData) {
+        try {
+            if (!this.app.db) return;
+            
+            const referrerRef = this.app.db.ref(`users/${referrerId}`);
+            const referrerSnapshot = await referrerRef.once('value');
+            
+            if (!referrerSnapshot.exists()) return;
+            
+            const referrerData = referrerSnapshot.val();
+            
+            if (referrerData.status === 'ban') return;
+            
+            const referralBonusTon = REWARDS_CONFIG.REFERRAL_BONUS_TON;
+            const referralBonusPop = REWARDS_CONFIG.REFERRAL_BONUS_POP;
+            
+            const newBalance = this.app.safeNumber(referrerData.balance) + referralBonusTon;
+            const newPop = this.app.safeNumber(referrerData.pop) + referralBonusPop;
+            const newPopEarnings = this.app.safeNumber(referrerData.popEarnings) + referralBonusPop;
+            const newReferrals = (referrerData.referrals || 0) + 1;
+            const newReferralEarnings = this.app.safeNumber(referrerData.referralEarnings) + referralBonusTon;
+            const newTotalEarned = this.app.safeNumber(referrerData.totalEarned) + referralBonusTon;
+            const currentTime = this.app.getServerTime();
+            
+            await referrerRef.update({
+                balance: newBalance,
+                pop: newPop,
+                popEarnings: newPopEarnings,
+                referrals: newReferrals,
+                referralEarnings: newReferralEarnings,
+                totalEarned: newTotalEarned,
+                lastUpdated: currentTime
+            });
+            
+            await this.app.db.ref(`referrals/${referrerId}/${newUserId}`).update({
+                referralStatus: true,
+                bonusGivenAt: currentTime,
+                bonusTonAmount: referralBonusTon,
+                bonusPopAmount: referralBonusPop
+            });
+            
+            if (referrerId === this.app.tgUser.id) {
+                this.app.userState.balance = newBalance;
+                this.app.userState.pop = newPop;
+                this.app.userState.popEarnings = newPopEarnings;
+                this.app.userState.referrals = newReferrals;
+                this.app.userState.referralEarnings = newReferralEarnings;
+                this.app.userState.totalEarned = newTotalEarned;
+                
+                this.app.updateHeader();
+            }
+            
+            this.app.cache.delete(`user_${referrerId}`);
+            this.app.cache.delete(`referrals_${referrerId}`);
+            
+        } catch (error) {}
+    }
+
+    async registerReferral(newUserId, referrerId) {
+        try {
+            if (!this.app.db) return;
+            
+            const currentTime = this.app.getServerTime();
+            
+            const referralData = {
+                userId: newUserId,
+                username: this.app.tgUser.username ? `@${this.app.tgUser.username}` : 'No Username',
+                firstName: this.app.getShortName(this.app.tgUser.first_name || ''),
+                photoUrl: this.app.tgUser.photo_url || this.app.appConfig.DEFAULT_USER_AVATAR,
+                joinedAt: currentTime,
+                referralStatus: false,
+                telegramId: newUserId
+            };
+            
+            await this.app.db.ref(`referrals/${referrerId}/${newUserId}`).set(referralData);
+            
+            await this.app.db.ref(`users/${newUserId}`).update({
+                referredBy: referrerId,
+                lastUpdated: currentTime
+            });
+            
+        } catch (error) {}
     }
 
     async loadRecentReferrals() {
@@ -257,7 +402,7 @@ class ReferralManager {
             
             for (const referralId in referrals) {
                 const referral = referrals[referralId];
-                if (referral.state === 'verified' && referral.bonusGiven) {
+                if (referral.referralStatus === true) {
                     verifiedReferrals.push({
                         id: referralId,
                         ...referral
@@ -274,44 +419,6 @@ class ReferralManager {
             }
             
             this.app.updateHeader();
-            
-        } catch (error) {}
-    }
-
-    async checkReferralsVerification() {
-        try {
-            if (!this.app.db || !this.app.tgUser) return;
-            
-            const referralsRef = await this.app.db.ref(`referrals/${this.app.tgUser.id}`).once('value');
-            if (!referralsRef.exists()) return;
-            
-            const referrals = referralsRef.val();
-            let updated = false;
-            
-            for (const referralId in referrals) {
-                const referral = referrals[referralId];
-                
-                if (referral.state === 'pending') {
-                    const newUserRef = await this.app.db.ref(`users/${referralId}`).once('value');
-                    if (newUserRef.exists()) {
-                        const newUserData = newUserRef.val();
-                        
-                        if (newUserData.isNewUser === false) {
-                            await this.app.processReferralRegistrationWithBonus(this.app.tgUser.id, referralId, newUserData.firebaseUid);
-                            updated = true;
-                        }
-                    }
-                }
-            }
-            
-            if (updated) {
-                this.app.cache.delete(`user_${this.app.tgUser.id}`);
-                this.app.cache.delete(`referrals_${this.app.tgUser.id}`);
-                
-                if (document.getElementById('referrals-page')?.classList.contains('active')) {
-                    this.app.renderReferralsPage();
-                }
-            }
             
         } catch (error) {}
     }

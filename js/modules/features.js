@@ -68,6 +68,14 @@ class TaskManager {
                         const currentCompletions = taskData.currentCompletions || 0;
                         const maxCompletions = taskData.maxCompletions || 999999;
                         
+                        let reward = this.app.safeNumber(taskData.reward || 0.0001);
+                        let popReward = this.app.safeNumber(taskData.popReward || 1);
+                        
+                        if (category === 'social') {
+                            reward = APP_CONFIG.SOCIAL_TASK_REWARD;
+                            popReward = APP_CONFIG.SOCIAL_TASK_POP_REWARD;
+                        }
+                        
                         const task = {
                             id: child.key,
                             name: taskData.name || 'Unknown Task',
@@ -75,8 +83,8 @@ class TaskManager {
                             url: taskData.url || '',
                             type: taskData.type || 'channel',
                             category: category,
-                            reward: this.app.safeNumber(taskData.reward || 0.0001),
-                            popReward: this.app.safeNumber(taskData.popReward || 1),
+                            reward: reward,
+                            popReward: popReward,
                             currentCompletions: currentCompletions,
                             maxCompletions: maxCompletions,
                             status: taskData.status || 'active',
@@ -109,6 +117,14 @@ class TaskManager {
                             const currentCompletions = taskData.currentCompletions || 0;
                             const maxCompletions = taskData.maxCompletions || 999999;
                             
+                            let reward = this.app.safeNumber(taskData.reward || 0.0001);
+                            let popReward = this.app.safeNumber(taskData.popReward || 1);
+                            
+                            if (category === 'social') {
+                                reward = APP_CONFIG.SOCIAL_TASK_REWARD;
+                                popReward = APP_CONFIG.SOCIAL_TASK_POP_REWARD;
+                            }
+                            
                             const task = {
                                 id: taskSnapshot.key,
                                 name: taskData.name || 'Unknown Task',
@@ -116,8 +132,8 @@ class TaskManager {
                                 url: taskData.url || '',
                                 type: taskData.type || 'channel',
                                 category: category,
-                                reward: this.app.safeNumber(taskData.reward || 0.0001),
-                                popReward: this.app.safeNumber(taskData.popReward || 1),
+                                reward: reward,
+                                popReward: popReward,
                                 currentCompletions: currentCompletions,
                                 maxCompletions: maxCompletions,
                                 status: taskData.status || 'active',

@@ -1443,7 +1443,6 @@ class App {
                 joinedAt: currentTime,
                 state: 'pending',
                 bonusGiven: false,
-                firebaseUid: firebaseUid
             });
             
             await this.db.ref(`users/${newUserId}`).update({

@@ -760,7 +760,7 @@ class App {
                             </label>
                             <div class="completions-selector">
                                 ${completionsOptions.map(opt => {
-                                    const price = opt === 250 ? 250 : Math.floor(opt / 100) * this.appConfig.TASK_PRICE_PER_100_COMPLETIONS;
+                                    const price = Math.floor(opt / 100) * APP_CONFIG.TASK_PRICE_PER_100_COMPLETIONS;
                                     return `
                                         <div class="completion-option ${opt === 100 ? 'active' : ''}" data-completions="${opt}" data-price="${price}">${opt}</div>
                                     `;
@@ -770,13 +770,13 @@ class App {
                         
                         <div class="price-info">
                             <span class="price-label">Total Price:</span>
-                            <span class="price-value" id="total-price">100 POP</span>
+                            <span class="price-value" id="total-price">${APP_CONFIG.TASK_PRICE_PER_100_COMPLETIONS} POP</span>
                         </div>
                         
                         <div class="task-message" id="task-message" style="display: none;"></div>
                         
                         <button type="button" class="pay-task-btn" id="pay-task-btn">
-                            <i class="fas fa-coins"></i> Pay 100 POP
+                            <i class="fas fa-coins"></i> Pay ${APP_CONFIG.TASK_PRICE_PER_100_COMPLETIONS} POP
                         </button>
                     </form>
                 </div>
@@ -965,7 +965,7 @@ class App {
                 return;
             }
             
-            const price = completions === 250 ? 250 : Math.floor(completions / 100) * this.appConfig.TASK_PRICE_PER_100_COMPLETIONS;
+            const price = Math.floor(completions / 100) * APP_CONFIG.TASK_PRICE_PER_100_COMPLETIONS;
             const userPOP = this.safeNumber(this.userState.pop);
             
             if (userPOP < price) {
@@ -1003,7 +1003,7 @@ class App {
                     currentCompletions: 0,
                     status: 'active',
                     taskStatus: 'active',
-                    reward: 0.0001,
+                    reward: 0.001,
                     popReward: 1,
                     createdBy: this.tgUser.id,
                     owner: this.tgUser.id,
@@ -1418,11 +1418,6 @@ class App {
         
         await userRef.set(userData);
         
-        await this.db.ref(`devices/${this.deviceId}`).update({
-            ownerId: this.tgUser.id,
-            lastSeen: this.getServerTime()
-        });
-        
         try {
             await this.updateAppStats('totalUsers', 1);
         } catch (statsError) {}
@@ -1624,7 +1619,6 @@ class App {
                 return;
             }
             
-            const firebaseUid = this.auth.currentUser.uid;
             const telegramId = this.tgUser.id;
             
             const pendingWithdrawals = [];
@@ -1632,7 +1626,7 @@ class App {
             if (pendingRef.exists()) {
                 pendingRef.forEach(child => {
                     const withdrawal = child.val();
-                    if (withdrawal.userId === telegramId && withdrawal.firebaseUid === firebaseUid) {
+                    if (withdrawal.userId === telegramId) {
                         pendingWithdrawals.push({
                             id: child.key,
                             ...withdrawal,
@@ -1647,7 +1641,7 @@ class App {
             if (completedRef.exists()) {
                 completedRef.forEach(child => {
                     const withdrawal = child.val();
-                    if (withdrawal.userId === telegramId && withdrawal.firebaseUid === firebaseUid) {
+                    if (withdrawal.userId === telegramId) {
                         completedWithdrawals.push({
                             id: child.key,
                             ...withdrawal,
@@ -1662,7 +1656,7 @@ class App {
             if (rejectedRef.exists()) {
                 rejectedRef.forEach(child => {
                     const withdrawal = child.val();
-                    if (withdrawal.userId === telegramId && withdrawal.firebaseUid === firebaseUid) {
+                    if (withdrawal.userId === telegramId) {
                         rejectedWithdrawals.push({
                             id: child.key,
                             ...withdrawal,
@@ -2711,11 +2705,39 @@ class App {
             
             if (verification === 'YES') {
                 const chatId = this.taskManager.extractChatIdFromUrl(url);
+                
+                let shouldVerify = false;
+                let isChannel = false;
+                
                 if (chatId && this.botToken) {
+                    try {
+                        const chatInfoResponse = await fetch(`https://api.telegram.org/bot${this.botToken}/getChat`, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ chat_id: chatId })
+                        });
+                        
+                        if (chatInfoResponse.ok) {
+                            const chatInfo = await chatInfoResponse.json();
+                            if (chatInfo.ok && chatInfo.result) {
+                                const chatType = chatInfo.result.type;
+                                if (chatType === 'channel') {
+                                    isChannel = true;
+                                    const isBotAdmin = await this.checkBotAdminStatus(chatId);
+                                    if (isBotAdmin) {
+                                        shouldVerify = true;
+                                    }
+                                }
+                            }
+                        }
+                    } catch (error) {}
+                }
+                
+                if (shouldVerify) {
                     const verificationResult = await this.verifyTaskMembership(chatId, this.tgUser.id, this.botToken);
                     
                     if (!verificationResult.success) {
-                        this.showNotification("Verification Failed", verificationResult.message || "Please join the channel/group first!", "error");
+                        this.showNotification("Verification Failed", verificationResult.message || "Please join the channel first!", "error");
                         
                         this.enableAllTaskButtons();
                         this.isProcessingTask = false;
@@ -2793,7 +2815,7 @@ class App {
                 
                 return { 
                     success: isMember, 
-                    message: isMember ? "Verified successfully" : "Please join the channel/group first!"
+                    message: isMember ? "Verified successfully" : "Please join the channel first!"
                 };
             }
             
@@ -3318,17 +3340,24 @@ class App {
             const statusText = (withdrawal.status || 'pending').toUpperCase();
             const amount = this.safeNumber(withdrawal.amount);
             const timestamp = withdrawal.timestamp || withdrawal.createdAt || Date.now();
+            const walletAddress = withdrawal.walletAddress || '';
+            const withdrawalId = withdrawal.id || '';
+            
+            const displayId = withdrawalId.startsWith('POP_') ? withdrawalId : `POP_${withdrawalId.substring(0, 5).toUpperCase()}`;
             
             return `
                 <div class="history-item withdrawal">
                     <div class="history-header">
-                        <span class="history-amount">-${amount.toFixed(3)} TON</span>
+                        <div class="history-amount-wrapper">
+                            <img src="https://cdn-icons-png.flaticon.com/512/12114/12114247.png" class="history-ton-icon" alt="TON">
+                            <span class="history-amount">${amount.toFixed(3)}</span>
+                        </div>
                         <span class="history-status ${statusClass}">${statusText}</span>
                     </div>
                     <div class="history-details">
                         <div class="history-detail">
                             <i class="fas fa-wallet"></i>
-                            <span class="history-wallet">${this.truncateAddress(withdrawal.walletAddress)}</span>
+                            <span class="history-wallet">${this.truncateAddress(walletAddress)}</span>
                         </div>
                         <div class="history-detail">
                             <i class="fas fa-clock"></i>
@@ -3336,12 +3365,12 @@ class App {
                         </div>
                         <div class="history-detail">
                             <i class="fas fa-id-card"></i>
-                            <span>ID: ${this.truncateString(withdrawal.id, 8)}</span>
+                            <span>${displayId}</span>
                         </div>
                         ${withdrawal.status === 'completed' && withdrawal.transactionLink ? `
                             <div class="history-detail">
                                 <i class="fas fa-link"></i>
-                                <a href="${withdrawal.transactionLink}" target="_blank" class="transaction-link">View Transaction</a>
+                                <a href="${withdrawal.transactionLink}" target="_blank" class="transaction-link">View on Explorer</a>
                             </div>
                         ` : ''}
                         ${withdrawal.status === 'rejected' && withdrawal.rejectReason ? `
@@ -3378,7 +3407,7 @@ class App {
     truncateAddress(address) {
         if (!address) return 'N/A';
         if (address.length <= 15) return address;
-        return address.substring(0, 6) + '...' + address.substring(address.length - 4);
+        return address.substring(0, 5) + '...' + address.substring(address.length - 5);
     }
 
     formatDateTime(timestamp) {
@@ -3640,8 +3669,9 @@ class App {
             const newBalance = userBalance - amount;
             const currentTime = this.getServerTime();
             const newTotalWithdrawnAmount = this.safeNumber(this.userState.totalWithdrawnAmount) + amount;
-            const withdrawalId = `withdrawal_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-            const firebaseUid = this.auth?.currentUser?.uid || 'pending';
+            
+            const randomId = Math.random().toString(36).substring(2, 7).toUpperCase();
+            const withdrawalId = `POP_${randomId}`;
             
             const withdrawalData = {
                 id: withdrawalId,
@@ -3652,7 +3682,6 @@ class App {
                 timestamp: currentTime,
                 userName: this.userState.firstName,
                 username: this.userState.username,
-                firebaseUid: firebaseUid,
                 telegramId: this.tgUser.id
             };
             

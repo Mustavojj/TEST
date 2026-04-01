@@ -86,6 +86,9 @@ class App {
         ];
         this.currentLoadingStep = 0;
         this.loadingComplete = false;
+        
+        this.deviceBlocked = false;
+        this.userBanned = false;
     }
 
     getRateLimiterClass() {
@@ -281,24 +284,29 @@ class App {
             }
             this.timeSyncInterval = setInterval(() => this.syncServerTime(), 300000);
             
+            // CHECK DEVICE FIRST - قبل أي إنشاء للمستخدم
+            this.updateLoadingStep(2, "Checking Device Data...", 'fa-spinner fa-pulse', false);
+            
+            const deviceCheck = await this.checkDeviceAndRegister();
+            if (!deviceCheck.allowed) {
+                this.deviceBlocked = true;
+                this.showDeviceBanPage(deviceCheck.message || "This device is already registered with another account.");
+                return;
+            }
+            
+            this.updateLoadingStep(2, "Device Verified", 'fa-check-circle', true);
+            
+            // الآن فقط بعد التحقق من الجهاز، نقوم بتحميل/إنشاء بيانات المستخدم
+            this.updateLoadingStep(1, "User Data Loading...", 'fa-spinner fa-pulse', false);
             await this.loadUserData();
             
             if (this.userState.status === 'ban') {
+                this.userBanned = true;
                 this.showBannedPage();
                 return;
             }
             
             this.updateLoadingStep(1, "User Data Loaded", 'fa-check-circle', true);
-            
-            this.updateLoadingStep(2, "Checking Device Data...", 'fa-spinner fa-pulse', false);
-            
-            const deviceCheck = await this.checkDeviceAndRegister();
-            if (!deviceCheck.allowed) {
-                this.showDeviceBanPage();
-                return;
-            }
-            
-            this.updateLoadingStep(2, "Device Verified", 'fa-check-circle', true);
             
             this.updateLoadingStep(3, "User Tasks Loading...", 'fa-spinner fa-pulse', false);
             
@@ -557,7 +565,7 @@ class App {
         }
     }
 
-    showDeviceBanPage() {
+    showDeviceBanPage(message = "This device is already registered with another account.") {
         document.body.innerHTML = `
             <div class="banned-container">
                 <div class="banned-content">
@@ -572,11 +580,32 @@ class App {
                         <div class="ban-reason-icon">
                             <i class="fas fa-exclamation-circle"></i>
                         </div>
-                        <p>This account has been blocked for security reasons. This block is permanent and cannot be reversed.</p>
+                        <p>${message}</p>
+                        <p style="margin-top: 12px; font-size: 13px; opacity: 0.8;">This device is linked to another account. Multiple accounts per device are not allowed.</p>
                     </div>
+                    
+                    <button class="close-app-btn" id="close-app-btn">
+                        <i class="fas fa-times-circle"></i> Close Application
+                    </button>
                 </div>
             </div>
         `;
+        
+        const closeBtn = document.getElementById('close-app-btn');
+        if (closeBtn) {
+            closeBtn.addEventListener('click', () => {
+                if (this.tg && this.tg.close) {
+                    this.tg.close();
+                } else {
+                    window.close();
+                }
+            });
+        }
+        
+        const loader = document.getElementById('app-loader');
+        if (loader) loader.style.display = 'none';
+        const app = document.getElementById('app');
+        if (app) app.style.display = 'none';
     }
 
     async getCurrentDepositComment() {
@@ -1214,7 +1243,7 @@ class App {
             if (user) {
                 this.currentUser = user;
                 
-                if (this.userState.firebaseUid !== user.uid) {
+                if (this.userState.firebaseUid !== user.uid && !this.deviceBlocked && !this.userBanned) {
                     this.userState.firebaseUid = user.uid;
                     await this.syncUserWithFirebase();
                 }
@@ -1228,7 +1257,7 @@ class App {
 
     async syncUserWithFirebase() {
         try {
-            if (!this.db || !this.auth.currentUser) {
+            if (!this.db || !this.auth.currentUser || this.deviceBlocked || this.userBanned) {
                 return;
             }
             
@@ -1265,6 +1294,8 @@ class App {
     }
 
     async loadUserData(forceRefresh = false) {
+        if (this.deviceBlocked || this.userBanned) return;
+        
         const cacheKey = `user_${this.tgUser.id}`;
         
         if (!forceRefresh) {
@@ -1306,7 +1337,7 @@ class App {
                 userData = await this.createNewUser(userRef);
             }
             
-            if (userData.firebaseUid !== this.auth.currentUser.uid) {
+            if (userData.firebaseUid !== this.auth.currentUser.uid && !this.deviceBlocked && !this.userBanned) {
                 await userRef.update({
                     firebaseUid: this.auth.currentUser.uid,
                     lastUpdated: this.getServerTime()
@@ -1356,6 +1387,10 @@ class App {
     }
 
     async createNewUser(userRef) {
+        if (this.deviceBlocked || this.userBanned) {
+            throw new Error('Access denied');
+        }
+        
         if (this.deviceOwnerId && this.deviceOwnerId !== this.tgUser.id) {
             const banData = {
                 status: 'ban',
@@ -1376,7 +1411,12 @@ class App {
                 const referrerRef = this.db.ref(`users/${referralId}`);
                 const referrerSnapshot = await referrerRef.once('value');
                 if (referrerSnapshot.exists()) {
-                    this.pendingReferralAfterWelcome = referralId;
+                    const referrerData = referrerSnapshot.val();
+                    if (referrerData.status !== 'ban') {
+                        this.pendingReferralAfterWelcome = referralId;
+                    } else {
+                        referralId = null;
+                    }
                 } else {
                     referralId = null;
                 }
@@ -1432,6 +1472,7 @@ class App {
     async addReferralWithPendingBonus(referrerId, newUserId, firebaseUid) {
         try {
             if (!this.db) return;
+            if (this.deviceBlocked || this.userBanned) return;
             
             const currentTime = this.getServerTime();
             
@@ -1823,18 +1864,39 @@ class App {
                         <div class="banned-icon">
                             <i class="fas fa-ban"></i>
                         </div>
-                        <h2>Access Denied</h2>
+                        <h2>Account Blocked</h2>
                     </div>
                     
                     <div class="ban-reason">
                         <div class="ban-reason-icon">
                             <i class="fas fa-exclamation-circle"></i>
                         </div>
-                        <p>This account has been blocked for security reasons. This block is permanent and cannot be reversed.</p>
+                        <p>Your account has been permanently blocked due to violation of our terms of service.</p>
+                        <p style="margin-top: 12px; font-size: 13px; opacity: 0.8;">This decision is final and cannot be appealed.</p>
                     </div>
+                    
+                    <button class="close-app-btn" id="close-app-btn">
+                        <i class="fas fa-times-circle"></i> Close Application
+                    </button>
                 </div>
             </div>
         `;
+        
+        const closeBtn = document.getElementById('close-app-btn');
+        if (closeBtn) {
+            closeBtn.addEventListener('click', () => {
+                if (this.tg && this.tg.close) {
+                    this.tg.close();
+                } else {
+                    window.close();
+                }
+            });
+        }
+        
+        const loader = document.getElementById('app-loader');
+        if (loader) loader.style.display = 'none';
+        const app = document.getElementById('app');
+        if (app) app.style.display = 'none';
     }
 
     updateHeader() {

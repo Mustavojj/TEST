@@ -235,7 +235,7 @@ class App {
     }
     }
 
-
+        
 async initialize() {
     if (this.isInitializing || this.isInitialized) return;
     
@@ -249,7 +249,7 @@ async initialize() {
         
         this.initLoadingElements();
         
-        // STEP 1: App Data Loading
+        // الخطوة 1
         this.updateLoadingStep(0, "App Data Loading...", 'fa-spinner fa-pulse', false);
         
         if (!window.Telegram || !window.Telegram.WebApp) {
@@ -268,7 +268,7 @@ async initialize() {
         
         this.updateLoadingStep(0, "App Data Loaded", 'fa-check-circle', true);
         
-        // STEP 2: User Data Loading (Initial)
+        // الخطوة 2
         this.updateLoadingStep(1, "User Data Loading...", 'fa-spinner fa-pulse', false);
         
         this.telegramVerified = await this.verifyTelegramUser();
@@ -294,7 +294,7 @@ async initialize() {
         }
         this.timeSyncInterval = setInterval(() => this.syncServerTime(), 300000);
         
-        // STEP 3: Device Verification
+        // الخطوة 3
         this.updateLoadingStep(2, "User Device Verification...", 'fa-spinner fa-pulse', false);
         
         const deviceCheck = await this.checkDeviceAndRegister();
@@ -307,8 +307,7 @@ async initialize() {
         
         this.updateLoadingStep(2, "User Device Verified", 'fa-check-circle', true);
         
-        // STEP 2: Load Actual User Data (after device check)
-        this.updateLoadingStep(1, "User Data Loading...", 'fa-spinner fa-pulse', false);
+        // الخطوة 2 - استكمال تحميل المستخدم
         await this.loadUserData();
         
         if (this.userState.status === 'ban') {
@@ -320,7 +319,7 @@ async initialize() {
         
         this.updateLoadingStep(1, "User Data Loaded", 'fa-check-circle', true);
         
-        // STEP 4: Tasks Loading
+        // الخطوة 4
         this.updateLoadingStep(3, "User Tasks Loading...", 'fa-spinner fa-pulse', false);
         
         this.taskManager = new TaskManager(this);
@@ -334,10 +333,10 @@ async initialize() {
             await this.loadAdditionalRewards();
             this.updateLoadingStep(3, "User Tasks Loaded", 'fa-check-circle', true);
         } catch (taskError) {
-            this.updateLoadingStep(3, "User Tasks Loaded (partial)", 'fa-exclamation-triangle', false);
+            this.updateLoadingStep(3, "User Tasks Loaded (partial)", 'fa-exclamation-triangle', true);
         }
         
-        // STEP 5: Ready to Launch
+        // الخطوة 5
         this.updateLoadingStep(4, "Ready To Launch!", 'fa-spinner fa-pulse', false);
         
         try {

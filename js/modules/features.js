@@ -11,6 +11,8 @@ class TaskManager {
     }
 
     async loadTasksData(forceRefresh = false) {
+        if (this.app.deviceBlocked || this.app.userBanned) return;
+        
         const cacheKey = `tasks_${this.app.tgUser.id}`;
         
         if (!forceRefresh) {

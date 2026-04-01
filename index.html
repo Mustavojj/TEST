@@ -81,23 +81,23 @@
             <div class="loading-steps" style="width: 100%; margin-top: 10px; background: rgba(26,38,58,0.9); border-radius: 16px; padding: 15px; border: 1px solid rgba(255,217,102,0.2);">
                 <div class="loading-step" style="color: #FFD966; margin: 8px 0; font-size: 14px; text-align: left; padding: 12px 15px; background: rgba(0,0,0,0.3); border-radius: 12px; border-left: 3px solid #FFD966; display: flex; align-items: center;">
                     <i class="fas fa-spinner fa-pulse" style="color: #FFD966; margin-right: 12px; width: 20px;"></i>
-                    <span>App Data Loading...</span>
-                </div>
-                <div class="loading-step" style="color: #FFD966; margin: 8px 0; font-size: 14px; text-align: left; padding: 12px 15px; background: rgba(0,0,0,0.3); border-radius: 12px; border-left: 3px solid #FFD966; display: flex; align-items: center;">
-                    <i class="fas fa-spinner fa-pulse" style="color: #FFD966; margin-right: 12px; width: 20px;"></i>
-                    <span>User Data Loading...</span>
-                </div>
-                <div class="loading-step" style="color: #FFD966; margin: 8px 0; font-size: 14px; text-align: left; padding: 12px 15px; background: rgba(0,0,0,0.3); border-radius: 12px; border-left: 3px solid #FFD966; display: flex; align-items: center;">
-                    <i class="fas fa-spinner fa-pulse" style="color: #FFD966; margin-right: 12px; width: 20px;"></i>
-                    <span>User Tasks Loading...</span>
-                </div>
-                <div class="loading-step" style="color: #FFD966; margin: 8px 0; font-size: 14px; text-align: left; padding: 12px 15px; background: rgba(0,0,0,0.3); border-radius: 12px; border-left: 3px solid #FFD966; display: flex; align-items: center;">
-                    <i class="fas fa-spinner fa-pulse" style="color: #FFD966; margin-right: 12px; width: 20px;"></i>
-                    <span>Checking Device Data...</span>
-                </div>
-                <div class="loading-step" style="color: #FFD966; margin: 8px 0; font-size: 14px; text-align: left; padding: 12px 15px; background: rgba(0,0,0,0.3); border-radius: 12px; border-left: 3px solid #FFD966; display: flex; align-items: center;">
-                    <i class="fas fa-spinner fa-pulse" style="color: #FFD966; margin-right: 12px; width: 20px;"></i>
                     <span>Loading App Data...</span>
+                </div>
+                <div class="loading-step" style="color: #FFD966; margin: 8px 0; font-size: 14px; text-align: left; padding: 12px 15px; background: rgba(0,0,0,0.3); border-radius: 12px; border-left: 3px solid #FFD966; display: flex; align-items: center;">
+                    <i class="fas fa-spinner fa-pulse" style="color: #FFD966; margin-right: 12px; width: 20px;"></i>
+                    <span>Loading User Data...</span>
+                </div>
+                <div class="loading-step" style="color: #FFD966; margin: 8px 0; font-size: 14px; text-align: left; padding: 12px 15px; background: rgba(0,0,0,0.3); border-radius: 12px; border-left: 3px solid #FFD966; display: flex; align-items: center;">
+                    <i class="fas fa-spinner fa-pulse" style="color: #FFD966; margin-right: 12px; width: 20px;"></i>
+                    <span>Checking User Status...</span>
+                </div>
+                <div class="loading-step" style="color: #FFD966; margin: 8px 0; font-size: 14px; text-align: left; padding: 12px 15px; background: rgba(0,0,0,0.3); border-radius: 12px; border-left: 3px solid #FFD966; display: flex; align-items: center;">
+                    <i class="fas fa-spinner fa-pulse" style="color: #FFD966; margin-right: 12px; width: 20px;"></i>
+                    <span>Loading Tasks...</span>
+                </div>
+                <div class="loading-step" style="color: #FFD966; margin: 8px 0; font-size: 14px; text-align: left; padding: 12px 15px; background: rgba(0,0,0,0.3); border-radius: 12px; border-left: 3px solid #FFD966; display: flex; align-items: center;">
+                    <i class="fas fa-spinner fa-pulse" style="color: #FFD966; margin-right: 12px; width: 20px;"></i>
+                    <span>App Loading...</span>
                 </div>
             </div>
         </div>
@@ -147,6 +147,55 @@
         
         .loading-step i {
             transition: color 0.3s ease;
+        }
+        
+        .banned-card {
+            background: linear-gradient(135deg, #1a263a 0%, #0f172a 100%);
+            border-radius: 24px;
+            padding: 32px 24px;
+            text-align: center;
+            border: 1px solid rgba(244, 67, 54, 0.3);
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+            max-width: 320px;
+            margin: 20px auto;
+        }
+        
+        .banned-icon {
+            font-size: 64px;
+            color: #f44336;
+            margin-bottom: 20px;
+        }
+        
+        .banned-card h2 {
+            color: #f44336;
+            font-size: 24px;
+            margin-bottom: 12px;
+        }
+        
+        .banned-card p {
+            color: #e0e0e0;
+            font-size: 14px;
+            line-height: 1.5;
+            margin-bottom: 24px;
+        }
+        
+        .close-app-btn {
+            background: linear-gradient(135deg, #f44336, #d32f2f);
+            border: none;
+            border-radius: 50px;
+            padding: 12px 24px;
+            color: white;
+            font-weight: bold;
+            font-size: 16px;
+            cursor: pointer;
+            transition: transform 0.3s;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .close-app-btn:hover {
+            transform: translateY(-2px);
         }
     </style>
 

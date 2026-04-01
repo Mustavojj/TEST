@@ -229,6 +229,9 @@ class App {
     }
 
 
+
+    
+    
 async initialize() {
     if (this.isInitializing || this.isInitialized) return;
     
@@ -242,7 +245,6 @@ async initialize() {
         
         this.initLoadingElements();
         
-        // STEP 1: App Data Loading
         this.updateLoadingStep(0, "App Data Loading...", 'fa-spinner fa-pulse', false);
         
         if (!window.Telegram || !window.Telegram.WebApp) {
@@ -261,7 +263,6 @@ async initialize() {
         
         this.updateLoadingStep(0, "App Data Loaded", 'fa-check-circle', true);
         
-        // STEP 2: User Data Loading (Partial - just verification)
         this.updateLoadingStep(1, "User Data Loading...", 'fa-spinner fa-pulse', false);
         
         this.telegramVerified = await this.verifyTelegramUser();
@@ -287,8 +288,7 @@ async initialize() {
         }
         this.timeSyncInterval = setInterval(() => this.syncServerTime(), 300000);
         
-        // STEP 3: Device Check (moved before user creation)
-        this.updateLoadingStep(2, "Checking Device Data...", 'fa-spinner fa-pulse', false);
+        this.updateLoadingStep(2, "User Device Verification...", 'fa-spinner fa-pulse', false);
         
         const deviceCheck = await this.checkDeviceAndRegister();
         if (!deviceCheck.allowed) {
@@ -298,9 +298,8 @@ async initialize() {
             return;
         }
         
-        this.updateLoadingStep(2, "Device Verified", 'fa-check-circle', true);
+        this.updateLoadingStep(2, "User Device Verified", 'fa-check-circle', true);
         
-        // STEP 4: Load/Create User Data (now after device check)
         this.updateLoadingStep(1, "User Data Loading...", 'fa-spinner fa-pulse', false);
         await this.loadUserData();
         
@@ -313,7 +312,6 @@ async initialize() {
         
         this.updateLoadingStep(1, "User Data Loaded", 'fa-check-circle', true);
         
-        // STEP 5: Tasks Loading
         this.updateLoadingStep(3, "User Tasks Loading...", 'fa-spinner fa-pulse', false);
         
         this.taskManager = new TaskManager(this);
@@ -325,13 +323,12 @@ async initialize() {
             await this.loadTasksData();
             await this.loadUserCreatedTasks();
             await this.loadAdditionalRewards();
-            this.updateLoadingStep(3, "Tasks Loaded", 'fa-check-circle', true);
+            this.updateLoadingStep(3, "User Tasks Loaded", 'fa-check-circle', true);
         } catch (taskError) {
-            this.updateLoadingStep(3, "Tasks Loaded (partial)", 'fa-exclamation-triangle', false);
+            this.updateLoadingStep(3, "User Tasks Loaded (partial)", 'fa-exclamation-triangle', false);
         }
         
-        // STEP 6: Final Loading
-        this.updateLoadingStep(4, "Loading App Data...", 'fa-spinner fa-pulse', false);
+        this.updateLoadingStep(4, "Ready To Launch!", 'fa-spinner fa-pulse', false);
         
         try {
             await this.loadHistoryData();
@@ -345,7 +342,7 @@ async initialize() {
         this.isInitialized = true;
         this.isInitializing = false;
         
-        this.updateLoadingStep(4, "Ready to Launch", 'fa-check-circle', true);
+        this.updateLoadingStep(4, "Ready To Launch!", 'fa-check-circle', true);
         
     } catch (error) {
         this.showNotification("Error", "Initialization failed: " + error.message, "error");
@@ -367,7 +364,7 @@ async initialize() {
         this.isInitializing = false;
     }
 }
-
+    
     showMaintenancePage() {
         document.body.innerHTML = `
             <div class="maintenance-container">

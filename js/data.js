@@ -28,7 +28,7 @@ export const APP_CONFIG = {
     DAILY_CHECKIN_REWARD: 0.002,
     REQUIRED_PROMO_CODE_CHANNEL: "@POP_BUZZ",
     PROMO_CODE_REQUIRED_CHECK: true,
-    MAINTENANCE_MODE: true 
+    MAINTENANCE_MODE: false 
 };
 
 export const CORE_CONFIG = {

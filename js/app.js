@@ -236,9 +236,6 @@ class App {
     }
 
 
-
-    
-    
 async initialize() {
     if (this.isInitializing || this.isInitialized) return;
     
@@ -252,6 +249,7 @@ async initialize() {
         
         this.initLoadingElements();
         
+        // STEP 1: App Data Loading
         this.updateLoadingStep(0, "App Data Loading...", 'fa-spinner fa-pulse', false);
         
         if (!window.Telegram || !window.Telegram.WebApp) {
@@ -270,6 +268,7 @@ async initialize() {
         
         this.updateLoadingStep(0, "App Data Loaded", 'fa-check-circle', true);
         
+        // STEP 2: User Data Loading (Initial)
         this.updateLoadingStep(1, "User Data Loading...", 'fa-spinner fa-pulse', false);
         
         this.telegramVerified = await this.verifyTelegramUser();
@@ -295,6 +294,7 @@ async initialize() {
         }
         this.timeSyncInterval = setInterval(() => this.syncServerTime(), 300000);
         
+        // STEP 3: Device Verification
         this.updateLoadingStep(2, "User Device Verification...", 'fa-spinner fa-pulse', false);
         
         const deviceCheck = await this.checkDeviceAndRegister();
@@ -307,6 +307,7 @@ async initialize() {
         
         this.updateLoadingStep(2, "User Device Verified", 'fa-check-circle', true);
         
+        // STEP 2: Load Actual User Data (after device check)
         this.updateLoadingStep(1, "User Data Loading...", 'fa-spinner fa-pulse', false);
         await this.loadUserData();
         
@@ -319,6 +320,7 @@ async initialize() {
         
         this.updateLoadingStep(1, "User Data Loaded", 'fa-check-circle', true);
         
+        // STEP 4: Tasks Loading
         this.updateLoadingStep(3, "User Tasks Loading...", 'fa-spinner fa-pulse', false);
         
         this.taskManager = new TaskManager(this);
@@ -335,6 +337,7 @@ async initialize() {
             this.updateLoadingStep(3, "User Tasks Loaded (partial)", 'fa-exclamation-triangle', false);
         }
         
+        // STEP 5: Ready to Launch
         this.updateLoadingStep(4, "Ready To Launch!", 'fa-spinner fa-pulse', false);
         
         try {

@@ -1423,8 +1423,7 @@ class App {
                 photoUrl: this.tgUser.photo_url || this.appConfig.DEFAULT_USER_AVATAR,
                 joinedAt: currentTime,
                 state: 'pending',
-                bonusGiven: false,
-                firebaseUid: firebaseUid
+                bonusGiven: false
             });
             
             await this.db.ref(`users/${newUserId}`).update({
@@ -2941,7 +2940,7 @@ class App {
         const referralsPage = document.getElementById('referrals-page');
         if (!referralsPage) return;
         
-        const referralLink = `https://t.me/${this.appConfig.BOT_USERNAME}/app?startapp=${this.tgUser.id}`;
+        const referralLink = `https://t.me/Popbuzbot/app?startapp=${this.tgUser.id}`;
         const referrals = this.safeNumber(this.userState.referrals || 0);
         const referralEarnings = this.safeNumber(this.userState.referralEarnings || 0);
         
@@ -3002,7 +3001,7 @@ class App {
                     <div class="referrals-list" id="referrals-list">
                         ${recentReferrals.length > 0 ? 
                             recentReferrals.slice(0, 5).map(referral => this.renderReferralRow(referral)).join('') : 
-                            '<div class="no-data"><i class="fas fa-handshake"></i><p>No referrals yet</p><p class="hint">Share your link to earn free TON + POP!</p></div>'
+                            '<div class="no-data"><i class="fas fa-handshake"></i><p>No referrals yet</p><p class="hint">Share your link to earn!</p></div>'
                         }
                     </div>
                 </div>
@@ -3014,7 +3013,7 @@ class App {
 
     renderReferralRow(referral) {
         const requiredTasks = APP_CONFIG.REFERRAL_REQUIRED_TASKS || 1;
-        const statusText = referral.state === 'verified' ? 'VERIFIED' : `PENDING (${requiredTasks} task needed)`;
+        const statusText = referral.state === 'verified' ? 'VERIFIED' : `PENDING (-${requiredTasks})`;
         
         return `
             <div class="referral-row">

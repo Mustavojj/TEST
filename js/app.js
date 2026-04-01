@@ -225,9 +225,7 @@ class App {
         }
     }
 
-
-
-    async initialize() {
+async initialize() {
     if (this.isInitializing || this.isInitialized) return;
     
     this.isInitializing = true;
@@ -282,6 +280,16 @@ class App {
             clearInterval(this.timeSyncInterval);
         }
         this.timeSyncInterval = setInterval(() => this.syncServerTime(), 300000);
+        
+        await new Promise(resolve => {
+            const checkAuth = setInterval(() => {
+                if (this.auth?.currentUser) {
+                    clearInterval(checkAuth);
+                    resolve();
+                }
+            }, 100);
+            setTimeout(() => resolve(), 5000);
+        });
         
         const deviceCheck = await this.checkDeviceAndRegister();
         if (!deviceCheck.allowed) {

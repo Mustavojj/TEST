@@ -2965,8 +2965,8 @@ class App {
                                 <i class="fas fa-gift"></i>
                             </div>
                             <div class="info-content">
-                                <h4>Get ${this.appConfig.REFERRAL_BONUS_TON} TON + ${this.appConfig.REFERRAL_BONUS_POP} POP</h4>
-                                <p>After your referral completes ${APP_CONFIG.REFERRAL_REQUIRED_TASKS} task(s)</p>
+                                <h4>EARN ${this.appConfig.REFERRAL_BONUS_TON} TON & ${this.appConfig.REFERRAL_BONUS_POP} POP</h4>
+                                <p>For Every Verified Referral</p>
                             </div>
                         </div>
                     </div>
@@ -3013,7 +3013,7 @@ class App {
 
     renderReferralRow(referral) {
         const requiredTasks = APP_CONFIG.REFERRAL_REQUIRED_TASKS || 1;
-        const statusText = referral.state === 'verified' ? 'VERIFIED' : `PENDING (-${requiredTasks})`;
+        const statusText = referral.state === 'verified' ? 'VERIFIED' : `PENDING`;
         
         return `
             <div class="referral-row">

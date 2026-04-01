@@ -84,7 +84,6 @@ class App {
          { element: null, text: 'User Tasks Loading...', icon: 'fa-spinner fa-pulse', completedText: 'User Tasks Loaded', completedIcon: 'fa-check-circle' },
          { element: null, text: 'Ready To Launch!', icon: 'fa-spinner fa-pulse', completedText: 'Ready To Launch!', completedIcon: 'fa-check-circle' }
         ];
-        this.currentLoadingStep = 0;
         this.loadingComplete = false;
         
         this.deviceBlocked = false;
@@ -217,24 +216,11 @@ class App {
     stepData.element.style.color = success ? '#4CAF50' : (icon.includes('fa-pulse') ? '#FFD966' : '#f44336');
     stepData.element.style.borderLeftColor = success ? '#4CAF50' : (icon.includes('fa-pulse') ? '#FFD966' : '#f44336');
     
-    if (success && stepIndex === this.currentLoadingStep) {
-        if (stepIndex < this.loadingSteps.length - 1) {
-            this.currentLoadingStep++;
-            const nextStep = this.loadingSteps[this.currentLoadingStep];
-            if (nextStep && nextStep.element) {
-                nextStep.element.innerHTML = `<i class="fas fa-spinner fa-pulse" style="color: #FFD966; margin-right: 12px; width: 20px;"></i><span>${nextStep.text}</span>`;
-                nextStep.element.style.color = '#FFD966';
-                nextStep.element.style.borderLeftColor = '#FFD966';
-            }
-        }
-    }
-    
     if (success && stepIndex === this.loadingSteps.length - 1) {
         this.loadingComplete = true;
         this.showLaunchButton();
     }
-    }
-
+        }
         
 async initialize() {
     if (this.isInitializing || this.isInitialized) return;

@@ -11,8 +11,6 @@ class TaskManager {
     }
 
     async loadTasksData(forceRefresh = false) {
-        if (this.app.deviceBlocked || this.app.userBanned) return;
-        
         const cacheKey = `tasks_${this.app.tgUser.id}`;
         
         if (!forceRefresh) {
@@ -59,7 +57,7 @@ class TaskManager {
                     try {
                         const taskData = child.val();
                         
-                        if (taskData.status !== 'active' && taskData.taskStatus !== 'active') {
+                        if (taskData.status !== 'active') {
                             return;
                         }
                         
@@ -108,7 +106,7 @@ class TaskManager {
                         try {
                             const taskData = taskSnapshot.val();
                             
-                            if (taskData.status !== 'active' && taskData.taskStatus !== 'active') {
+                            if (taskData.status !== 'active') {
                                 return;
                             }
                             

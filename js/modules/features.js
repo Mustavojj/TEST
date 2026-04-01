@@ -57,7 +57,7 @@ class TaskManager {
                     try {
                         const taskData = child.val();
                         
-                        if (taskData.status !== 'active' && taskData.taskStatus !== 'active') {
+                        if (taskData.status !== 'active') {
                             return;
                         }
                         
@@ -106,7 +106,7 @@ class TaskManager {
                         try {
                             const taskData = taskSnapshot.val();
                             
-                            if (taskData.status !== 'active' && taskData.taskStatus !== 'active') {
+                            if (taskData.status !== 'active') {
                                 return;
                             }
                             
@@ -258,6 +258,7 @@ class ReferralManager {
             
             const referrals = referralsRef.val();
             let updated = false;
+            const requiredTasks = APP_CONFIG.REFERRAL_REQUIRED_TASKS || 1;
             
             for (const referralId in referrals) {
                 const referral = referrals[referralId];
@@ -266,8 +267,9 @@ class ReferralManager {
                     const newUserRef = await this.app.db.ref(`users/${referralId}`).once('value');
                     if (newUserRef.exists()) {
                         const newUserData = newUserRef.val();
+                        const completedTasks = newUserData.completedTasksCount || 0;
                         
-                        if (newUserData && newUserData.status !== 'ban') {
+                        if (newUserData && newUserData.status !== 'ban' && completedTasks >= requiredTasks) {
                             await this.app.giveReferralBonus(this.app.tgUser.id, referralId, referral);
                             updated = true;
                         }
@@ -281,6 +283,44 @@ class ReferralManager {
                 
                 if (document.getElementById('referrals-page')?.classList.contains('active')) {
                     this.app.renderReferralsPage();
+                }
+            }
+            
+        } catch (error) {}
+    }
+    
+    async checkUserCompletedTasksForReferral(userId) {
+        try {
+            if (!this.app.db) return;
+            
+            const userRef = await this.app.db.ref(`users/${userId}`).once('value');
+            if (!userRef.exists()) return;
+            
+            const userData = userRef.val();
+            const completedTasks = userData.completedTasksCount || 0;
+            const requiredTasks = APP_CONFIG.REFERRAL_REQUIRED_TASKS || 1;
+            
+            if (completedTasks >= requiredTasks && userData.referredBy) {
+                const referrerId = userData.referredBy;
+                const referralRef = await this.app.db.ref(`referrals/${referrerId}/${userId}`).once('value');
+                
+                if (referralRef.exists()) {
+                    const referralData = referralRef.val();
+                    
+                    if (referralData.state === 'pending' && !referralData.bonusGiven) {
+                        await this.app.giveReferralBonus(referrerId, userId, referralData);
+                        
+                        this.app.cache.delete(`user_${referrerId}`);
+                        this.app.cache.delete(`referrals_${referrerId}`);
+                        
+                        if (this.app.tgUser && referrerId == this.app.tgUser.id) {
+                            await this.app.loadUserData(true);
+                            if (document.getElementById('referrals-page')?.classList.contains('active')) {
+                                this.app.renderReferralsPage();
+                            }
+                            this.app.updateHeader();
+                        }
+                    }
                 }
             }
             

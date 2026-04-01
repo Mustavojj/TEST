@@ -78,16 +78,15 @@ class App {
         this.additionalRewards = [];
         
         this.loadingSteps = [
-         { element: null, text: 'App Data Loading...', icon: 'fa-spinner fa-pulse', completedText: 'App Data Loaded', completedIcon: 'fa-check-circle' },
-         { element: null, text: 'User Data Loading...', icon: 'fa-spinner fa-pulse', completedText: 'User Data Loaded', completedIcon: 'fa-check-circle' },
-         { element: null, text: 'User Device Verification...', icon: 'fa-spinner fa-pulse', completedText: 'User Device Verified', completedIcon: 'fa-check-circle' },
-         { element: null, text: 'User Tasks Loading...', icon: 'fa-spinner fa-pulse', completedText: 'User Tasks Loaded', completedIcon: 'fa-check-circle' },
-         { element: null, text: 'Ready To Launch!', icon: 'fa-spinner fa-pulse', completedText: 'Ready To Launch!', completedIcon: 'fa-check-circle' }
+            { element: null, text: 'App Data Loading...', icon: 'fa-spinner fa-pulse', completedText: 'App Data Loaded', completedIcon: 'fa-check-circle' },
+            { element: null, text: 'User Data Loading...', icon: 'fa-spinner fa-pulse', completedText: 'User Data Loaded', completedIcon: 'fa-check-circle' },
+            { element: null, text: 'User Device Verification...', icon: 'fa-spinner fa-pulse', completedText: 'User Device Verified', completedIcon: 'fa-check-circle' },
+            { element: null, text: 'User Tasks Loading...', icon: 'fa-spinner fa-pulse', completedText: 'User Tasks Loaded', completedIcon: 'fa-check-circle' },
+            { element: null, text: 'Ready To Launch!', icon: 'fa-spinner fa-pulse', completedText: 'Ready To Launch!', completedIcon: 'fa-check-circle' }
         ];
+        this.currentLoadingStep = 0;
         this.loadingComplete = false;
-        
-        this.deviceBlocked = false;
-        this.userBanned = false;
+        this.deviceCheckPassed = false;
     }
 
     getRateLimiterClass() {
@@ -202,166 +201,168 @@ class App {
         });
     }
 
-    updateLoadingStep(stepIndex, text, icon = 'fa-spinner fa-pulse', success = false) {
-    if (stepIndex >= this.loadingSteps.length) return;
-    
-    const stepData = this.loadingSteps[stepIndex];
-    if (!stepData.element) return;
-    
-    const finalIcon = success ? (stepData.completedIcon || 'fa-check-circle') : icon;
-    const finalText = success ? (stepData.completedText || text) : text;
-    const iconColor = success ? '#4CAF50' : (icon.includes('fa-pulse') ? '#FFD966' : '#f44336');
-    
-    stepData.element.innerHTML = `<i class="fas ${finalIcon}" style="color: ${iconColor}; margin-right: 12px; width: 20px;"></i><span>${finalText}</span>`;
-    stepData.element.style.color = success ? '#4CAF50' : (icon.includes('fa-pulse') ? '#FFD966' : '#f44336');
-    stepData.element.style.borderLeftColor = success ? '#4CAF50' : (icon.includes('fa-pulse') ? '#FFD966' : '#f44336');
-    
-    if (success && stepIndex === this.loadingSteps.length - 1) {
-        this.loadingComplete = true;
-        this.showLaunchButton();
+    updateLoadingStep(step, text, icon = 'fa-spinner fa-pulse', success = false) {
+        if (step >= this.loadingSteps.length) return;
+        
+        const stepData = this.loadingSteps[step];
+        if (!stepData.element) return;
+        
+        const finalIcon = success ? (stepData.completedIcon || 'fa-check-circle') : icon;
+        const finalText = success ? (stepData.completedText || text) : text;
+        const iconColor = success ? '#4CAF50' : (icon.includes('fa-pulse') ? '#FFD966' : '#f44336');
+        
+        stepData.element.innerHTML = `<i class="fas ${finalIcon}" style="color: ${iconColor}; margin-right: 12px; width: 20px;"></i><span>${finalText}</span>`;
+        stepData.element.style.color = success ? '#4CAF50' : (icon.includes('fa-pulse') ? '#FFD966' : '#f44336');
+        stepData.element.style.borderLeftColor = success ? '#4CAF50' : (icon.includes('fa-pulse') ? '#FFD966' : '#f44336');
+        
+        if (success && step === this.currentLoadingStep && step < this.loadingSteps.length - 1) {
+            this.currentLoadingStep++;
+            this.updateLoadingStep(this.currentLoadingStep, this.loadingSteps[this.currentLoadingStep].text, 'fa-spinner fa-pulse', false);
+        }
+        
+        if (success && step === this.loadingSteps.length - 1) {
+            this.loadingComplete = true;
+            this.showLaunchButton();
+        }
     }
-        }
-        
-async initialize() {
-    if (this.isInitializing || this.isInitialized) return;
-    
-    this.isInitializing = true;
-    
-    try {
-        if (APP_CONFIG.MAINTENANCE_MODE) {
-            this.showMaintenancePage();
-            return;
-        }
-        
-        this.initLoadingElements();
-        
-        // الخطوة 1
-        this.updateLoadingStep(0, "App Data Loading...", 'fa-spinner fa-pulse', false);
-        
-        if (!window.Telegram || !window.Telegram.WebApp) {
-            this.showError("Please open from Telegram Mini App");
-            return;
-        }
-        
-        this.tg = window.Telegram.WebApp;
-        
-        if (!this.tg.initDataUnsafe || !this.tg.initDataUnsafe.user) {
-            this.showError("User data not available");
-            return;
-        }
-        
-        this.tgUser = this.tg.initDataUnsafe.user;
-        
-        this.updateLoadingStep(0, "App Data Loaded", 'fa-check-circle', true);
-        
-        // الخطوة 2
-        this.updateLoadingStep(1, "User Data Loading...", 'fa-spinner fa-pulse', false);
-        
-        this.telegramVerified = await this.verifyTelegramUser();
-        this.botToken = await this.getBotToken();
-        
-        this.tg.ready();
-        this.tg.expand();
-        
-        this.setupTelegramTheme();
-        
-        this.notificationManager = new NotificationManager();
-        
-        const firebaseSuccess = await this.initializeFirebase();
-        
-        if (firebaseSuccess) {
-            this.setupFirebaseAuth();
-        }
-        
-        await this.syncServerTime();
-        
-        if (this.timeSyncInterval) {
-            clearInterval(this.timeSyncInterval);
-        }
-        this.timeSyncInterval = setInterval(() => this.syncServerTime(), 300000);
-        
-        // الخطوة 3
-        this.updateLoadingStep(2, "User Device Verification...", 'fa-spinner fa-pulse', false);
-        
-        const deviceCheck = await this.checkDeviceAndRegister();
-        if (!deviceCheck.allowed) {
-            this.deviceBlocked = true;
-            this.updateLoadingStep(2, "Device Blocked", 'fa-ban', false);
-            this.showDeviceBanPage(deviceCheck.message || "This device is already registered with another account.");
-            return;
-        }
 
-        this.deviceBlocked = false; 
-        this.userBanned = false;
-        this.updateLoadingStep(2, "User Device Verified", 'fa-check-circle', true);
+    async initialize() {
+        if (this.isInitializing || this.isInitialized) return;
         
-        // الخطوة 2 - استكمال تحميل المستخدم
-        await this.loadUserData();
-        
-        if (this.userState.status === 'ban') {
-            this.userBanned = true;
-            this.updateLoadingStep(1, "Account Blocked", 'fa-ban', false);
-            this.showBannedPage();
-            return;
-        }
-        
-        this.updateLoadingStep(1, "User Data Loaded", 'fa-check-circle', true);
-        
-        // الخطوة 4
-        this.updateLoadingStep(3, "User Tasks Loading...", 'fa-spinner fa-pulse', false);
-        
-        this.taskManager = new TaskManager(this);
-        this.referralManager = new ReferralManager(this);
-        
-        this.startReferralMonitor();
+        this.isInitializing = true;
         
         try {
-            await this.loadTasksData();
-            await this.loadUserCreatedTasks();
-            await this.loadAdditionalRewards();
-            this.updateLoadingStep(3, "User Tasks Loaded", 'fa-check-circle', true);
-        } catch (taskError) {
-            this.updateLoadingStep(3, "User Tasks Loaded (partial)", 'fa-exclamation-triangle', true);
-        }
-        
-        // الخطوة 5
-        this.updateLoadingStep(4, "Ready To Launch!", 'fa-spinner fa-pulse', false);
-        
-        try {
-            await this.loadHistoryData();
-        } catch (historyError) {}
-        
-        this.renderUI();
-        
-        this.darkMode = true;
-        this.applyTheme();
-        
-        this.isInitialized = true;
-        this.isInitializing = false;
-        
-        this.updateLoadingStep(4, "Ready To Launch!", 'fa-check-circle', true);
-        
-    } catch (error) {
-        this.showNotification("Error", "Initialization failed: " + error.message, "error");
-        
-        try {
-            this.userState = this.getDefaultUserState();
+            if (APP_CONFIG.MAINTENANCE_MODE) {
+                this.showMaintenancePage();
+                return;
+            }
+            
+            this.initLoadingElements();
+            
+            this.updateLoadingStep(0, "App Data Loading...", 'fa-spinner fa-pulse', false);
+            
+            if (!window.Telegram || !window.Telegram.WebApp) {
+                this.showError("Please open from Telegram Mini App");
+                return;
+            }
+            
+            this.tg = window.Telegram.WebApp;
+            
+            if (!this.tg.initDataUnsafe || !this.tg.initDataUnsafe.user) {
+                this.showError("User data not available");
+                return;
+            }
+            
+            this.tgUser = this.tg.initDataUnsafe.user;
+            
+            this.updateLoadingStep(0, "App Data Loaded", 'fa-check-circle', true);
+            
+            this.updateLoadingStep(1, "User Data Loading...", 'fa-spinner fa-pulse', false);
+            
+            this.telegramVerified = await this.verifyTelegramUser();
+            this.botToken = await this.getBotToken();
+            
+            this.tg.ready();
+            this.tg.expand();
+            
+            this.setupTelegramTheme();
+            
+            this.notificationManager = new NotificationManager();
+            
+            const firebaseSuccess = await this.initializeFirebase();
+            
+            if (firebaseSuccess) {
+                this.setupFirebaseAuth();
+            }
+            
+            await this.syncServerTime();
+            
+            if (this.timeSyncInterval) {
+                clearInterval(this.timeSyncInterval);
+            }
+            this.timeSyncInterval = setInterval(() => this.syncServerTime(), 300000);
+            
+            this.updateLoadingStep(1, "User Data Loaded", 'fa-check-circle', true);
+            
+            this.updateLoadingStep(2, "User Device Verification...", 'fa-spinner fa-pulse', false);
+            
+            const deviceCheck = await this.checkDeviceAndRegister();
+            
+            if (!deviceCheck.allowed) {
+                this.showDeviceBanPage(deviceCheck.message);
+                return;
+            }
+            
+            this.deviceCheckPassed = true;
+            
+            this.updateLoadingStep(2, "User Device Verified", 'fa-check-circle', true);
+            
+            await this.loadUserData();
+            
+            if (this.userState.status === 'ban') {
+                this.showBannedPage();
+                return;
+            }
+            
+            this.updateLoadingStep(3, "User Tasks Loading...", 'fa-spinner fa-pulse', false);
+            
+            this.taskManager = new TaskManager(this);
+            this.referralManager = new ReferralManager(this);
+            
+            this.startReferralMonitor();
+            
+            try {
+                await this.loadTasksData();
+                await this.loadUserCreatedTasks();
+                await this.loadAdditionalRewards();
+                this.updateLoadingStep(3, "User Tasks Loaded", 'fa-check-circle', true);
+            } catch (taskError) {
+                this.updateLoadingStep(3, "User Tasks Loaded", 'fa-check-circle', true);
+            }
+            
+            this.updateLoadingStep(4, "Ready To Launch!", 'fa-spinner fa-pulse', false);
+            
+            try {
+                await this.loadHistoryData();
+            } catch (historyError) {}
+            
             this.renderUI();
             
-            const appLoader = document.getElementById('app-loader');
-            const app = document.getElementById('app');
+            this.darkMode = true;
+            this.applyTheme();
             
-            if (appLoader) appLoader.style.display = 'none';
-            if (app) app.style.display = 'block';
+            this.isInitialized = true;
+            this.isInitializing = false;
             
-        } catch (renderError) {
-            this.showError("Failed to initialize app: " + error.message);
+            this.updateLoadingStep(4, "Ready To Launch!", 'fa-check-circle', true);
+            
+            if (this.pendingReferralAfterWelcome) {
+                setTimeout(() => {
+                    this.processPendingReferralBonus(this.pendingReferralAfterWelcome);
+                }, 2000);
+            }
+            
+        } catch (error) {
+            this.showNotification("Error", "Initialization failed: " + error.message, "error");
+            
+            try {
+                this.userState = this.getDefaultUserState();
+                this.renderUI();
+                
+                const appLoader = document.getElementById('app-loader');
+                const app = document.getElementById('app');
+                
+                if (appLoader) appLoader.style.display = 'none';
+                if (app) app.style.display = 'block';
+                
+            } catch (renderError) {
+                this.showError("Failed to initialize app: " + error.message);
+            }
+            
+            this.isInitializing = false;
         }
-        
-        this.isInitializing = false;
     }
-}
-    
+
     showMaintenancePage() {
         document.body.innerHTML = `
             <div class="maintenance-container">
@@ -375,6 +376,9 @@ async initialize() {
                     <a href="${APP_CONFIG.NEWS_CHANNEL_LINK}" target="_blank" class="news-channel-btn">
                         <i class="fab fa-telegram"></i> Follow News Channel
                     </a>
+                    <button onclick="window.Telegram.WebApp.close()" class="close-app-btn">
+                        <i class="fas fa-times"></i> Close App
+                    </button>
                 </div>
             </div>
         `;
@@ -419,7 +423,7 @@ async initialize() {
             }
             .news-channel-btn {
                 display: inline-block;
-                margin-top: 25px;
+                margin-top: 20px;
                 padding: 12px 24px;
                 background: linear-gradient(135deg, #FFD966, #FFB347);
                 color: #0a1428;
@@ -427,6 +431,22 @@ async initialize() {
                 border-radius: 50px;
                 font-weight: bold;
                 transition: transform 0.3s;
+            }
+            .close-app-btn {
+                display: block;
+                margin-top: 15px;
+                padding: 10px 20px;
+                background: rgba(255, 255, 255, 0.1);
+                color: #ffffff;
+                border: 1px solid rgba(255, 217, 102, 0.3);
+                border-radius: 50px;
+                font-weight: bold;
+                cursor: pointer;
+                width: 100%;
+                transition: all 0.3s;
+            }
+            .close-app-btn:hover {
+                background: rgba(255, 255, 255, 0.2);
             }
             .news-channel-btn:hover {
                 transform: translateY(-2px);
@@ -538,7 +558,7 @@ async initialize() {
                 if (deviceData.ownerId && deviceData.ownerId !== this.tgUser.id) {
                     return {
                         allowed: false,
-                        message: "This device is already registered with another account."
+                        message: "This device is already registered with another account. Multiple accounts per device are not allowed."
                     };
                 }
                 
@@ -546,7 +566,23 @@ async initialize() {
                     lastSeen: this.getServerTime(),
                     lastUserId: this.tgUser.id
                 });
+                
+                const existingUserRef = await this.db.ref(`users/${this.tgUser.id}`).once('value');
+                if (existingUserRef.exists()) {
+                    const existingUser = existingUserRef.val();
+                    if (existingUser.status === 'ban') {
+                        return { allowed: false, message: "This account has been banned." };
+                    }
+                }
             } else {
+                const existingUserRef = await this.db.ref(`users/${this.tgUser.id}`).once('value');
+                if (existingUserRef.exists()) {
+                    const existingUser = existingUserRef.val();
+                    if (existingUser.status === 'ban') {
+                        return { allowed: false, message: "This account has been banned." };
+                    }
+                }
+                
                 await this.db.ref(`devices/${this.deviceId}`).set({
                     ownerId: this.tgUser.id,
                     firstSeen: this.getServerTime(),
@@ -566,7 +602,7 @@ async initialize() {
         }
     }
 
-    showDeviceBanPage(message = "This device is already registered with another account.") {
+    showDeviceBanPage(message = "This device is already registered with another account. Multiple accounts per device are not allowed.") {
         document.body.innerHTML = `
             <div class="banned-container">
                 <div class="banned-content">
@@ -582,31 +618,83 @@ async initialize() {
                             <i class="fas fa-exclamation-circle"></i>
                         </div>
                         <p>${message}</p>
-                        <p style="margin-top: 12px; font-size: 13px; opacity: 0.8;">This device is linked to another account. Multiple accounts per device are not allowed.</p>
                     </div>
                     
-                    <button class="close-app-btn" id="close-app-btn">
-                        <i class="fas fa-times-circle"></i> Close Application
+                    <button onclick="window.Telegram.WebApp.close()" class="close-app-btn">
+                        <i class="fas fa-times"></i> Close App
                     </button>
                 </div>
             </div>
         `;
         
-        const closeBtn = document.getElementById('close-app-btn');
-        if (closeBtn) {
-            closeBtn.addEventListener('click', () => {
-                if (this.tg && this.tg.close) {
-                    this.tg.close();
-                } else {
-                    window.close();
-                }
-            });
-        }
-        
-        const loader = document.getElementById('app-loader');
-        if (loader) loader.style.display = 'none';
-        const app = document.getElementById('app');
-        if (app) app.style.display = 'none';
+        const style = document.createElement('style');
+        style.textContent = `
+            .banned-container {
+                position: fixed;
+                top: 0;
+                left: 0;
+                width: 100%;
+                height: 100%;
+                background: #0a1428;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                z-index: 10000;
+            }
+            .banned-content {
+                text-align: center;
+                padding: 30px;
+                background: rgba(26, 38, 58, 0.95);
+                border-radius: 24px;
+                margin: 20px;
+                max-width: 320px;
+                border: 1px solid rgba(255, 100, 100, 0.3);
+            }
+            .banned-header {
+                margin-bottom: 20px;
+            }
+            .banned-icon {
+                font-size: 64px;
+                color: #f44336;
+                margin-bottom: 15px;
+            }
+            .banned-content h2 {
+                color: #f44336;
+                font-size: 24px;
+            }
+            .ban-reason {
+                background: rgba(244, 67, 54, 0.1);
+                border-radius: 16px;
+                padding: 20px;
+                margin: 20px 0;
+                border-left: 4px solid #f44336;
+            }
+            .ban-reason-icon {
+                font-size: 32px;
+                color: #f44336;
+                margin-bottom: 10px;
+            }
+            .ban-reason p {
+                color: #e0e0e0;
+                line-height: 1.5;
+            }
+            .close-app-btn {
+                display: block;
+                width: 100%;
+                padding: 12px 24px;
+                background: linear-gradient(135deg, #f44336, #d32f2f);
+                color: white;
+                border: none;
+                border-radius: 50px;
+                font-weight: bold;
+                cursor: pointer;
+                transition: transform 0.3s;
+            }
+            .close-app-btn:hover {
+                transform: translateY(-2px);
+            }
+        `;
+        document.head.appendChild(style);
     }
 
     async getCurrentDepositComment() {
@@ -682,9 +770,19 @@ async initialize() {
             if (tasksRef.exists()) {
                 const tasks = [];
                 tasksRef.forEach(child => {
+                    const taskData = child.val();
                     tasks.push({
                         id: child.key,
-                        ...child.val()
+                        name: taskData.name,
+                        url: taskData.url,
+                        category: taskData.category,
+                        type: taskData.type,
+                        verification: taskData.verification,
+                        maxCompletions: taskData.maxCompletions,
+                        currentCompletions: taskData.currentCompletions || 0,
+                        status: taskData.status || 'active',
+                        picture: taskData.picture,
+                        createdAt: taskData.createdAt
                     });
                 });
                 this.userCreatedTasks = tasks;
@@ -692,7 +790,6 @@ async initialize() {
                 this.userCreatedTasks = [];
             }
         } catch (error) {
-            this.showNotification("Warning", "Failed to load your tasks", "warning");
             this.userCreatedTasks = [];
         }
     }
@@ -1032,10 +1129,8 @@ async initialize() {
                     maxCompletions: completions,
                     currentCompletions: 0,
                     status: 'active',
-                    taskStatus: 'active',
                     reward: 0.001,
                     popReward: 1,
-                    createdBy: this.tgUser.id,
                     owner: this.tgUser.id,
                     createdAt: currentTime,
                     picture: this.appConfig.BOT_AVATAR
@@ -1244,7 +1339,7 @@ async initialize() {
             if (user) {
                 this.currentUser = user;
                 
-                if (this.userState.firebaseUid !== user.uid && !this.deviceBlocked && !this.userBanned) {
+                if (this.deviceCheckPassed && this.userState.firebaseUid !== user.uid) {
                     this.userState.firebaseUid = user.uid;
                     await this.syncUserWithFirebase();
                 }
@@ -1258,7 +1353,7 @@ async initialize() {
 
     async syncUserWithFirebase() {
         try {
-            if (!this.db || !this.auth.currentUser || this.deviceBlocked || this.userBanned) {
+            if (!this.db || !this.auth.currentUser || !this.deviceCheckPassed) {
                 return;
             }
             
@@ -1268,22 +1363,7 @@ async initialize() {
             const userRef = this.db.ref(`users/${telegramId}`);
             const userSnapshot = await userRef.once('value');
             
-            if (!userSnapshot.exists()) {
-                const userData = {
-                    ...this.getDefaultUserState(),
-                    firebaseUid: firebaseUid,
-                    telegramId: telegramId,
-                    deviceId: this.deviceId,
-                    createdAt: this.getServerTime(),
-                    lastSynced: this.getServerTime(),
-                    isNewUser: true
-                };
-                
-                await userRef.set(userData);
-                
-                const initialComment = this.tgUser.id.toString();
-                await this.db.ref(`users/${telegramId}/currentDepositComment`).set(initialComment);
-            } else {
+            if (userSnapshot.exists()) {
                 await userRef.update({
                     firebaseUid: firebaseUid,
                     deviceId: this.deviceId,
@@ -1295,8 +1375,6 @@ async initialize() {
     }
 
     async loadUserData(forceRefresh = false) {
-        if (this.deviceBlocked || this.userBanned) return;
-        
         const cacheKey = `user_${this.tgUser.id}`;
         
         if (!forceRefresh) {
@@ -1304,6 +1382,7 @@ async initialize() {
             if (cachedData) {
                 this.userState = cachedData;
                 this.userPOP = this.safeNumber(cachedData.pop);
+                this.userCompletedTasks = new Set(cachedData.completedTasks || []);
                 this.updateHeader();
                 return;
             }
@@ -1338,7 +1417,13 @@ async initialize() {
                 userData = await this.createNewUser(userRef);
             }
             
-            if (userData.firebaseUid !== this.auth.currentUser.uid && !this.deviceBlocked && !this.userBanned) {
+            if (userData.status === 'ban') {
+                this.userState = userData;
+                this.showBannedPage();
+                return;
+            }
+            
+            if (userData.firebaseUid !== this.auth.currentUser.uid) {
                 await userRef.update({
                     firebaseUid: this.auth.currentUser.uid,
                     lastUpdated: this.getServerTime()
@@ -1363,9 +1448,7 @@ async initialize() {
 
     getDefaultUserState() {
         return {
-            id: this.tgUser.id,
             username: this.tgUser.username ? `@${this.tgUser.username}` : 'No Username',
-            telegramId: this.tgUser.id,
             firstName: this.getShortName(this.tgUser.first_name || 'User'),
             photoUrl: this.tgUser.photo_url || this.appConfig.DEFAULT_USER_AVATAR,
             balance: 0,
@@ -1373,32 +1456,19 @@ async initialize() {
             referrals: 0,
             totalEarned: 0,
             totalWithdrawals: 0,
-            totalDeposits: 0,
             totalTasksCompleted: 0,
             referralEarnings: 0,
             status: 'free',
             lastUpdated: this.getServerTime(),
             firebaseUid: this.auth?.currentUser?.uid || 'pending',
-            isNewUser: false,
-            totalWithdrawnAmount: 0,
             completedTasks: [],
             deviceId: this.deviceId,
-            currentDepositComment: this.tgUser.id.toString()
+            totalWithdrawnAmount: 0
         };
     }
 
     async createNewUser(userRef) {
-        if (this.deviceBlocked || this.userBanned) {
-            throw new Error('Access denied');
-        }
-        
         if (this.deviceOwnerId && this.deviceOwnerId !== this.tgUser.id) {
-            const banData = {
-                status: 'ban',
-                banReason: 'Multiple accounts per device are not allowed',
-                bannedAt: this.getServerTime()
-            };
-            await userRef.set(banData);
             throw new Error('Device already registered with another account');
         }
         
@@ -1417,6 +1487,7 @@ async initialize() {
                         this.pendingReferralAfterWelcome = referralId;
                     } else {
                         referralId = null;
+                        this.pendingReferralAfterWelcome = null;
                     }
                 } else {
                     referralId = null;
@@ -1429,12 +1500,8 @@ async initialize() {
         const currentTime = this.getServerTime();
         const firebaseUid = this.auth?.currentUser?.uid || 'pending';
         
-        const initialComment = this.tgUser.id.toString();
-        
         const userData = {
-            id: this.tgUser.id,
             username: this.tgUser.username ? `@${this.tgUser.username}` : 'No Username',
-            telegramId: this.tgUser.id,
             firstName: this.getShortName(this.tgUser.first_name || ''),
             photoUrl: this.tgUser.photo_url || this.appConfig.DEFAULT_USER_AVATAR,
             balance: 0,
@@ -1443,7 +1510,6 @@ async initialize() {
             referredBy: referralId,
             totalEarned: 0,
             totalWithdrawals: 0,
-            totalDeposits: 0,
             totalTasksCompleted: 0,
             referralEarnings: 0,
             completedTasks: [],
@@ -1454,7 +1520,7 @@ async initialize() {
             referralState: referralId ? 'pending' : null,
             firebaseUid: firebaseUid,
             totalWithdrawnAmount: 0,
-            deviceId: this.deviceId,
+            deviceId: this.deviceId
         };
         
         await userRef.set(userData);
@@ -1473,7 +1539,6 @@ async initialize() {
     async addReferralWithPendingBonus(referrerId, newUserId, firebaseUid) {
         try {
             if (!this.db) return;
-            if (this.deviceBlocked || this.userBanned) return;
             
             const currentTime = this.getServerTime();
             
@@ -1492,9 +1557,44 @@ async initialize() {
                 referralState: 'pending'
             });
             
-        } catch (error) {
-            console.error("Error adding pending referral:", error);
-        }
+        } catch (error) {}
+    }
+
+    async processPendingReferralBonus(referrerId) {
+        try {
+            if (!this.db || !this.deviceCheckPassed) return;
+            
+            const referrerRef = this.db.ref(`users/${referrerId}`);
+            const referrerSnapshot = await referrerRef.once('value');
+            
+            if (!referrerSnapshot.exists()) return;
+            
+            const referrerData = referrerSnapshot.val();
+            
+            if (referrerData.status === 'ban') return;
+            
+            const referralsRef = await this.db.ref(`referrals/${referrerId}`).once('value');
+            if (!referralsRef.exists()) return;
+            
+            const referrals = referralsRef.val();
+            
+            for (const referralId in referrals) {
+                const referral = referrals[referralId];
+                
+                if (referral.userId === this.tgUser.id && referral.state === 'pending' && !referral.bonusGiven) {
+                    const userRef = await this.db.ref(`users/${referralId}`).once('value');
+                    if (userRef.exists()) {
+                        const userData = userRef.val();
+                        
+                        if (userData && userData.status !== 'ban') {
+                            await this.giveReferralBonus(referrerId, referralId, referral);
+                            this.pendingReferralAfterWelcome = null;
+                        }
+                    }
+                }
+            }
+            
+        } catch (error) {}
     }
 
     async processPendingReferralsForReferrer(referrerId) {
@@ -1865,39 +1965,91 @@ async initialize() {
                         <div class="banned-icon">
                             <i class="fas fa-ban"></i>
                         </div>
-                        <h2>Account Blocked</h2>
+                        <h2>Account Banned</h2>
                     </div>
                     
                     <div class="ban-reason">
                         <div class="ban-reason-icon">
                             <i class="fas fa-exclamation-circle"></i>
                         </div>
-                        <p>Your account has been permanently blocked due to violation of our terms of service.</p>
-                        <p style="margin-top: 12px; font-size: 13px; opacity: 0.8;">This decision is final and cannot be appealed.</p>
+                        <p>This account has been blocked for violating our terms of service. This block is permanent and cannot be reversed.</p>
                     </div>
                     
-                    <button class="close-app-btn" id="close-app-btn">
-                        <i class="fas fa-times-circle"></i> Close Application
+                    <button onclick="window.Telegram.WebApp.close()" class="close-app-btn">
+                        <i class="fas fa-times"></i> Close App
                     </button>
                 </div>
             </div>
         `;
         
-        const closeBtn = document.getElementById('close-app-btn');
-        if (closeBtn) {
-            closeBtn.addEventListener('click', () => {
-                if (this.tg && this.tg.close) {
-                    this.tg.close();
-                } else {
-                    window.close();
-                }
-            });
-        }
-        
-        const loader = document.getElementById('app-loader');
-        if (loader) loader.style.display = 'none';
-        const app = document.getElementById('app');
-        if (app) app.style.display = 'none';
+        const style = document.createElement('style');
+        style.textContent = `
+            .banned-container {
+                position: fixed;
+                top: 0;
+                left: 0;
+                width: 100%;
+                height: 100%;
+                background: #0a1428;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                z-index: 10000;
+            }
+            .banned-content {
+                text-align: center;
+                padding: 30px;
+                background: rgba(26, 38, 58, 0.95);
+                border-radius: 24px;
+                margin: 20px;
+                max-width: 320px;
+                border: 1px solid rgba(255, 100, 100, 0.3);
+            }
+            .banned-header {
+                margin-bottom: 20px;
+            }
+            .banned-icon {
+                font-size: 64px;
+                color: #f44336;
+                margin-bottom: 15px;
+            }
+            .banned-content h2 {
+                color: #f44336;
+                font-size: 24px;
+            }
+            .ban-reason {
+                background: rgba(244, 67, 54, 0.1);
+                border-radius: 16px;
+                padding: 20px;
+                margin: 20px 0;
+                border-left: 4px solid #f44336;
+            }
+            .ban-reason-icon {
+                font-size: 32px;
+                color: #f44336;
+                margin-bottom: 10px;
+            }
+            .ban-reason p {
+                color: #e0e0e0;
+                line-height: 1.5;
+            }
+            .close-app-btn {
+                display: block;
+                width: 100%;
+                padding: 12px 24px;
+                background: linear-gradient(135deg, #f44336, #d32f2f);
+                color: white;
+                border: none;
+                border-radius: 50px;
+                font-weight: bold;
+                cursor: pointer;
+                transition: transform 0.3s;
+            }
+            .close-app-btn:hover {
+                transform: translateY(-2px);
+            }
+        `;
+        document.head.appendChild(style);
     }
 
     updateHeader() {
@@ -2933,8 +3085,7 @@ async initialize() {
                     if (newCompletions >= task.maxCompletions) {
                         await ownerRef.update({
                             currentCompletions: newCompletions,
-                            status: 'completed',
-                            taskStatus: 'completed'
+                            status: 'completed'
                         });
                     } else {
                         await ownerRef.update({
@@ -2957,8 +3108,7 @@ async initialize() {
                     if (newCompletions >= task.maxCompletions) {
                         await taskRef.update({
                             currentCompletions: newCompletions,
-                            status: 'completed',
-                            taskStatus: 'completed'
+                            status: 'completed'
                         });
                     } else {
                         await taskRef.update({
@@ -3166,7 +3316,6 @@ async initialize() {
         const totalTasksCompleted = this.safeNumber(this.userState.totalTasksCompleted || 0);
         const totalReferrals = this.safeNumber(this.userState.referrals || 0);
         const totalPOP = this.safeNumber(this.userState.pop || 0);
-        const totalDeposits = this.safeNumber(this.userState.totalDeposits || 0);
         
         const tasksRequired = this.appConfig.REQUIRED_TASKS_FOR_WITHDRAWAL;
         const referralsRequired = this.appConfig.REQUIRED_REFERRALS_FOR_WITHDRAWAL;
@@ -3873,7 +4022,6 @@ async initialize() {
 
     async updateExistingUser(userRef, userData) {
         const currentTime = this.getServerTime();
-        const today = new Date().toDateString();
         
         await userRef.update({ 
             lastActive: currentTime,
@@ -3886,7 +4034,6 @@ async initialize() {
             this.userCompletedTasks = new Set(userData.completedTasks);
         } else {
             this.userCompletedTasks = new Set();
-            userData.completedTasks = [];
             await userRef.update({ completedTasks: [] });
         }
         
@@ -3896,16 +4043,13 @@ async initialize() {
             referralEarnings: userData.referralEarnings || 0,
             totalEarned: userData.totalEarned || 0,
             totalWithdrawals: userData.totalWithdrawals || 0,
-            totalDeposits: userData.totalDeposits || 0,
             totalTasksCompleted: userData.totalTasksCompleted || 0,
             balance: userData.balance || 0,
             pop: userData.pop || 0,
             referrals: userData.referrals || 0,
             firebaseUid: this.auth?.currentUser?.uid || userData.firebaseUid || 'pending',
-            isNewUser: userData.isNewUser || false,
             totalWithdrawnAmount: userData.totalWithdrawnAmount || 0,
-            deviceId: this.deviceId,
-            currentDepositComment: userData.currentDepositComment || this.tgUser.id.toString()
+            deviceId: this.deviceId
         };
         
         const updates = {};

@@ -78,11 +78,11 @@ class App {
         this.additionalRewards = [];
         
         this.loadingSteps = [
-            { element: null, text: 'App Data Loading...', icon: 'fa-spinner fa-pulse', completedText: 'App Data Loaded', completedIcon: 'fa-check-circle' },
-            { element: null, text: 'User Data Loading...', icon: 'fa-spinner fa-pulse', completedText: 'User Data Loaded', completedIcon: 'fa-check-circle' },
-            { element: null, text: 'User Tasks Loading...', icon: 'fa-spinner fa-pulse', completedText: 'Tasks Loaded', completedIcon: 'fa-check-circle' },
-            { element: null, text: 'Checking Device Data...', icon: 'fa-spinner fa-pulse', completedText: 'Device Verified', completedIcon: 'fa-check-circle' },
-            { element: null, text: 'Loading App Data...', icon: 'fa-spinner fa-pulse', completedText: 'Ready to Launch', completedIcon: 'fa-check-circle' }
+            { element: null, text: 'Loading App Data...', icon: 'fa-spinner fa-pulse', completedText: 'App Data Loaded', completedIcon: 'fa-check-circle' },
+            { element: null, text: 'Loading User Data...', icon: 'fa-spinner fa-pulse', completedText: 'User Data Loaded', completedIcon: 'fa-check-circle' },
+            { element: null, text: 'Checking User Status...', icon: 'fa-spinner fa-pulse', completedText: 'Status Verified', completedIcon: 'fa-check-circle' },
+            { element: null, text: 'Loading Tasks...', icon: 'fa-spinner fa-pulse', completedText: 'Tasks Loaded', completedIcon: 'fa-check-circle' },
+            { element: null, text: 'App Loading...', icon: 'fa-spinner fa-pulse', completedText: 'Ready!', completedIcon: 'fa-check-circle' }
         ];
         this.currentLoadingStep = 0;
         this.loadingComplete = false;
@@ -238,7 +238,7 @@ class App {
             
             this.initLoadingElements();
             
-            this.updateLoadingStep(0, "App Data Loading...", 'fa-spinner fa-pulse', false);
+            this.updateLoadingStep(0, "Loading App Data...", 'fa-spinner fa-pulse', false);
             
             if (!window.Telegram || !window.Telegram.WebApp) {
                 this.showError("Please open from Telegram Mini App");
@@ -256,7 +256,7 @@ class App {
             
             this.updateLoadingStep(0, "App Data Loaded", 'fa-check-circle', true);
             
-            this.updateLoadingStep(1, "User Data Loading...", 'fa-spinner fa-pulse', false);
+            this.updateLoadingStep(1, "Loading User Data...", 'fa-spinner fa-pulse', false);
             
             this.telegramVerified = await this.verifyTelegramUser();
             this.botToken = await this.getBotToken();
@@ -283,14 +283,14 @@ class App {
             
             await this.loadUserData();
             
+            this.updateLoadingStep(1, "User Data Loaded", 'fa-check-circle', true);
+            
+            this.updateLoadingStep(2, "Checking User Status...", 'fa-spinner fa-pulse', false);
+            
             if (this.userState.status === 'ban') {
                 this.showBannedPage();
                 return;
             }
-            
-            this.updateLoadingStep(1, "User Data Loaded", 'fa-check-circle', true);
-            
-            this.updateLoadingStep(2, "Checking Device Data...", 'fa-spinner fa-pulse', false);
             
             const deviceCheck = await this.checkDeviceAndRegister();
             if (!deviceCheck.allowed) {
@@ -298,9 +298,9 @@ class App {
                 return;
             }
             
-            this.updateLoadingStep(2, "Device Verified", 'fa-check-circle', true);
+            this.updateLoadingStep(2, "Status Verified", 'fa-check-circle', true);
             
-            this.updateLoadingStep(3, "User Tasks Loading...", 'fa-spinner fa-pulse', false);
+            this.updateLoadingStep(3, "Loading Tasks...", 'fa-spinner fa-pulse', false);
             
             this.taskManager = new TaskManager(this);
             this.referralManager = new ReferralManager(this);
@@ -316,7 +316,7 @@ class App {
                 this.updateLoadingStep(3, "Tasks Loaded (partial)", 'fa-exclamation-triangle', false);
             }
             
-            this.updateLoadingStep(4, "Loading App Data...", 'fa-spinner fa-pulse', false);
+            this.updateLoadingStep(4, "App Loading...", 'fa-spinner fa-pulse', false);
             
             try {
                 await this.loadHistoryData();
@@ -330,7 +330,7 @@ class App {
             this.isInitialized = true;
             this.isInitializing = false;
             
-            this.updateLoadingStep(4, "Ready to Launch", 'fa-check-circle', true);
+            this.updateLoadingStep(4, "Ready!", 'fa-check-circle', true);
             
         } catch (error) {
             this.showNotification("Error", "Initialization failed: " + error.message, "error");
@@ -424,6 +424,40 @@ class App {
             }
         `;
         document.head.appendChild(style);
+    }
+
+    showBannedPage() {
+        document.body.innerHTML = `
+            <div class="banned-container" style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #0a1428; display: flex; align-items: center; justify-content: center; z-index: 10000;">
+                <div class="banned-card" style="background: linear-gradient(135deg, #1a263a 0%, #0f172a 100%); border-radius: 24px; padding: 32px 24px; text-align: center; border: 1px solid rgba(244, 67, 54, 0.3); box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3); max-width: 320px; margin: 20px;">
+                    <div class="banned-icon" style="font-size: 64px; color: #f44336; margin-bottom: 20px;">
+                        <i class="fas fa-ban"></i>
+                    </div>
+                    <h2 style="color: #f44336; font-size: 24px; margin-bottom: 12px;">Access Denied</h2>
+                    <p style="color: #e0e0e0; font-size: 14px; line-height: 1.5; margin-bottom: 24px;">This account has been blocked for security reasons. This block is permanent and cannot be reversed.</p>
+                    <button onclick="if(window.Telegram?.WebApp) window.Telegram.WebApp.close()" class="close-app-btn" style="background: linear-gradient(135deg, #f44336, #d32f2f); border: none; border-radius: 50px; padding: 12px 24px; color: white; font-weight: bold; font-size: 16px; cursor: pointer; transition: transform 0.3s; display: inline-flex; align-items: center; gap: 8px;">
+                        <i class="fas fa-times-circle"></i> Close App
+                    </button>
+                </div>
+            </div>
+        `;
+    }
+
+    showDeviceBanPage() {
+        document.body.innerHTML = `
+            <div class="banned-container" style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #0a1428; display: flex; align-items: center; justify-content: center; z-index: 10000;">
+                <div class="banned-card" style="background: linear-gradient(135deg, #1a263a 0%, #0f172a 100%); border-radius: 24px; padding: 32px 24px; text-align: center; border: 1px solid rgba(244, 67, 54, 0.3); box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3); max-width: 320px; margin: 20px;">
+                    <div class="banned-icon" style="font-size: 64px; color: #f44336; margin-bottom: 20px;">
+                        <i class="fas fa-ban"></i>
+                    </div>
+                    <h2 style="color: #f44336; font-size: 24px; margin-bottom: 12px;">Device Restricted</h2>
+                    <p style="color: #e0e0e0; font-size: 14px; line-height: 1.5; margin-bottom: 24px;">This device is already registered with another account. Multiple accounts per device are not allowed.</p>
+                    <button onclick="if(window.Telegram?.WebApp) window.Telegram.WebApp.close()" class="close-app-btn" style="background: linear-gradient(135deg, #f44336, #d32f2f); border: none; border-radius: 50px; padding: 12px 24px; color: white; font-weight: bold; font-size: 16px; cursor: pointer; transition: transform 0.3s; display: inline-flex; align-items: center; gap: 8px;">
+                        <i class="fas fa-times-circle"></i> Close App
+                    </button>
+                </div>
+            </div>
+        `;
     }
 
     initLoadingElements() {
@@ -557,45 +591,6 @@ class App {
         }
     }
 
-    showDeviceBanPage() {
-        document.body.innerHTML = `
-            <div class="banned-container">
-                <div class="banned-content">
-                    <div class="banned-header">
-                        <div class="banned-icon">
-                            <i class="fas fa-ban"></i>
-                        </div>
-                        <h2>Access Denied</h2>
-                    </div>
-                    
-                    <div class="ban-reason">
-                        <div class="ban-reason-icon">
-                            <i class="fas fa-exclamation-circle"></i>
-                        </div>
-                        <p>This account has been blocked for security reasons. This block is permanent and cannot be reversed.</p>
-                    </div>
-                </div>
-            </div>
-        `;
-    }
-
-    async getCurrentDepositComment() {
-        try {
-            if (!this.db) return this.tgUser.id.toString();
-            
-            const commentRef = await this.db.ref(`users/${this.tgUser.id}/currentDepositComment`).once('value');
-            if (commentRef.exists()) {
-                return commentRef.val();
-            } else {
-                const comment = this.tgUser.id.toString();
-                await this.db.ref(`users/${this.tgUser.id}/currentDepositComment`).set(comment);
-                return comment;
-            }
-        } catch (error) {
-            return this.tgUser.id.toString();
-        }
-    }
-
     async getBotToken() {
         try {
             const response = await fetch('/api/get-bot-token', {
@@ -648,7 +643,7 @@ class App {
         try {
             if (!this.db) return;
             
-            const tasksRef = await this.db.ref(`userTasks/${this.tgUser.id}`).once('value');
+            const tasksRef = await this.db.ref(`config/userTasks/${this.tgUser.id}`).once('value');
             if (tasksRef.exists()) {
                 const tasks = [];
                 tasksRef.forEach(child => {
@@ -760,7 +755,8 @@ class App {
                             </label>
                             <div class="completions-selector">
                                 ${completionsOptions.map(opt => {
-                                    const price = Math.floor(opt / 100) * APP_CONFIG.TASK_PRICE_PER_100_COMPLETIONS;
+                                    let price = Math.floor(opt / 100) * APP_CONFIG.TASK_PRICE_PER_100_COMPLETIONS;
+                                    if (opt === 250) price = 500;
                                     return `
                                         <div class="completion-option ${opt === 100 ? 'active' : ''}" data-completions="${opt}" data-price="${price}">${opt}</div>
                                     `;
@@ -965,7 +961,9 @@ class App {
                 return;
             }
             
-            const price = Math.floor(completions / 100) * APP_CONFIG.TASK_PRICE_PER_100_COMPLETIONS;
+            let price = Math.floor(completions / 100) * APP_CONFIG.TASK_PRICE_PER_100_COMPLETIONS;
+            if (completions === 250) price = 500;
+            
             const userPOP = this.safeNumber(this.userState.pop);
             
             if (userPOP < price) {
@@ -1002,10 +1000,8 @@ class App {
                     maxCompletions: completions,
                     currentCompletions: 0,
                     status: 'active',
-                    taskStatus: 'active',
                     reward: 0.001,
                     popReward: 1,
-                    createdBy: this.tgUser.id,
                     owner: this.tgUser.id,
                     createdAt: currentTime,
                     picture: this.appConfig.BOT_AVATAR
@@ -1014,11 +1010,6 @@ class App {
                 if (this.db) {
                     const taskRef = await this.db.ref(`config/userTasks/${this.tgUser.id}`).push(taskData);
                     const taskId = taskRef.key;
-                    
-                    await this.db.ref(`userTasks/${this.tgUser.id}/${taskId}`).set({
-                        ...taskData,
-                        id: taskId
-                    });
                     
                     const newPOP = userPOP - price;
                     await this.db.ref(`users/${this.tgUser.id}`).update({
@@ -1242,17 +1233,12 @@ class App {
                 const userData = {
                     ...this.getDefaultUserState(),
                     firebaseUid: firebaseUid,
-                    telegramId: telegramId,
                     deviceId: this.deviceId,
                     createdAt: this.getServerTime(),
-                    lastSynced: this.getServerTime(),
-                    isNewUser: true
+                    lastSynced: this.getServerTime()
                 };
                 
                 await userRef.set(userData);
-                
-                const initialComment = this.tgUser.id.toString();
-                await this.db.ref(`users/${telegramId}/currentDepositComment`).set(initialComment);
             } else {
                 await userRef.update({
                     firebaseUid: firebaseUid,
@@ -1333,7 +1319,6 @@ class App {
         return {
             id: this.tgUser.id,
             username: this.tgUser.username ? `@${this.tgUser.username}` : 'No Username',
-            telegramId: this.tgUser.id,
             firstName: this.getShortName(this.tgUser.first_name || 'User'),
             photoUrl: this.tgUser.photo_url || this.appConfig.DEFAULT_USER_AVATAR,
             balance: 0,
@@ -1341,17 +1326,15 @@ class App {
             referrals: 0,
             totalEarned: 0,
             totalWithdrawals: 0,
-            totalDeposits: 0,
             totalTasksCompleted: 0,
             referralEarnings: 0,
+            completedTasksCount: 0,
             status: 'free',
             lastUpdated: this.getServerTime(),
             firebaseUid: this.auth?.currentUser?.uid || 'pending',
-            isNewUser: false,
             totalWithdrawnAmount: 0,
             completedTasks: [],
-            deviceId: this.deviceId,
-            currentDepositComment: this.tgUser.id.toString()
+            deviceId: this.deviceId
         };
     }
 
@@ -1388,8 +1371,6 @@ class App {
         const currentTime = this.getServerTime();
         const firebaseUid = this.auth?.currentUser?.uid || 'pending';
         
-        const initialComment = this.tgUser.id.toString();
-        
         const userData = {
             id: this.tgUser.id,
             username: this.tgUser.username ? `@${this.tgUser.username}` : 'No Username',
@@ -1402,8 +1383,8 @@ class App {
             referredBy: referralId,
             totalEarned: 0,
             totalWithdrawals: 0,
-            totalDeposits: 0,
             totalTasksCompleted: 0,
+            completedTasksCount: 0,
             referralEarnings: 0,
             completedTasks: [],
             lastWithdrawalDate: null,
@@ -1413,7 +1394,7 @@ class App {
             referralState: referralId ? 'pending' : null,
             firebaseUid: firebaseUid,
             totalWithdrawnAmount: 0,
-            deviceId: this.deviceId,
+            deviceId: this.deviceId
         };
         
         await userRef.set(userData);
@@ -1464,6 +1445,7 @@ class App {
             
             const referrals = referralsRef.val();
             let updated = false;
+            const requiredTasks = APP_CONFIG.REFERRAL_REQUIRED_TASKS || 1;
             
             for (const referralId in referrals) {
                 const referral = referrals[referralId];
@@ -1472,8 +1454,9 @@ class App {
                     const userRef = await this.db.ref(`users/${referralId}`).once('value');
                     if (userRef.exists()) {
                         const userData = userRef.val();
+                        const completedTasks = userData.completedTasksCount || 0;
                         
-                        if (userData && userData.status !== 'ban') {
+                        if (userData && userData.status !== 'ban' && completedTasks >= requiredTasks) {
                             await this.giveReferralBonus(referrerId, referralId, referral);
                             updated = true;
                         }
@@ -1810,28 +1793,6 @@ class App {
                     <button onclick="window.location.reload()" class="reload-btn">
                         <i class="fas fa-redo"></i> Reload App
                     </button>
-                </div>
-            </div>
-        `;
-    }
-
-    showBannedPage() {
-        document.body.innerHTML = `
-            <div class="banned-container">
-                <div class="banned-content">
-                    <div class="banned-header">
-                        <div class="banned-icon">
-                            <i class="fas fa-ban"></i>
-                        </div>
-                        <h2>Access Denied</h2>
-                    </div>
-                    
-                    <div class="ban-reason">
-                        <div class="ban-reason-icon">
-                            <i class="fas fa-exclamation-circle"></i>
-                        </div>
-                        <p>This account has been blocked for security reasons. This block is permanent and cannot be reversed.</p>
-                    </div>
                 </div>
             </div>
         `;
@@ -2846,12 +2807,14 @@ class App {
             const currentPOP = this.safeNumber(this.userState.pop);
             const totalEarned = this.safeNumber(this.userState.totalEarned);
             const totalTasksCompleted = this.safeNumber(this.userState.totalTasksCompleted);
+            const completedTasksCount = this.safeNumber(this.userState.completedTasksCount);
             
             const updates = {
                 balance: currentBalance + taskReward,
                 pop: currentPOP + taskPopReward,
                 totalEarned: totalEarned + taskReward,
-                totalTasksCompleted: totalTasksCompleted + 1
+                totalTasksCompleted: totalTasksCompleted + 1,
+                completedTasksCount: completedTasksCount + 1
             };
             
             this.userCompletedTasks.add(taskId);
@@ -2870,18 +2833,13 @@ class App {
                     if (newCompletions >= task.maxCompletions) {
                         await ownerRef.update({
                             currentCompletions: newCompletions,
-                            status: 'completed',
-                            taskStatus: 'completed'
+                            status: 'completed'
                         });
                     } else {
                         await ownerRef.update({
                             currentCompletions: newCompletions
                         });
                     }
-                    
-                    await this.db.ref(`userTasks/${task.owner}/${taskId}`).update({
-                        currentCompletions: newCompletions
-                    });
                 }
             } else {
                 const taskRef = this.db.ref(`config/tasks/${taskId}`);
@@ -2894,8 +2852,7 @@ class App {
                     if (newCompletions >= task.maxCompletions) {
                         await taskRef.update({
                             currentCompletions: newCompletions,
-                            status: 'completed',
-                            taskStatus: 'completed'
+                            status: 'completed'
                         });
                     } else {
                         await taskRef.update({
@@ -2909,6 +2866,7 @@ class App {
             this.userState.pop = currentPOP + taskPopReward;
             this.userState.totalEarned = totalEarned + taskReward;
             this.userState.totalTasksCompleted = totalTasksCompleted + 1;
+            this.userState.completedTasksCount = completedTasksCount + 1;
             this.userState.completedTasks = [...this.userCompletedTasks];
             
             if (button) {
@@ -2937,6 +2895,10 @@ class App {
             
             if (this.userState.referredBy && this.appConfig.REFERRAL_PERCENTAGE > 0) {
                 await this.processReferralTaskBonus(this.userState.referredBy, taskReward);
+            }
+            
+            if (this.userState.referredBy && this.referralManager) {
+                await this.referralManager.checkUserCompletedTasksForReferral(this.tgUser.id);
             }
             
             this.enableAllTaskButtons();
@@ -2979,7 +2941,7 @@ class App {
         const referralsPage = document.getElementById('referrals-page');
         if (!referralsPage) return;
         
-        const referralLink = `https://t.me/Pobuzzbot/app?startapp=${this.tgUser.id}`;
+        const referralLink = `https://t.me/${this.appConfig.BOT_USERNAME}/app?startapp=${this.tgUser.id}`;
         const referrals = this.safeNumber(this.userState.referrals || 0);
         const referralEarnings = this.safeNumber(this.userState.referralEarnings || 0);
         
@@ -3005,7 +2967,7 @@ class App {
                             </div>
                             <div class="info-content">
                                 <h4>Get ${this.appConfig.REFERRAL_BONUS_TON} TON + ${this.appConfig.REFERRAL_BONUS_POP} POP</h4>
-                                <p>For each verified referral</p>
+                                <p>After your referral completes ${APP_CONFIG.REFERRAL_REQUIRED_TASKS} task(s)</p>
                             </div>
                         </div>
                     </div>
@@ -3051,6 +3013,9 @@ class App {
     }
 
     renderReferralRow(referral) {
+        const requiredTasks = APP_CONFIG.REFERRAL_REQUIRED_TASKS || 1;
+        const statusText = referral.state === 'verified' ? 'VERIFIED' : `PENDING (${requiredTasks} task needed)`;
+        
         return `
             <div class="referral-row">
                 <div class="referral-row-avatar">
@@ -3062,7 +3027,7 @@ class App {
                     <p class="referral-row-username">${referral.username}</p>
                 </div>
                 <div class="referral-row-status ${referral.state}">
-                    ${referral.state === 'verified' ? 'VERIFIED' : 'PENDING'}
+                    ${statusText}
                 </div>
             </div>
         `;
@@ -3103,7 +3068,6 @@ class App {
         const totalTasksCompleted = this.safeNumber(this.userState.totalTasksCompleted || 0);
         const totalReferrals = this.safeNumber(this.userState.referrals || 0);
         const totalPOP = this.safeNumber(this.userState.pop || 0);
-        const totalDeposits = this.safeNumber(this.userState.totalDeposits || 0);
         
         const tasksRequired = this.appConfig.REQUIRED_TASKS_FOR_WITHDRAWAL;
         const referralsRequired = this.appConfig.REQUIRED_REFERRALS_FOR_WITHDRAWAL;
@@ -3435,7 +3399,7 @@ class App {
                 if (type === 'wallet') {
                     text = this.appConfig.DEPOSIT_WALLET;
                 } else if (type === 'comment') {
-                    text = await this.getCurrentDepositComment();
+                    text = this.tgUser.id.toString();
                 }
                 
                 if (text) {
@@ -3810,7 +3774,6 @@ class App {
 
     async updateExistingUser(userRef, userData) {
         const currentTime = this.getServerTime();
-        const today = new Date().toDateString();
         
         await userRef.update({ 
             lastActive: currentTime,
@@ -3833,16 +3796,14 @@ class App {
             referralEarnings: userData.referralEarnings || 0,
             totalEarned: userData.totalEarned || 0,
             totalWithdrawals: userData.totalWithdrawals || 0,
-            totalDeposits: userData.totalDeposits || 0,
             totalTasksCompleted: userData.totalTasksCompleted || 0,
+            completedTasksCount: userData.completedTasksCount || 0,
             balance: userData.balance || 0,
             pop: userData.pop || 0,
             referrals: userData.referrals || 0,
             firebaseUid: this.auth?.currentUser?.uid || userData.firebaseUid || 'pending',
-            isNewUser: userData.isNewUser || false,
             totalWithdrawnAmount: userData.totalWithdrawnAmount || 0,
-            deviceId: this.deviceId,
-            currentDepositComment: userData.currentDepositComment || this.tgUser.id.toString()
+            deviceId: this.deviceId
         };
         
         const updates = {};

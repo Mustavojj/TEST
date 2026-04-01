@@ -290,7 +290,9 @@ async initialize() {
             this.showDeviceBanPage(deviceCheck.message || "This device is already registered with another account.");
             return;
         }
-        
+
+        this.deviceBlocked = false; 
+        this.userBanned = false;
         this.updateLoadingStep(2, "User Device Verified", 'fa-check-circle', true);
         
         // الخطوة 2 - استكمال تحميل المستخدم

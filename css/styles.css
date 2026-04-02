@@ -2112,3 +2112,79 @@ body {
     25% { transform: rotate(-10deg); }
     75% { transform: rotate(10deg); }
 }
+
+    
+.history-item-simple {
+    background: rgba(255, 255, 255, 0.05);
+    border-radius: 12px;
+    padding: 10px 16px;
+    margin-bottom: 8px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    transition: all 0.2s ease;
+}
+
+.history-left {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.history-amount-row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.history-amount-row .history-ton-icon {
+    width: 18px;
+    height: 18px;
+}
+
+.history-amount-row .history-amount {
+    font-weight: 600;
+    color: var(--text-primary);
+    font-size: 0.95rem;
+}
+
+.history-time-row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 0.7rem;
+    color: var(--text-light);
+}
+
+.history-time-row i {
+    font-size: 0.65rem;
+    width: 12px;
+}
+
+.history-right {
+    display: flex;
+    align-items: center;
+}
+
+.history-status-badge {
+    font-size: 0.7rem;
+    font-weight: 600;
+    padding: 4px 10px;
+    border-radius: 20px;
+    background: rgba(0, 0, 0, 0.3);
+}
+
+.history-status-badge.pending {
+    background: rgba(245, 158, 11, 0.2);
+    color: #f59e0b;
+}
+
+.history-status-badge.completed {
+    background: rgba(16, 185, 129, 0.2);
+    color: #10b981;
+}
+
+.history-status-badge.rejected {
+    background: rgba(239, 68, 68, 0.2);
+    color: #ef4444;
+}

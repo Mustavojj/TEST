@@ -2940,7 +2940,7 @@ class App {
         const referralsPage = document.getElementById('referrals-page');
         if (!referralsPage) return;
         
-        const referralLink = `https://t.me/Popbuzbot/app?startapp=${this.tgUser.id}`;
+        const referralLink = `https://t.me/Pobuzzbot/app?startapp=${this.tgUser.id}`;
         const referrals = this.safeNumber(this.userState.referrals || 0);
         const referralEarnings = this.safeNumber(this.userState.referralEarnings || 0);
         
@@ -3036,12 +3036,12 @@ class App {
         const copyBtn = document.getElementById('copy-referral-link-btn');
         if (copyBtn) {
             copyBtn.addEventListener('click', () => {
-                const referralLink = `https://t.me/${this.appConfig.BOT_USERNAME}/app?startapp=${this.tgUser.id}`;
+                const referralLink = `https://t.me/Pobuzzbot/app?startapp=${this.tgUser.id}`;
                 this.copyToClipboard(referralLink);
                 
                 copyBtn.classList.add('copied');
                 const originalText = copyBtn.innerHTML;
-                copyBtn.innerHTML = '<i class="fas fa-check"></i> Copied!';
+                copyBtn.innerHTML = '<i class="fas fa-check"></i>Referral Link Copied!';
                 
                 setTimeout(() => {
                     copyBtn.classList.remove('copied');

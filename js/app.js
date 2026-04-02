@@ -3287,66 +3287,48 @@ class App {
         });
     }
 
+
+
+
+
+
     renderWithdrawalsHistory() {
-        if (!this.userWithdrawals || this.userWithdrawals.length === 0) {
-            return `
-                <div class="no-data">
-                    <i class="fas fa-history"></i>
-                    <p>No withdrawal history</p>
-                    <p class="hint">Your withdrawals will appear here</p>
-                </div>
-            `;
-        }
-        
-        return this.userWithdrawals.map(withdrawal => {
-            const statusClass = withdrawal.status || 'pending';
-            const statusText = (withdrawal.status || 'pending').toUpperCase();
-            const amount = this.safeNumber(withdrawal.amount);
-            const timestamp = withdrawal.timestamp || withdrawal.createdAt || Date.now();
-            const walletAddress = withdrawal.walletAddress || '';
-            const withdrawalId = withdrawal.id || '';
-            
-            const displayId = withdrawalId.startsWith('POP_') ? withdrawalId : `POP_${withdrawalId.substring(0, 5).toUpperCase()}`;
-            
-            return `
-                <div class="history-item withdrawal">
-                    <div class="history-header">
-                        <div class="history-amount-wrapper">
-                            <img src="https://cdn-icons-png.flaticon.com/512/12114/12114247.png" class="history-ton-icon" alt="TON">
-                            <span class="history-amount">${amount.toFixed(3)}</span>
-                        </div>
-                        <span class="history-status ${statusClass}">${statusText}</span>
-                    </div>
-                    <div class="history-details">
-                        <div class="history-detail">
-                            <i class="fas fa-wallet"></i>
-                            <span class="history-wallet">${this.truncateAddress(walletAddress)}</span>
-                        </div>
-                        <div class="history-detail">
-                            <i class="fas fa-clock"></i>
-                            <span>${this.formatDateTime(timestamp)}</span>
-                        </div>
-                        <div class="history-detail">
-                            <i class="fas fa-id-card"></i>
-                            <span>${displayId}</span>
-                        </div>
-                        ${withdrawal.status === 'completed' && withdrawal.transactionLink ? `
-                            <div class="history-detail">
-                                <i class="fas fa-link"></i>
-                                <a href="${withdrawal.transactionLink}" target="_blank" class="transaction-link">View on Explorer</a>
-                            </div>
-                        ` : ''}
-                        ${withdrawal.status === 'rejected' && withdrawal.rejectReason ? `
-                            <div class="history-detail">
-                                <i class="fas fa-exclamation-circle" style="color: #f44336;"></i>
-                                <span style="color: #f44336;">Reason: ${withdrawal.rejectReason}</span>
-                            </div>
-                        ` : ''}
-                    </div>
-                </div>
-            `;
-        }).join('');
+    if (!this.userWithdrawals || this.userWithdrawals.length === 0) {
+        return `
+            <div class="no-data">
+                <i class="fas fa-history"></i>
+                <p>No withdrawal history</p>
+                <p class="hint">Your withdrawals will appear here</p>
+            </div>
+        `;
     }
+    
+    return this.userWithdrawals.map(withdrawal => {
+        const statusClass = withdrawal.status || 'pending';
+        const statusText = (withdrawal.status || 'pending').toUpperCase();
+        const amount = this.safeNumber(withdrawal.amount);
+        const timestamp = withdrawal.timestamp || withdrawal.createdAt || Date.now();
+        
+        return `
+            <div class="history-item-simple">
+                <div class="history-left">
+                    <div class="history-amount-row">
+                        <img src="https://cdn-icons-png.flaticon.com/512/12114/12114247.png" class="history-ton-icon" alt="TON">
+                        <span class="history-amount">${amount.toFixed(3)}</span>
+                    </div>
+                    <div class="history-time-row">
+                        <i class="fas fa-clock"></i>
+                        <span>${this.formatDateTime(timestamp)}</span>
+                    </div>
+                </div>
+                <div class="history-right">
+                    <span class="history-status-badge ${statusClass}">${statusText}</span>
+                </div>
+            </div>
+        `;
+    }).join('');
+}
+    
 
     truncateString(str, length) {
         if (!str) return '';
